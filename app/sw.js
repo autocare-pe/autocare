@@ -1,9 +1,9 @@
 // AUTOCARE · trabaja sin señal. Si cambias cualquier archivo de la app, sube este número.
-const VERSION = "3.0.0";
+const VERSION = "3.1.0";
 const CACHE = "autocare-" + VERSION;
 const ARCHIVOS = ["./", "index.html", "manifest.webmanifest", "css/app.css", "vendor/preact-htm.js", "vendor/sortable.js",
   "js/main.js", "js/app.js", "js/api.js", "js/datos.js", "js/ui.js", "js/util.js", "js/esquema.js", "js/negocio.js", "js/piezas.js", "js/iconos.js",
-  "js/vistas/entrada.js", "js/vistas/inicio.js", "js/vistas/agenda.js", "js/vistas/ordenes.js", "js/vistas/clientes.js", "js/vistas/mas.js", "js/vistas/pronto.js",
+  "js/vistas/entrada.js", "js/vistas/inicio.js", "js/vistas/agenda.js", "js/vistas/ordenes.js", "js/vistas/clientes.js", "js/vistas/mas.js", "js/vistas/pronto.js", "js/vistas/config.js", "js/vistas/finanzas.js", "js/vistas/tablero.js", "js/vistas/ventas.js",
   "icons/icon-180.png", "icons/icon-192.png", "../assets/archivo.woff2", "../config.js"];
 self.addEventListener("install", e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).catch(() => { })));
 self.addEventListener("activate", e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith("autocare-") && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));

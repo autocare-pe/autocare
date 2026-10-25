@@ -1,0 +1,229 @@
+// AUTOCARE · Configuración: negocio, servicios, horario, usuarios, integraciones y tu cuenta
+import { html, useState, useEffect } from "../../vendor/preact-htm.js";
+import * as D from "../datos.js";
+import * as N from "../negocio.js";
+import { api } from "../api.js";
+import { ir, usarTitulo } from "../app.js";
+import { aplicarTema } from "../main.js";
+import { Boton, BotonAccion, Hoja, Entrada, Numero, Dinero, Area, Selector, Interruptor, Segmentos, Pestanas, Insignia, Vacio, Fila, Bloque, AvisoLinea, Tabla, aviso, confirmar, useFicha, b } from "../ui.js";
+import { soles, duracion, hoy, descargar, copiar, fechaHora, DIAS } from "../util.js";
+import { CATEGORIAS_SERVICIO, MODULOS, estadoDe } from "../esquema.js";
+
+export default function Config({ ruta }) {
+  D.useDatos();
+  usarTitulo("Configuración");
+  const admin = D.esAdmin(), cfg = D.puede("config", 2);
+  const tabs = [cfg && { v: "negocio", n: "Negocio" }, cfg && { v: "servicios", n: "Servicios y precios" }, cfg && { v: "horario", n: "Horario y reservas" },
+    admin && { v: "usuarios", n: "Usuarios" }, admin && { v: "integraciones", n: "Avisos y redes" }, { v: "cuenta", n: "Mi cuenta" }].filter(Boolean);
+  const t = tabs.some(x => x.v === ruta.partes[0]) ? ruta.partes[0] : tabs[0].v;
+  return html`<header class="pagina-cab"><div><h1>Configuración</h1><p>Lo que cambies aquí se guarda en tu hoja y lo usa tu web.</p></div></header>
+    <${Pestanas} valor=${t} cambiar=${v => ir("config/" + v, true)} opciones=${tabs} />
+    ${t === "negocio" && html`<${Negocio} />`}${t === "servicios" && html`<${Servicios} />`}${t === "horario" && html`<${Horario} />`}
+    ${t === "usuarios" && html`<${Usuarios} />`}${t === "integraciones" && html`<${Integraciones} />`}${t === "cuenta" && html`<${Cuenta} />`}`;
+}
+
+// ---------------------------------------------------------------- negocio y fidelidad
+function Negocio() {
+  const n = D.ajuste("negocio", {}), fi = D.ajuste("fidelidad", {});
+  const [f, set] = useFicha(Object.assign({ nombre: "AUTOCARE", eslogan: "", tel: "", distrito: "Arequipa", zonas: "", web: location.origin + location.pathname.replace(/\/app\/?.*$/, ""), google: "", ruc: "", pagos: "", ig: "", fb: "", tt: "", yapeNum: "", yapeTit: "" },
+    n, { ig: (n.redes || {}).ig || "", fb: (n.redes || {}).fb || "", tt: (n.redes || {}).tt || "", yapeNum: (n.yape || {}).numero || "", yapeTit: (n.yape || {}).titular || "" }));
+  const [F, setF] = useFicha(Object.assign({ activo: true, cada: 6, bono: 2, premio: "Lavado completo", volver: 30 }, fi));
+  const guardar = () => {
+    const { ig, fb, tt, yapeNum, yapeTit, ...resto } = f;
+    D.fijarAjuste("negocio", Object.assign({}, n, resto, { redes: { ig, fb, tt }, yape: yapeNum ? { numero: yapeNum, titular: yapeTit } : null }));
+    D.fijarAjuste("fidelidad", Object.assign({}, F, { cada: Math.max(2, Number(F.cada) || 6) }));
+    aviso("Datos del negocio guardados.");
+  };
+  return html`<div class="columnas mitad">
+    <div class="panel form"><h3>Tu negocio</h3>
+      <div class="rejilla"><${Entrada} etiqueta="Nombre" ...${b(f, set, "nombre")} /><${Entrada} etiqueta="Frase corta" ...${b(f, set, "eslogan")} placeholder="Detailing a domicilio" /></div>
+      <div class="rejilla"><${Entrada} etiqueta="WhatsApp del negocio" ...${b(f, set, "tel")} /><${Entrada} etiqueta="Ciudad o distrito base" ...${b(f, set, "distrito")} /></div>
+      <${Entrada} etiqueta="Zonas que atiendes" ...${b(f, set, "zonas")} placeholder="Cayma, Yanahuara, Cerro Colorado…" />
+      <${Entrada} etiqueta="Dirección de tu web" ...${b(f, set, "web")} ayuda="Se usa para el enlace personal de cada cliente." />
+      <${Entrada} etiqueta="Enlace para dejar reseña en Google" ...${b(f, set, "google")} ayuda="Google Business Profile → Pedir reseñas → copiar enlace. Se muestra a todos los clientes por igual (regla de Google)." />
+      <div class="rejilla"><${Entrada} etiqueta="Yape: número" ...${b(f, set, "yapeNum")} /><${Entrada} etiqueta="Yape: titular" ...${b(f, set, "yapeTit")} /></div>
+      <div class="rejilla"><${Entrada} etiqueta="Instagram (usuario)" ...${b(f, set, "ig")} /><${Entrada} etiqueta="Facebook (enlace)" ...${b(f, set, "fb")} /></div>
+      <div class="rejilla"><${Entrada} etiqueta="TikTok (usuario)" ...${b(f, set, "tt")} /><${Entrada} etiqueta="RUC (si tienes)" ...${b(f, set, "ruc")} /></div>
+    </div>
+    <div><div class="panel form"><h3>Fidelidad</h3>
+      <${Interruptor} etiqueta="Tarjeta de sellos activa" ...${b(F, setF, "activo")} />
+      <div class="rejilla"><${Numero} etiqueta="Servicios para el premio" decimales=${0} ...${b(F, setF, "cada")} /><${Numero} etiqueta="Sellos por cada referido" decimales=${0} ...${b(F, setF, "bono")} /></div>
+      <${Entrada} etiqueta="Premio" ...${b(F, setF, "premio")} />
+      <${Numero} etiqueta="Días normales entre lavados" decimales=${0} ...${b(F, setF, "volver")} ayuda="Para avisarte a quién le toca volver si el servicio no tiene sus propios días." />
+    </div>
+    <div style="margin-top:14px"><${Boton} tipo="primario" grande bloque onClick=${guardar}>Guardar cambios<//></div></div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------- servicios
+function Servicios() {
+  const [ed, setEd] = useState(null);
+  const lista = D.lista("servicios").slice().sort((a, c) => (a.orden || 999) - (c.orden || 999) || (a.precio || 0) - (c.precio || 0));
+  return html`<${Bloque} titulo="Tus servicios" sub="Precio para auto o sedán; el recargo por tamaño se calcula solo." der=${html`<${Boton} tipo="primario" icono="plus" onClick=${() => setEd({})}>Nuevo servicio<//>`}>
+    <${Tabla} filas=${lista} onFila=${setEd} vacio=${html`<${Vacio} icono="sparkles" titulo="Aún no tienes servicios" texto="Agrega tu primer servicio: nombre, precio y cuánto demora."><${Boton} tipo="primario" onClick=${() => setEd({})}>Nuevo servicio<//><//>`}
+      movil=${s => html`<${Fila} icono="sparkles" titulo=${s.nombre} sub=${duracion(s.minutos || 60) + " · " + estadoDe("servicios", s.estado || "activo").n} der=${html`<b class="cifra">${soles(s.precio)}</b>`} onClick=${() => setEd(s)} />`}
+      cols=${[{ k: "nombre", n: "Servicio", clase: "prin" }, { k: "categoria", n: "Categoría", f: s => CATEGORIAS_SERVICIO[s.categoria] || "", clase: "tenue" }, { k: "minutos", n: "Duración", f: s => duracion(s.minutos || 60) },
+        { k: "precio", n: "Precio", num: true, f: s => soles(s.precio) }, { k: "pasos", n: "Pasos", num: true, f: s => (s.pasos || []).length || "", ordenar: false },
+        { k: "web", n: "En la web", f: s => (s.web !== false ? "Sí" : "No") }, { k: "estado", n: "Estado", f: s => html`<${Insignia} c=${estadoDe("servicios", s.estado || "activo").c}>${estadoDe("servicios", s.estado || "activo").n}<//>` }]} />
+    ${ed && html`<${FormServicio} s=${ed} cerrar=${() => setEd(null)} />`}<//>`;
+}
+function FormServicio({ s, cerrar }) {
+  const [f, set] = useFicha(Object.assign({ nombre: "", categoria: "lavado", precio: null, minutos: 60, estado: "activo", web: true, porTamano: true, adelanto: false, volver: 30, descripcion: "", destacado: false }, s, { pasosTxt: (s.pasos || []).map(p => p.t || p).join("\n") }));
+  const guardar = () => {
+    if (!String(f.nombre).trim()) return aviso("Escribe el nombre del servicio.", { error: true });
+    if (!(Number(f.precio) > 0)) return aviso("Escribe el precio.", { error: true });
+    const { pasosTxt, ...r } = f;
+    D.guardar("servicios", Object.assign(r, { pasos: pasosTxt.split("\n").map(x => x.trim()).filter(Boolean).map(t => ({ t })) }));
+    aviso("Servicio guardado."); cerrar();
+  };
+  const borrar = async () => { if (await confirmar({ titulo: "Eliminar servicio", texto: "Si ya lo usaste en órdenes, mejor ponlo en pausa.", si: "Eliminar", peligro: true })) { D.borrar("servicios", s.id); cerrar(); } };
+  return html`<${Hoja} titulo=${s.id ? "Editar servicio" : "Nuevo servicio"} cerrar=${cerrar} pie=${html`${s.id && html`<${Boton} tipo="fantasma peligro" icono="trash-2" titulo="Eliminar" onClick=${borrar} />`}<${Boton} tipo="fantasma" onClick=${cerrar}>Cancelar<//><${Boton} tipo="primario" onClick=${guardar}>Guardar<//>`}>
+    <div class="form">
+      <${Entrada} etiqueta="Nombre" ...${b(f, set, "nombre")} placeholder="Lavado completo" />
+      <div class="rejilla"><${Dinero} etiqueta="Precio (auto o sedán)" ...${b(f, set, "precio")} /><${Numero} etiqueta="Minutos que demora" decimales=${0} ...${b(f, set, "minutos")} /></div>
+      <div class="rejilla"><${Selector} etiqueta="Categoría" opciones=${Object.keys(CATEGORIAS_SERVICIO).map(k => ({ v: k, n: CATEGORIAS_SERVICIO[k] }))} ...${b(f, set, "categoria")} />
+        <${Numero} etiqueta="El cliente vuelve cada (días)" decimales=${0} ...${b(f, set, "volver")} /></div>
+      <${Area} etiqueta="Descripción para tu web" ...${b(f, set, "descripcion")} placeholder="Qué incluye, en palabras del cliente" />
+      <${Area} etiqueta="Pasos del servicio (uno por línea)" filas=${6} ...${b(f, set, "pasosTxt")} ayuda="Se vuelven el checklist de cada orden. Así lo haces igual siempre, y mañana un ayudante también." />
+      <${Interruptor} etiqueta="Sube de precio según el tamaño" ayuda="SUV +20%, camioneta +30%, van +40%" ...${b(f, set, "porTamano")} />
+      <${Interruptor} etiqueta="Pide adelanto al reservar" ...${b(f, set, "adelanto")} />
+      <${Interruptor} etiqueta="Mostrar en la web" ...${b(f, set, "web")} />
+      <${Interruptor} etiqueta="Destacado (el que más recomiendas)" ...${b(f, set, "destacado")} />
+      <${Interruptor} etiqueta="Activo" valor=${f.estado !== "pausado"} cambiar=${v => set("estado", v ? "activo" : "pausado")} />
+    </div><//>`;
+}
+
+// ---------------------------------------------------------------- horario y reservas
+function Horario() {
+  const H = N.horario(), R = Object.assign({ activo: true, adelantoDesdeMin: 180, adelantoPct: 30 }, D.ajuste("reservas", {}));
+  const [dias, setDias] = useState(() => { const o = {}; for (let d = 0; d < 7; d++) o[d] = (H.dias[String(d)] || [])[0] || null; return o; });
+  const [f, set] = useFicha({ intervalo: H.intervalo, traslado: H.traslado, maxHoras: H.maxHoras, anticipacion: H.anticipacion, diasAdelante: H.diasAdelante, activo: R.activo !== false, adelantoDesdeMin: R.adelantoDesdeMin, adelantoPct: R.adelantoPct });
+  const guardar = () => {
+    const d = {}; Object.keys(dias).forEach(k => (d[k] = dias[k] ? [dias[k]] : []));
+    D.fijarAjuste("horario", Object.assign({}, D.ajuste("horario", {}), { dias: d, intervalo: f.intervalo, traslado: f.traslado, maxHoras: f.maxHoras, anticipacion: f.anticipacion, diasAdelante: f.diasAdelante }));
+    D.fijarAjuste("reservas", Object.assign({}, D.ajuste("reservas", {}), { activo: f.activo, adelantoDesdeMin: f.adelantoDesdeMin, adelantoPct: f.adelantoPct }));
+    aviso("Horario guardado.");
+  };
+  return html`<div class="columnas mitad">
+    <div class="panel form"><h3>Días y horas que atiendes</h3>
+      ${[1, 2, 3, 4, 5, 6, 0].map(d => html`<div class="rejilla dos-movil" style="--col:3;align-items:end">
+        <${Interruptor} etiqueta=${DIAS[d].replace(/^./, x => x.toUpperCase())} valor=${!!dias[d]} cambiar=${v => setDias(Object.assign({}, dias, { [d]: v ? ["08:00", "18:00"] : null }))} />
+        ${dias[d] ? html`<${Entrada} tipo="time" valor=${dias[d][0]} cambiar=${v => setDias(Object.assign({}, dias, { [d]: [v, dias[d][1]] }))} aria-label="Desde" />
+          <${Entrada} tipo="time" valor=${dias[d][1]} cambiar=${v => setDias(Object.assign({}, dias, { [d]: [dias[d][0], v] }))} aria-label="Hasta" />` : html`<span class="nota">Cerrado</span><span></span>`}
+      </div>`)}
+    </div>
+    <div><div class="panel form"><h3>Capacidad</h3>
+      <div class="rejilla"><${Numero} etiqueta="Máximo de horas de trabajo al día" decimales=${1} ...${b(f, set, "maxHoras")} /><${Numero} etiqueta="Minutos de traslado entre citas" decimales=${0} ...${b(f, set, "traslado")} /></div>
+      <div class="rejilla"><${Numero} etiqueta="Ofrecer horas cada (min)" decimales=${0} ...${b(f, set, "intervalo")} /><${Numero} etiqueta="Reservar con (horas) de anticipación" decimales=${0} ...${b(f, set, "anticipacion")} /></div>
+      <${Numero} etiqueta="Se puede reservar hasta (días adelante)" decimales=${0} ...${b(f, set, "diasAdelante")} />
+    </div>
+    <div class="panel form"><h3>Reservas desde tu web</h3>
+      <${Interruptor} etiqueta="Recibir reservas en línea" ...${b(f, set, "activo")} />
+      <div class="rejilla"><${Numero} etiqueta="Pedir adelanto desde (min)" decimales=${0} ...${b(f, set, "adelantoDesdeMin")} /><${Numero} etiqueta="Adelanto (%)" decimales=${0} ...${b(f, set, "adelantoPct")} /></div>
+      <p class="nota">El adelanto en servicios largos reduce las citas perdidas: quien paga una parte, llega.</p>
+    </div>
+    <div style="margin-top:14px"><${Boton} tipo="primario" grande bloque onClick=${guardar}>Guardar horario<//></div></div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------- usuarios
+function Usuarios() {
+  const [d, setD] = useState(null), [ed, setEd] = useState(null), [err, setErr] = useState("");
+  const cargar = () => api("usuarios").then(setD).catch(e => setErr(e.message));
+  useEffect(() => { cargar(); }, []);
+  if (err) return html`<${AvisoLinea} c="rojo" icono="wifi-off">${err}<//>`;
+  if (!d) return html`<p class="nota">Cargando usuarios…</p>`;
+  const clave = async u => {
+    if (!(await confirmar({ titulo: "Nueva clave para " + u.nombre, texto: "Se cierra su sesión y le das la clave temporal.", si: "Crear clave" }))) return;
+    const r = await api("usuarioClave", { id: u.id });
+    await confirmar({ titulo: "Clave temporal", texto: `Usuario: ${u.usuario} · Clave: ${r.clave}. Pásasela por WhatsApp; puede cambiarla en Mi cuenta.`, si: "Listo", no: "Cerrar" });
+  };
+  return html`<${Bloque} titulo="Personas con acceso" sub="Cuando contrates ayuda, crea un usuario Técnico: ve su agenda y órdenes, no tus finanzas." der=${html`<${Boton} tipo="primario" icono="user-plus" onClick=${() => setEd({})}>Nuevo usuario<//>`}>
+    <div class="grupo">${d.usuarios.map(u => html`<${Fila} avatar=${u.nombre} titulo=${u.nombre + (u.dueno ? " (dueño)" : "")} sub=${"@" + u.usuario + " · " + (d.roles[u.rol] || {}).nombre + (u.ultimoAcceso ? " · entró " + fechaHora(u.ultimoAcceso) : "")}
+      der=${html`${!u.activo && html`<${Insignia}>Desactivado<//>`}${!u.dueno && html`<${Boton} chico tipo="fantasma" onClick=${() => clave(u)}>Clave<//><${Boton} chico onClick=${() => setEd(u)}>Editar<//>`}`} />`)}</div>
+    ${ed && html`<${FormUsuario} u=${ed} roles=${d.roles} cerrar=${() => setEd(null)} listo=${r => { setD(Object.assign({}, d, { usuarios: r.usuarios })); setEd(null); }} />`}<//>`;
+}
+function FormUsuario({ u, roles, cerrar, listo }) {
+  const [f, set] = useFicha(Object.assign({ nombre: "", usuario: "", rol: "tecnico", activo: true }, u));
+  const [perm, setPerm] = useState(u.permisos || roles[f.rol].permisos);
+  const guardar = async () => {
+    const r = await api("usuarioGuardar", { id: u.id, nombre: f.nombre, usuario: f.usuario, rol: f.rol, activo: f.activo, permisos: perm });
+    if (r.clave) await confirmar({ titulo: "Usuario creado", texto: `Usuario: ${r.usuarios.find(x => x.nombre === f.nombre || x.usuario === f.usuario)?.usuario || f.usuario} · Clave temporal: ${r.clave}. Pásasela; la cambia en Mi cuenta.`, si: "Listo", no: "Cerrar" });
+    listo(r);
+  };
+  return html`<${Hoja} titulo=${u.id ? "Editar usuario" : "Nuevo usuario"} cerrar=${cerrar} pie=${html`<${Boton} tipo="fantasma" onClick=${cerrar}>Cancelar<//><${BotonAccion} tipo="primario" accion=${guardar}>Guardar<//>`}>
+    <div class="form">
+      <div class="rejilla"><${Entrada} etiqueta="Nombre" ...${b(f, set, "nombre")} /><${Entrada} etiqueta="Usuario para entrar" autocapitalize="off" ...${b(f, set, "usuario")} /></div>
+      <${Segmentos} etiqueta="Rol" valor=${f.rol} cambiar=${v => { set("rol", v); setPerm(roles[v].permisos); }} opciones=${Object.keys(roles).filter(k => k !== "admin").map(k => ({ v: k, n: roles[k].nombre }))} />
+      <div class="grupo">${Object.keys(MODULOS).map(m => html`<div class="fila compacta"><span class="cuerpo"><span class="t">${MODULOS[m]}</span></span>
+        <span class="der"><${Segmentos} valor=${Number(perm[m] || 0)} cambiar=${v => setPerm(Object.assign({}, perm, { [m]: v }))} opciones=${[{ v: 0, n: "No" }, { v: 1, n: "Ver" }, { v: 2, n: "Cambiar" }]} /></span></div>`)}</div>
+      ${u.id && html`<${Interruptor} etiqueta="Acceso activo" ...${b(f, set, "activo")} />`}
+    </div><//>`;
+}
+
+// ---------------------------------------------------------------- avisos (Telegram) y redes
+function Integraciones() {
+  const [i, setI] = useState(null), [tk, setTk] = useState(""), [ig, setIg] = useState(""), [fb, setFb] = useState({ token: "", pagina: "" }), [err, setErr] = useState("");
+  useEffect(() => { api("integraciones").then(setI).catch(e => setErr(e.message)); }, []);
+  if (err) return html`<${AvisoLinea} c="rojo" icono="wifi-off">${err}<//>`;
+  if (!i) return html`<p class="nota">Revisando conexiones…</p>`;
+  const t = i.telegram, ta = i.tareas;
+  const tareas = p => api("tareasGuardar", Object.assign({ noche: ta.noche, semanal: ta.semanal, frecuente: ta.frecuente, redes: ta.redes }, p)).then(r => { setI(r); aviso("Guardado."); });
+  return html`<div class="columnas mitad">
+    <div class="panel form"><h3>Avisos al celular (Telegram)</h3>
+      ${!t.conectado ? html`
+        <p class="tenue">1. En Telegram busca <b>@BotFather</b>, escribe <b>/newbot</b> y ponle un nombre (por ejemplo AUTOCARE Avisos). 2. Te da un código largo: cópialo y pégalo aquí.</p>
+        <${Entrada} etiqueta="Código del bot" valor=${tk} cambiar=${setTk} autocapitalize="off" placeholder="7012345678:AAH…" />
+        <${BotonAccion} tipo="primario" accion=${async () => { setI(await api("telegramGuardar", { token: tk })); setTk(""); }}>Guardar código<//>`
+      : !t.chat ? html`<p>Bot <b>@${t.bot}</b> guardado. Ahora ábrelo en Telegram, toca <b>Iniciar</b> y vuelve aquí.</p>
+        <${BotonAccion} tipo="primario" accion=${async () => setI(await api("telegramConectar"))}>Ya le escribí, conectar<//>`
+      : html`<${AvisoLinea} c="verde" icono="circle-check">Conectado con @${t.bot}.<//>
+        <div class="btns"><${BotonAccion} accion=${async () => { await api("telegramPrueba"); aviso("Revisa tu Telegram."); }}>Enviar prueba<//><${Boton} tipo="fantasma" onClick=${() => setI(Object.assign({}, i, { telegram: { conectado: false } }))}>Cambiar bot<//></div>
+        <div class="separador"></div><h3>Tareas automáticas</h3>
+        <${Interruptor} etiqueta=${"Agenda de mañana (" + ta.horaNoche + ":00)"} valor=${ta.noche} cambiar=${v => tareas({ noche: v })} />
+        <${Interruptor} etiqueta="Resumen y respaldo cada lunes" valor=${ta.semanal} cambiar=${v => tareas({ semanal: v })} />
+        <${Interruptor} etiqueta="Aviso antes de cada cita y publicaciones programadas" valor=${ta.frecuente} cambiar=${v => tareas({ frecuente: v })} />
+        <${Interruptor} etiqueta="Traer seguidores de Instagram y Facebook cada día" valor=${ta.redes} cambiar=${v => tareas({ redes: v })} />`}
+    </div>
+    <div class="panel form"><h3>Instagram y Facebook</h3>
+      <p class="nota">Primero crea tu Instagram profesional y tu página de Facebook. El código (token) se saca del panel de Meta para desarrolladores; te guío paso a paso cuando llegues aquí.</p>
+      ${i.instagram.conectado ? html`<${AvisoLinea} c="verde" icono="instagram">Instagram @${i.instagram.usuario} conectado.${i.instagram.error ? " Aviso: " + i.instagram.error : ""}<//>`
+        : html`<${Entrada} etiqueta="Código de Instagram" valor=${ig} cambiar=${setIg} autocapitalize="off" /><${BotonAccion} accion=${async () => setI(await api("igConectar", { token: ig }))}>Conectar Instagram<//>`}
+      ${i.facebook.conectado ? html`<${AvisoLinea} c="verde" icono="facebook">Página ${i.facebook.pagina} conectada.<//>`
+        : html`<div class="rejilla"><${Entrada} etiqueta="Número de la página" valor=${fb.pagina} cambiar=${v => setFb(Object.assign({}, fb, { pagina: v }))} /><${Entrada} etiqueta="Código de la página" valor=${fb.token} cambiar=${v => setFb(Object.assign({}, fb, { token: v }))} autocapitalize="off" /></div>
+          <${BotonAccion} accion=${async () => setI(await api("fbConectar", fb))}>Conectar Facebook<//>`}
+    </div></div>`;
+}
+
+// ---------------------------------------------------------------- mi cuenta
+function Cuenta() {
+  const u = D.yo() || {};
+  const [f, set] = useFicha({ actual: "", nueva: "", nueva2: "" });
+  let tema = "oscuro"; try { tema = localStorage.getItem("autocare.tema") || "oscuro"; } catch (e) { }
+  const [t, setT] = useState(tema);
+  const cambiarClave = async () => {
+    if (f.nueva !== f.nueva2) throw new Error("Las dos claves nuevas no coinciden.");
+    await api("miClave", { actual: f.actual, nueva: f.nueva }); set({ actual: "", nueva: "", nueva2: "" }); aviso("Clave cambiada.");
+  };
+  const salir = async () => {
+    const p = D.hayPendientes();
+    if (p && !(await confirmar({ titulo: "Tienes cambios sin enviar", texto: `Hay ${p} cambios que aún no llegan a tu hoja. Si sales se pierden.`, si: "Salir igual", peligro: true }))) return;
+    await D.salir(); location.hash = "#/"; location.reload();
+  };
+  return html`<div class="columnas mitad">
+    <div class="panel form"><h3>${u.nombre} · @${u.usuario}</h3>
+      <${Segmentos} etiqueta="Apariencia" valor=${t} cambiar=${v => { setT(v); aplicarTema(v); }} opciones=${[{ v: "oscuro", n: "Oscuro" }, { v: "claro", n: "Claro" }, { v: "auto", n: "Como el celular" }]} />
+      <div class="separador"></div><h3>Cambiar mi clave</h3>
+      <${Entrada} etiqueta="Clave actual" tipo="password" ...${b(f, set, "actual")} autocomplete="current-password" />
+      <div class="rejilla"><${Entrada} etiqueta="Clave nueva" tipo="password" ...${b(f, set, "nueva")} autocomplete="new-password" /><${Entrada} etiqueta="Repite la nueva" tipo="password" ...${b(f, set, "nueva2")} autocomplete="new-password" /></div>
+      <${BotonAccion} accion=${cambiarClave}>Cambiar clave<//>
+    </div>
+    <div class="panel form"><h3>Respaldo</h3>
+      <p class="tenue">Tus datos viven en tu hoja de Google. Si activas el resumen de los lunes, también se guarda un respaldo en tu Drive cada semana.</p>
+      ${D.esAdmin() && html`<${BotonAccion} icono="download" accion=${async () => { const r = await api("respaldo"); descargar("autocare-respaldo-" + hoy() + ".json", JSON.stringify(r.respaldo)); }}>Descargar respaldo completo<//>`}
+      <${Boton} icono="download" onClick=${() => descargar("autocare-equipo-" + hoy() + ".json", JSON.stringify(D.copiaLocal()))}>Descargar copia de este equipo<//>
+      ${(D.servidor() || {}).hoja && html`<${Boton} icono="external-link" href=${D.servidor().hoja}>Abrir mi hoja de Google<//>`}
+      <div class="separador"></div>
+      <${Boton} tipo="peligro" icono="log-out" onClick=${salir}>Cerrar sesión<//>
+    </div></div>`;
+}

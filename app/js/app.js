@@ -30,10 +30,10 @@ export const NAV = [
 ];
 const VISTAS = {
   "": () => import("./vistas/inicio.js"), agenda: () => import("./vistas/agenda.js"), ordenes: () => import("./vistas/ordenes.js"),
-  clientes: () => import("./vistas/clientes.js"), ventas: () => import("./vistas/pronto.js"), campanas: () => import("./vistas/pronto.js"),
+  clientes: () => import("./vistas/clientes.js"), ventas: () => import("./vistas/ventas.js"), campanas: () => import("./vistas/pronto.js"),
   contenido: () => import("./vistas/pronto.js"), resultados: () => import("./vistas/pronto.js"), fidelidad: () => import("./vistas/pronto.js"),
-  finanzas: () => import("./vistas/pronto.js"), inventario: () => import("./vistas/pronto.js"), activos: () => import("./vistas/pronto.js"),
-  tablero: () => import("./vistas/pronto.js"), plan: () => import("./vistas/pronto.js"), config: () => import("./vistas/pronto.js"), mas: () => import("./vistas/mas.js")
+  finanzas: () => import("./vistas/finanzas.js"), inventario: () => import("./vistas/pronto.js"), activos: () => import("./vistas/pronto.js"),
+  tablero: () => import("./vistas/tablero.js"), plan: () => import("./vistas/pronto.js"), config: () => import("./vistas/config.js"), mas: () => import("./vistas/mas.js")
 };
 // Enlaces que manda el servidor por Telegram
 const ALIAS = { comercial: "ventas", direccion: "tablero", marketing: "contenido" };
