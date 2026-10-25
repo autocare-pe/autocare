@@ -1,5 +1,275 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AUTOCARE</title><meta http-equiv="refresh" content="0; url=app/">
-<style>body{background:#000;color:#F4C20D;font:16px system-ui;display:grid;place-items:center;height:100vh;margin:0}a{color:#F4C20D}</style></head>
-<body><a href="app/">Abrir AUTOCARE</a></body></html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AUTOCARE · Detailing a domicilio en Arequipa</title>
+<meta name="description" content="Tu auto como nuevo sin moverte de casa. Detailing y lavado a domicilio en Arequipa: llevamos agua, energía y productos profesionales. Mira precios y separa tu hora en un minuto.">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="AUTOCARE · Tu auto como nuevo, sin moverte de casa">
+<meta property="og:description" content="Detailing a domicilio en Arequipa. Separa tu hora en un minuto.">
+<meta property="og:image" content="app/icons/icon-512.png">
+<link rel="icon" href="app/icons/icon-192.png">
+<link rel="apple-touch-icon" href="app/icons/icon-180.png">
+<link rel="preload" href="assets/archivo.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/web.css">
+<script src="config.js"></script>
+</head>
+<body>
+<div class="recomendado oculto" id="recomendado"></div>
+<header class="cab"><div class="envoltura">
+  <a class="logo" href="#" aria-label="AUTOCARE, inicio"><img src="assets/logo-horizontal-claro.svg" alt="AUTOCARE"></a>
+  <nav><a href="#resultados">Resultados</a><a href="#paquetes">Precios</a><a href="#como">Cómo funciona</a><a href="#preguntas">Preguntas</a></nav>
+  <a class="btn oro chico" href="#reservar">Separar mi hora</a>
+</div></header>
+
+<main>
+<!-- 1. La playa, no el avión: el resultado que gana el cliente -->
+<section class="heroe" id="heroe"><div class="fondo oculto" id="heroe-fondo"></div><div class="envoltura">
+  <div class="linea-verde"></div>
+  <h1>Tu auto como nuevo. Sin moverte de casa.</h1>
+  <p>Detailing a domicilio en <span id="ciudad">Arequipa</span>. Llegamos con agua, energía y productos profesionales; tú sigues con tu día y recibes las fotos del antes y después.</p>
+  <div class="btns"><a class="btn oro" href="#reservar">Separar mi hora</a><a class="btn" href="#resultados">Ver cómo queda</a></div>
+  <div class="libre oculto" id="libre"><i></i><span></span></div>
+  <div class="prueba oculto" id="prueba"></div>
+</div></section>
+
+<!-- 2. Prueba: antes y después -->
+<section class="seccion oculto" id="resultados"><div class="envoltura">
+  <h2>Desliza y mira la diferencia</h2><p class="sub">Trabajos reales, mismas fotos, sin filtros.</p>
+  <div class="galeria2" id="galeria"></div>
+</div></section>
+
+<!-- 3. Paquetes con señuelo (el del medio es el que conviene) -->
+<section class="seccion" id="paquetes"><div class="envoltura">
+  <h2>Elige cómo quieres ver tu auto</h2><p class="sub">Precios finales. Elige el tamaño de tu vehículo y verás el precio exacto.</p>
+  <div class="chips" id="tamanos"></div>
+  <div class="paquetes" id="lista-paquetes"><p class="nota">Cargando precios…</p></div>
+  <div id="extras-caja" class="oculto" style="margin-top:30px"><h3 style="font-size:19px;margin-bottom:12px">Súmale a tu servicio</h3><div class="extras" id="lista-extras"></div></div>
+</div></section>
+
+<!-- 4. Garantía: quitarle el riesgo al cliente -->
+<section class="seccion"><div class="envoltura">
+  <div class="garantia"><div class="sello-g"><span style="font-size:24px">✓</span>GARANTÍA<br><span style="font-weight:600;font-size:11px">de repaso</span></div>
+    <div><h3>Si algo no queda bien, volvemos y lo repasamos gratis.</h3><p>Antes de empezar revisamos tu auto contigo y con fotos. Pagas al terminar, cuando ya viste el resultado: <span id="pagos">Yape, Plin o efectivo</span>.</p></div></div>
+</div></section>
+
+<section class="seccion" id="como"><div class="envoltura">
+  <h2>Así de simple</h2><p class="sub">Tres pasos y tu auto queda como nuevo.</p>
+  <div class="pasos">
+    <div class="paso"><b>1</b><h3>Separas tu hora en un minuto</h3><p>Eliges el paquete y una hora libre. Te confirmamos por WhatsApp.</p></div>
+    <div class="paso"><b>2</b><h3>Llegamos a tu casa u oficina</h3><p>Revisamos el auto contigo y tomamos fotos antes de empezar.</p></div>
+    <div class="paso"><b>3</b><h3>Lo recibes impecable</h3><p>Te mandamos el antes y después, y sumas sellos para tu lavado de regalo.</p></div>
+  </div>
+</div></section>
+
+<section class="seccion oculto" id="productos-sec"><div class="envoltura"><h2>Con qué cuidamos tu auto</h2><p class="sub">Productos profesionales que protegen la pintura y los interiores.</p><div class="productos" id="productos"></div></div></section>
+<section class="seccion oculto" id="videos-sec"><div class="envoltura"><h2>Míralo en acción</h2><p class="sub">Así trabajamos, de principio a fin.</p><div class="videos" id="videos"></div></div></section>
+<section class="seccion oculto" id="opiniones"><div class="envoltura"><h2>Lo que dicen nuestros clientes</h2><p class="sub">Opiniones reales de clientes atendidos.</p><div class="resenas" id="resenas"></div></div></section>
+<section class="seccion oculto" id="planes-sec"><div class="envoltura"><h2>Tu auto siempre limpio, sin pensarlo</h2><p class="sub">Un día fijo cada mes y un precio mejor que pagar cada vez.</p><div class="servicios" id="lista-planes"></div></div></section>
+
+<!-- 5. Reserva -->
+<section class="seccion" id="reservar"><div class="envoltura">
+  <h2>Separa tu hora en un minuto</h2><p class="sub">Sin pagar nada ahora. Te confirmamos por WhatsApp.</p>
+  <div class="reserva">
+    <div class="caja" id="paso-reserva">
+      <div class="paso-r"><h3>Tu servicio <small id="r-dur"></small></h3><div id="r-servicios" class="nota">Elige un paquete arriba.</div></div>
+      <div class="paso-r"><h3>Día y hora</h3><div class="dias" id="r-dias"></div><div class="horas" id="r-horas"></div><p class="nota" id="r-horas-nota"></p></div>
+      <div class="paso-r"><h3>¿Dónde está tu auto?</h3>
+        <form id="r-form" class="campos">
+          <label class="campo">Nombre y apellido<input class="entrada" name="nombre" required autocomplete="name"></label>
+          <label class="campo">WhatsApp<input class="entrada" name="tel" required inputmode="tel" autocomplete="tel" placeholder="987 654 321"></label>
+          <label class="campo todo">Dirección<input class="entrada" name="direccion" required autocomplete="street-address"></label>
+          <label class="campo">Distrito<input class="entrada" name="distrito" required></label>
+          <label class="campo">Referencia<input class="entrada" name="referencia" placeholder="Frente al parque"></label>
+          <label class="campo">Auto (marca y modelo)<input class="entrada" name="auto" placeholder="Toyota Yaris"></label>
+          <label class="campo">Placa (opcional)<input class="entrada" name="placa" style="text-transform:uppercase"></label>
+          <label class="campo todo">Algo que debamos saber<textarea class="entrada" name="nota" placeholder="Ej.: tiene pelos de mascota, manchas en el asiento"></textarea></label>
+          <input name="web" class="oculto" tabindex="-1" autocomplete="off">
+          <label class="check todo"><input type="checkbox" name="acepta" checked> Quiero recibir recordatorios y promociones por WhatsApp. Puedo darme de baja cuando quiera.</label>
+        </form>
+      </div>
+    </div>
+    <div class="caja" style="position:sticky;top:80px">
+      <h3 style="font-size:18px;margin-bottom:10px">Tu reserva</h3>
+      <div id="r-resumen"><p class="nota">Aún no eliges un paquete.</p></div>
+      <div id="r-error" class="aviso rojo oculto" style="margin:12px 0"></div>
+      <button class="btn oro bloque" id="r-enviar" style="margin-top:14px" disabled>Confirmar mi hora</button>
+      <p class="nota" style="margin-top:10px">Pagas al terminar. Los servicios largos piden un adelanto pequeño para separar la hora.</p>
+    </div>
+  </div>
+  <div class="caja oculto" id="r-listo"></div>
+</div></section>
+
+<section class="seccion faq" id="preguntas"><div class="envoltura" style="max-width:760px">
+  <h2>Preguntas frecuentes</h2><div style="margin-top:20px" id="faq"></div>
+  <div class="redes oculto" id="redes" style="margin-top:28px"></div>
+</div></section>
+</main>
+
+<footer class="pie-web"><div class="envoltura"><img src="assets/logo-horizontal-claro.svg" alt="AUTOCARE" style="height:24px"><span id="pie-redes"></span><a href="app/">Acceso del equipo</a></div></footer>
+<a class="wa-flotante oculto" id="wa-flotante" href="#" target="_blank" rel="noopener" aria-label="Escribir por WhatsApp"></a>
+<div class="barra-cta"><a class="btn oro" href="#reservar">Separar mi hora</a><a class="btn wa oculto" id="wa-barra" href="#" target="_blank" rel="noopener" aria-label="Escribir por WhatsApp"></a></div>
+
+<script type="module">
+import { api, CFG, WA_ICONO, h, soles, duracion, fechaLarga, diaSem, DC, wa } from "./assets/web.js";
+const $ = s => document.querySelector(s);
+const q = new URLSearchParams(location.search);
+const ref = q.get("ref") || "";
+const fuente = q.get("src") || (ref ? "ref" : "") || (/instagram/.test(document.referrer) ? "ig" : /facebook/.test(document.referrer) ? "fb" : /tiktok/.test(document.referrer) ? "tt" : /google/.test(document.referrer) ? "google" : "");
+$("#wa-flotante").innerHTML = WA_ICONO; $("#wa-barra").innerHTML = WA_ICONO;
+if (ref) { $("#recomendado").textContent = "Vienes recomendado por un cliente de AUTOCARE. ¡Bienvenido!"; $("#recomendado").classList.remove("oculto"); }
+let P = null, tam = "auto", elegidos = [], fecha = "", hora = "", dur = 0, dispo = null;
+const tel = () => (P && P.negocio.tel) || CFG.WHATSAPP || "";
+function enlacesWa() {
+  const t = tel(), u = wa(t, "Hola, quiero saber el precio para mi auto.");
+  ["#wa-flotante", "#wa-barra"].forEach(s => { $(s).href = u; $(s).classList.toggle("oculto", !t); });
+}
+enlacesWa();
+const precio = s => { const t = (P.tamanos || []).find(x => x.id === tam); return !s.porTamano || !t || !t.pct ? s.precio : Math.round(s.precio * (1 + t.pct / 100) / 5) * 5; };
+const minT = () => ({ auto: 0, suv: 15, pickup: 20, van: 30 })[tam] || 0;
+const paquetes = () => { let l = P.servicios.filter(s => s.paquete); if (!l.length) l = P.servicios.slice(0, 3); return l; };
+const extras = () => P.servicios.filter(s => !paquetes().includes(s));
+function ordenSenuelo(l) {
+  // el destacado va al medio: el más caro sirve de ancla y el básico de punto de partida (Ariely, efecto señuelo)
+  l = l.slice().sort((a, b) => a.precio - b.precio);
+  const d = l.findIndex(x => x.destacado);
+  if (l.length === 3 && d >= 0 && d !== 1) { const x = l.splice(d, 1)[0]; l.splice(1, 0, x); }
+  return l;
+}
+function pintarPrecios() {
+  $("#tamanos").innerHTML = (P.tamanos || []).map(t => `<button class="chip ${t.id === tam ? "si" : ""}" data-t="${t.id}">${h(t.n)}</button>`).join("");
+  const pq = ordenSenuelo(paquetes());
+  $("#lista-paquetes").innerHTML = pq.length ? pq.map(s => {
+    const inc = String(s.incluye || s.descripcion || "").split(/\n|·|;/).map(x => x.trim()).filter(Boolean);
+    return `<div class="paquete ${s.destacado ? "destacado" : ""} ${elegidos.includes(s.id) ? "si" : ""}">
+      ${s.foto ? `<img src="${h(s.foto)}" alt="" loading="lazy">` : ""}<h3>${h(s.nombre)}</h3>
+      <div><span class="precio">${soles(precio(s))}</span> <span class="nota">· ${duracion(s.minutos)}</span></div>
+      <ul>${inc.slice(0, 7).map(x => `<li>${h(x)}</li>`).join("")}</ul>
+      <button class="btn ${s.destacado ? "oro" : ""} bloque" data-s="${s.id}">${elegidos.includes(s.id) ? "✓ Elegido" : "Quiero este"}</button></div>`;
+  }).join("") : `<p class="nota">Pronto publicaremos nuestros precios. Escríbenos por WhatsApp.</p>`;
+  const ex = extras();
+  $("#extras-caja").classList.toggle("oculto", !ex.length);
+  $("#lista-extras").innerHTML = ex.map(s => `<button class="extra ${elegidos.includes(s.id) ? "si" : ""}" data-s="${s.id}"><span><b>${h(s.nombre)}</b><small>${duracion(s.minutos)}</small></span><span class="p">+ ${soles(precio(s))}</span></button>`).join("");
+  pintarResumen();
+}
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-t]"); if (t) { tam = t.dataset.t; pintarPrecios(); if (elegidos.length) cargarDias(); return; }
+  const b = e.target.closest("[data-s]"); if (!b) return;
+  const id = b.dataset.s, esPaquete = paquetes().some(x => x.id === id);
+  if (esPaquete) { elegidos = elegidos.includes(id) ? elegidos.filter(x => x !== id) : [...elegidos.filter(x => !paquetes().some(p => p.id === x)), id]; }
+  else elegidos = elegidos.includes(id) ? elegidos.filter(x => x !== id) : [...elegidos, id];
+  pintarPrecios(); cargarDias();
+  if (esPaquete && elegidos.includes(id) && !b.classList.contains("extra")) setTimeout(() => $("#extras-caja").classList.contains("oculto") ? $("#reservar").scrollIntoView() : $("#extras-caja").scrollIntoView({ block: "center" }), 120);
+});
+function pintarResumen() {
+  const l = P.servicios.filter(s => elegidos.includes(s.id)), total = l.reduce((a, s) => a + precio(s), 0);
+  dur = l.reduce((a, s) => a + (s.minutos || 60), 0) + (l.length ? minT() : 0);
+  const filas = l.map(s => `<div class="par"><span>${h(s.nombre)}</span><b>${soles(precio(s))}</b></div>`).join("");
+  $("#r-servicios").innerHTML = l.length ? filas : `Elige un paquete arriba. <a href="#paquetes" style="color:var(--oro)">Ver paquetes</a>`;
+  $("#r-dur").textContent = l.length ? "· " + duracion(dur) : "";
+  const R = P.reservas || {}, adelanto = l.length && (dur >= (R.adelantoDesdeMin || 180) || l.some(s => s.adelanto)) ? Math.ceil(total * (R.adelantoPct || 30) / 100 / 5) * 5 : 0;
+  $("#r-resumen").innerHTML = l.length ? `${filas}${fecha && hora ? `<div class="par"><span>Cuándo</span><b>${fechaLarga(fecha)}, ${hora}</b></div>` : ""}<div class="par total"><span>Total</span><b>${soles(total)}</b></div>
+    ${adelanto ? `<p class="nota">Adelanto para separar: ${soles(adelanto)} por Yape.</p>` : ""}` : `<p class="nota">Aún no eliges un paquete.</p>`;
+  $("#r-enviar").disabled = !(l.length && fecha && hora);
+}
+let pedido = 0;
+async function cargarDias() {
+  fecha = ""; hora = ""; $("#r-horas").innerHTML = ""; pintarResumen();
+  if (!elegidos.length) { $("#r-dias").innerHTML = ""; $("#r-horas-nota").textContent = ""; return; }
+  const n = ++pedido; $("#r-horas-nota").textContent = "Buscando horas libres…";
+  try {
+    const r = await api("disponibilidad", { servicios: elegidos, tamano: tam, dias: 14 });
+    if (n !== pedido) return; dispo = r.dias;
+    $("#r-dias").innerHTML = r.dias.map(d => `<button class="dia ${d.slots.length ? "" : "lleno"}" data-f="${d.fecha}"><small>${DC[diaSem(d.fecha)]}</small><b>${Number(d.fecha.slice(8))}</b></button>`).join("");
+    const primero = r.dias.find(d => d.slots.length);
+    $("#r-horas-nota").textContent = primero ? "" : "No hay horas libres estos días. Escríbenos por WhatsApp y lo coordinamos.";
+    if (primero) elegirDia(primero.fecha);
+  } catch (e) { $("#r-horas-nota").textContent = e.message; }
+}
+function elegirDia(f) {
+  fecha = f; hora = "";
+  document.querySelectorAll(".dia").forEach(b => b.classList.toggle("si", b.dataset.f === f));
+  $("#r-horas").innerHTML = dispo.find(x => x.fecha === f).slots.map(s => `<button class="hora" data-h="${s}">${s}</button>`).join("");
+  pintarResumen();
+}
+$("#r-dias").onclick = e => { const b = e.target.closest("[data-f]"); if (b) elegirDia(b.dataset.f); };
+$("#r-horas").onclick = e => { const b = e.target.closest("[data-h]"); if (!b) return; hora = b.dataset.h; document.querySelectorAll(".hora").forEach(x => x.classList.toggle("si", x === b)); pintarResumen(); };
+$("#r-enviar").onclick = async () => {
+  const f = $("#r-form"), d = Object.fromEntries(new FormData(f));
+  $("#r-error").classList.add("oculto");
+  if (!f.reportValidity()) return;
+  $("#r-enviar").disabled = true; $("#r-enviar").textContent = "Separando tu hora…";
+  try {
+    const r = await api("reservar", Object.assign(d, { acepta: !!f.acepta.checked, servicios: elegidos, tamano: tam, fecha, hora, fuente, ref }));
+    const c = r.cita;
+    $("#paso-reserva").parentElement.classList.add("oculto");
+    $("#r-listo").classList.remove("oculto");
+    $("#r-listo").innerHTML = `<h3 style="font-size:24px;font-stretch:118%;font-weight:780">¡Listo! Tu hora quedó separada.</h3>
+      <p style="margin:10px 0 16px;color:var(--t2)">${h(fechaLarga(c.fecha))} a las ${h(c.hora)} · ${h(c.servicios)} · ${soles(c.total)}. Te confirmamos por WhatsApp.</p>
+      ${c.adelanto ? `<div class="aviso">Para asegurarla, envía el adelanto de <b>${soles(c.adelanto)}</b> por Yape${c.yape && c.yape.numero ? ` al <b>${h(c.yape.numero)}</b>${c.yape.titular ? " (" + h(c.yape.titular) + ")" : ""}` : ""} y manda la captura por WhatsApp.</div>` : ""}
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">${r.portal ? `<a class="btn oro" href="${h(r.portal)}">Ver mi reserva y mis sellos</a>` : ""}${tel() ? `<a class="btn" target="_blank" rel="noopener" href="${wa(tel(), `Hola, acabo de reservar para el ${fechaLarga(c.fecha)} a las ${c.hora}.`)}">Avisar por WhatsApp</a>` : ""}</div>`;
+    $("#r-listo").scrollIntoView({ block: "center" });
+  } catch (e) { $("#r-error").textContent = e.message; $("#r-error").classList.remove("oculto"); $("#r-enviar").disabled = false; $("#r-enviar").textContent = "Confirmar mi hora"; if (/ocup/i.test(e.message)) cargarDias(); }
+};
+function urlVideo(u) {
+  u = String(u || "").trim(); let m;
+  if ((m = u.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{11})/))) return { src: `https://www.youtube-nocookie.com/embed/${m[1]}`, ancho: !/shorts/.test(u) };
+  if ((m = u.match(/instagram\.com\/(?:reel|reels|p)\/([\w-]+)/))) return { src: `https://www.instagram.com/reel/${m[1]}/embed` };
+  if ((m = u.match(/tiktok\.com\/.*video\/(\d+)/))) return { src: `https://www.tiktok.com/embed/v2/${m[1]}` };
+  if (/\.(mp4|webm|mov)(\?|$)/i.test(u)) return { video: u };
+  return null;
+}
+function comparadores() {
+  document.querySelectorAll(".comparar input").forEach(i => { i.oninput = () => i.parentElement.style.setProperty("--corte", i.value + "%"); });
+}
+function faq(n) {
+  const L = [[`¿Necesito darles agua o luz?`, n.agua || n.luz ? `Llevamos casi todo; ${[n.agua && "agua", n.luz && "un enchufe"].filter(Boolean).join(" y ")} nos ayuda.` : `No. Llevamos agua, energía y todos los productos. Solo necesitamos espacio alrededor del auto.`],
+    [`¿Cuánto demora?`, `Un lavado completo toma alrededor de hora y media; un detallado, de 3 a 5 horas. Tú sigues con tu día mientras trabajamos.`],
+    [`¿Cómo pago?`, `${n.pagos || "Efectivo, Yape, Plin o transferencia"}, al terminar, cuando ya viste el resultado. Los servicios largos piden un adelanto pequeño para separar la hora.`],
+    [`¿A qué zonas van?`, n.zonas ? `Atendemos ${n.zonas}. Si estás en otra zona, escríbenos y lo vemos.` : `Atendemos en ${n.distrito || "Arequipa"}. Escríbenos tu distrito y te confirmamos.`],
+    [`¿Y si no quedo conforme?`, `Revisamos el auto contigo antes de empezar. Si algo no queda bien, volvemos y lo repasamos sin costo.`],
+    [`¿Tienen premios por volver?`, `Sí. Desde tu primer servicio tu tarjeta ya trae sellos de regalo, y al completarla recibes un servicio gratis. La ves en tu enlace personal.`]];
+  $("#faq").innerHTML = L.map(([p, r]) => `<details><summary>${h(p)}</summary><p>${h(r)}</p></details>`).join("");
+}
+(async () => {
+  faq({});
+  try {
+    P = await api("publico");
+    const n = P.negocio, red = n.redes || {};
+    document.title = `${n.nombre} · Detailing a domicilio en ${n.distrito || "Arequipa"}`;
+    $("#ciudad").textContent = n.distrito || "Arequipa";
+    if (n.pagos) $("#pagos").textContent = n.pagos;
+    if (P.portada) { const f = $("#heroe-fondo"); f.style.backgroundImage = `url("${P.portada}")`; f.classList.remove("oculto"); $("#heroe").classList.add("con-foto"); }
+    const E = P.estadisticas || {};
+    const prueba = [E.calificaciones >= 5 && `<div><b>★ ${String(E.promedio).replace(".", ",")}</b><span>de ${E.calificaciones} clientes</span></div>`, E.autos >= 10 && `<div><b>${E.autos}</b><span>autos atendidos</span></div>`, (P.resenas || []).length >= 3 && `<div><b>${P.resenas.length}</b><span>opiniones reales</span></div>`].filter(Boolean);
+    if (prueba.length) { $("#prueba").innerHTML = prueba.join(""); $("#prueba").classList.remove("oculto"); }
+    const redes = [red.ig && [`https://instagram.com/${String(red.ig).replace("@", "")}`, "Ver más trabajos en Instagram"], red.tt && [`https://tiktok.com/@${String(red.tt).replace("@", "")}`, "Ver videos en TikTok"], red.fb && [red.fb, "Seguirnos en Facebook"]].filter(Boolean);
+    $("#pie-redes").innerHTML = redes.map(r => `<a href="${h(r[0])}" target="_blank" rel="noopener">${h(r[1].split(" en ").pop())}</a>`).join(" · ");
+    if (redes.length) { $("#redes").innerHTML = redes.map(r => `<a class="btn chico" href="${h(r[0])}" target="_blank" rel="noopener">${h(r[1])}</a>`).join(""); $("#redes").classList.remove("oculto"); }
+    enlacesWa(); faq(n); pintarPrecios();
+    if (P.galeria && P.galeria.length) {
+      $("#resultados").classList.remove("oculto");
+      $("#galeria").innerHTML = P.galeria.map(g => `<div><div class="comparar"><img src="${h(g.antes)}" alt="Antes" loading="lazy"><img class="despues" src="${h(g.despues)}" alt="Después" loading="lazy">
+        <span class="et" style="left:10px">Antes</span><span class="et" style="right:10px">Después</span><span class="barra-c"></span><input type="range" min="0" max="100" value="50" aria-label="Comparar antes y después"></div>${g.txt ? `<p class="comparar-txt">${h(g.txt)}</p>` : ""}</div>`).join("");
+      comparadores();
+    } else { document.querySelectorAll('a[href="#resultados"]').forEach(a => a.setAttribute("href", "#paquetes")); }
+    if (P.productos && P.productos.length) { $("#productos-sec").classList.remove("oculto"); $("#productos").innerHTML = P.productos.map(p => `<div class="producto">${p.foto ? `<img src="${h(p.foto)}" alt="${h(p.nombre)}" loading="lazy">` : ""}<small>${h(p.marca)}</small><b>${h(p.nombre)}</b><p>${h(p.para)}</p></div>`).join(""); }
+    const vids = (P.videos || []).map(v => Object.assign({ t: v.titulo }, urlVideo(v.url))).filter(v => v.src || v.video);
+    if (vids.length) { $("#videos-sec").classList.remove("oculto"); $("#videos").innerHTML = vids.map(v => `<div class="video ${v.ancho ? "ancho" : ""}">${v.video ? `<video src="${h(v.video)}" controls playsinline preload="metadata"></video>` : `<iframe src="${h(v.src)}" loading="lazy" allowfullscreen allow="encrypted-media; picture-in-picture" title="${h(v.t || "Video")}"></iframe>`}${v.t ? `<p>${h(v.t)}</p>` : ""}</div>`).join(""); }
+    if (P.resenas && P.resenas.length) { $("#opiniones").classList.remove("oculto"); $("#resenas").innerHTML = P.resenas.map(r => `<div class="resena"><div class="est">${"★".repeat(r.estrellas)}</div><p>${h(r.texto)}</p><small>${h(r.nombre)}${r.servicio ? " · " + h(r.servicio) : ""}</small></div>`).join(""); }
+    if (P.planes && P.planes.length) { $("#planes-sec").classList.remove("oculto"); $("#lista-planes").innerHTML = P.planes.map(p => `<div class="servicio ${p.destacado ? "destacado" : ""}" style="cursor:default"><h3>${h(p.nombre)}</h3><p>${h(p.incluye)}</p><div class="pie"><span class="precio">${soles(p.precio)}</span><a class="btn chico oro" href="${wa(tel(), "Hola, quiero el " + p.nombre)}" target="_blank" rel="noopener">Quiero mi plan</a></div></div>`).join(""); }
+    if (P.reservas && P.reservas.activo === false) $("#reservar").innerHTML = `<div class="envoltura"><h2>Separa tu hora por WhatsApp</h2><p class="sub">Por ahora coordinamos las citas por WhatsApp.</p><a class="btn oro" href="${wa(tel(), "Hola, quiero separar una hora.")}" target="_blank" rel="noopener">Separar mi hora por WhatsApp</a></div>`;
+    // próxima hora libre: ayuda a decidir hoy (y es real)
+    const base = paquetes().find(s => s.destacado) || paquetes()[0];
+    if (base) api("disponibilidad", { servicios: [base.id], tamano: "auto", dias: 7 }).then(r => {
+      const d = r.dias.find(x => x.slots.length); if (!d) return;
+      const hoyISO = new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
+      $("#libre span").textContent = `Próxima hora libre: ${d.fecha === hoyISO ? "hoy" : fechaLarga(d.fecha)}, ${d.slots[0]}`; $("#libre").classList.remove("oculto");
+    }).catch(() => { });
+  } catch (e) { $("#lista-paquetes").innerHTML = `<p class="nota">No pudimos cargar los precios. Escríbenos por WhatsApp y te los enviamos.</p>`; }
+  try { if (!sessionStorage.getItem("v")) { sessionStorage.setItem("v", "1"); api("visita", { pagina: "inicio", fuente }); } } catch (e) { }
+})();
+</script>
+</body>
+</html>

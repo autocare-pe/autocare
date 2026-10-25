@@ -77,7 +77,11 @@ function DetalleLead({ id, cerrar }) {
   if (!l) return html`<${Hoja} titulo="Consulta" cerrar=${cerrar}><${Vacio} titulo="No encuentro esta consulta" /><//>`;
   if (editar) return html`<${FormLead} inicial=${l} cerrar=${() => setEditar(false)} />`;
   const cli = D.uno("clientes", l.clienteId);
-  const responder = () => { enviarWa(l.tel, N.mensaje("respuesta", { nombre: primerNombre({ nombre: l.nombre }) })); if (l.etapa === "nuevo") moverLead(l, "contactado"); };
+  const responder = async () => {
+    const m = await import("./campanas.js");
+    menu("Responder a " + primerNombre({ nombre: l.nombre }), [{ n: "Saludo y preguntas", icono: "message-circle", f: () => { enviarWa(l.tel, N.mensaje("respuesta", { nombre: primerNombre({ nombre: l.nombre }) })); if (l.etapa === "nuevo") moverLead(l, "contactado"); } },
+      ...m.respuestas().map(p => ({ n: p.nombre, icono: "zap", f: () => { enviarWa(l.tel, m.textoRespuesta(p)); if (l.etapa === "nuevo") moverLead(l, "contactado"); } }))]);
+  };
   const agendar = () => {
     let c = cli || N.clientePorTel(l.tel);
     if (!c) { const p = l.nombre.split(" "); c = N.asegurarPortal(D.guardar("clientes", { nombre: p[0], apellido: p.slice(1).join(" "), tel: telNorm(l.tel), canal: l.canal, estado: "activo", acepta: true, alta: hoy() })); }

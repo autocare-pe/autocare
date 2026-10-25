@@ -15,7 +15,7 @@ export default function Entrada({ listo }) {
   useEffect(() => { if (paso === "revisando") revisar(); }, []);
   const P = { servidor: Servidor, revisando: Revisando, crear: Crear, entrar: Entrar, recuperar: Recuperar }[paso];
   return html`<div class="entrada-pantalla"><div class="entrada-caja">
-    <div class="entrada-marca"><${Logo} /><div><b>${(info && info.nombre) || "AUTOCARE"}</b><small>Gestión de tu negocio</small></div></div>
+    <div class="entrada-marca"><img class="solo-oscuro" src="../assets/logo-vertical-claro.svg" alt="AUTOCARE" /><img class="solo-claro" src="../assets/logo-vertical.svg" alt="AUTOCARE" /></div>
     ${error && html`<${AvisoLinea} c="rojo" icono="circle-alert">${error}<//>`}
     <${P} revisar=${revisar} ir=${setPaso} listo=${listo} setError=${setError} />
   </div><${Capas} /></div>`;

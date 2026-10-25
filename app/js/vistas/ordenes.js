@@ -4,7 +4,7 @@ import { html, useState, useEffect } from "../../vendor/preact-htm.js";
 import * as D from "../datos.js";
 import * as N from "../negocio.js";
 import { ir, usarTitulo } from "../app.js";
-import { Boton, BotonAccion, Icono, Hoja, Entrada, Numero, Dinero, Area, Selector, Segmentos, Chips, Pestanas, Insignia, Vacio, Fila, Par, Check, AvisoLinea, Tabla, Firma, Bloque, aviso, confirmar, preguntar, menu, useFicha, b } from "../ui.js";
+import { Boton, BotonAccion, Icono, Hoja, Entrada, Numero, Dinero, Area, Selector, Segmentos, Chips, Pestanas, Insignia, Vacio, Fila, Par, Check, AvisoLinea, Tabla, Firma, Bloque, Sellos, aviso, confirmar, preguntar, menu, useFicha, b } from "../ui.js";
 import { ElegirCliente, ElegirVehiculo, ElegirServicios, CampoFotos, enviarWa, EstadoBadge } from "../piezas.js";
 import { hoy, fechaCorta, relativa, duracion, soles, nombreDe, clases, n0, suma, hace, fechaHora, esMovil } from "../util.js";
 import { estadoDe, ESTADOS, PASOS_ORDEN, ZONAS, DANOS, CALIDAD, COBROS, METODOS } from "../esquema.js";
@@ -247,7 +247,12 @@ function Cierre({ o, g, cli, puede }) {
           ${s.cobra && html`<${Par} total n="Falta cobrar" v=${html`<span style=${{ color: s.saldo ? "var(--ambar)" : "var(--verde)" }}>${soles(s.saldo)}</span>`} />`}
         </div>
       <//>
-      ${fid && fid.activo && html`<${Bloque} titulo="Fidelidad"><div class="panel"><p>${fid.disponibles ? html`<b>¡Tiene ${fid.disponibles} premio disponible!</b> (${fid.premio}). Puedes aplicarlo cambiando el tipo de cobro a «Premio de fidelidad».` : `${fid.actuales} de ${fid.cada} sellos para su ${fid.premio || "premio"}.`}</p></div><//>`}
+      ${fid && fid.activo && html`<${Bloque} titulo="Tarjeta de sellos"><div class="panel">
+        <${Sellos} actuales=${fid.actuales} cada=${fid.cada} />
+        <p style="margin:12px 0">${fid.disponibles ? html`<b>¡Tiene ${fid.disponibles} premio disponible!</b> ${fid.premio}. Para usarlo, pon el tipo de cobro en «Premio de fidelidad» y toca Canjear.` : fid.sellos ? `${fid.sellos} de ${fid.cada} sellos. Le faltan ${fid.cada - fid.sellos} para su ${fid.premio || "premio"}.` : `Aún no tiene sellos. Al sumar el primero recibe ${fid.regalo} de regalo: se siente más cerca del premio y vuelve antes.`}</p>
+        <div class="btns">${o.sello ? html`<span class="nota">✓ Ya sumaste el sello de esta orden</span>` : puede && (!o.cobro || o.cobro === "normal") && html`<${Boton} tipo="primario" chico icono="sparkles" onClick=${() => { const r = N.sumarSello(cli, o.id); aviso(r.sumados > 1 ? `Sumaste ${r.sumados} sellos (incluye el regalo de bienvenida).` : "Sello sumado."); }}>${fid.sellos ? "Sumar sello" : `Sumar primer sello (+${fid.regalo})`}<//>`}
+          ${fid.disponibles > 0 && puede && html`<${Boton} chico icono="gift" onClick=${() => { N.canjearPremio(cli); g({ cobro: "premio" }); aviso("Premio canjeado. La tarjeta vuelve a empezar."); }}>Canjear premio<//>`}</div>
+      </div><//>`}
     </div>
     <div>
       ${o.estado === "entregado" ? html`<div class="panel">

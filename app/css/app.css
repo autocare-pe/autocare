@@ -1,6 +1,6 @@
 /* =====================================================================
    AUTOCARE · sistema visual de la app
-   Negro piano, blanco y amarillo AUTOCARE. Una sola tipografía (Archivo):
+   Negro, blanco y verde lima AUTOCARE (el verde de tu logo). Una sola tipografía (Archivo):
    el ancho "expandido" se usa para cifras y títulos, como el tablero de un auto.
    Para cambiar un color, cambia solo las variables de :root.
    ===================================================================== */
@@ -13,8 +13,8 @@
 }
 
 :root {
-  --oro: #F4C20D;
-  --oro-hover: #FFD23A;
+  --oro: #D0FF14;
+  --oro-hover: #DDFF5C;
   --sobre-oro: #000000;
 
   --fondo: #000000;
@@ -26,8 +26,8 @@
   --texto: #F5F5F2;
   --texto-2: #A6A6A0;
   --texto-3: #73736D;
-  --oro-texto: #F4C20D;
-  --oro-suave: rgba(244, 194, 13, .13);
+  --oro-texto: #D0FF14;
+  --oro-suave: rgba(208, 255, 20, .12);
 
   --verde: #36C77D;  --verde-s: rgba(54, 199, 125, .15);
   --rojo: #FF5F52;   --rojo-s: rgba(255, 95, 82, .15);
@@ -68,8 +68,8 @@
   --texto: #0A0A0A;
   --texto-2: #5C5C57;
   --texto-3: #8D8D87;
-  --oro-texto: #866400;
-  --oro-suave: rgba(244, 194, 13, .22);
+  --oro-texto: #4A6500;
+  --oro-suave: rgba(160, 205, 0, .22);
   --verde: #12924F; --rojo: #D93A2E; --ambar: #C26A00; --azul: #1F6FD1; --violeta: #6E4BD8;
   --sombra: 0 18px 50px rgba(0, 0, 0, .16);
   --velo: rgba(20, 20, 20, .38);
@@ -109,9 +109,13 @@ h1, h2, h3, h4, p { margin: 0; }
   scrollbar-width: thin;
 }
 .marca { display: flex; align-items: center; gap: 11px; padding: 6px 10px 18px; }
-.marca-logo { width: 34px; height: 34px; border-radius: 9px; background: var(--oro); color: #000; display: grid; place-items: center; flex: none; overflow: hidden; }
-.marca-logo svg { width: 24px; height: 24px; fill: #000; }
-.marca-logo img { width: 100%; height: 100%; object-fit: cover; }
+.marca-logo { width: 34px; height: 34px; display: grid; place-items: center; flex: none; }
+.marca-logo img { width: 100%; height: auto; }
+.solo-claro { display: none !important; }
+:root[data-tema="claro"] .solo-claro { display: block !important; }
+:root[data-tema="claro"] .solo-oscuro { display: none !important; }
+.marca-h { height: 28px; width: auto; display: block; }
+.marca-esl { display: block; font-size: 12px; color: var(--texto-3); margin-top: 6px; }
 .marca-txt { font-stretch: 125%; font-weight: 800; font-size: 16px; letter-spacing: .01em; line-height: 1.05; }
 .marca-txt small { display: block; font-stretch: 100%; font-weight: 450; font-size: 12px; color: var(--texto-3); letter-spacing: 0; margin-top: 2px; }
 .nav-grupo { margin-top: 14px; padding: 0 10px 4px; font-size: var(--t-meta); color: var(--texto-3); font-weight: 560; }
@@ -188,8 +192,7 @@ h1, h2, h3, h4, p { margin: 0; }
     background: color-mix(in srgb, var(--fondo) 84%, transparent); backdrop-filter: saturate(1.4) blur(18px); -webkit-backdrop-filter: saturate(1.4) blur(18px);
   }
   .barra-movil .titulo { font-weight: 650; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: auto; }
-  .barra-movil .marca-logo { width: 28px; height: 28px; border-radius: 8px; }
-  .barra-movil .marca-logo svg { width: 20px; height: 20px; }
+  .barra-movil .marca-logo { width: 30px; height: 30px; }
   .contenido { padding: 4px 16px calc(var(--tabbar) + var(--inf) + 90px); }
   .pagina-cab { margin: 6px 0 16px; }
   .pagina-cab .acciones { margin-left: 0; width: 100%; }
@@ -658,8 +661,7 @@ button.kpi:hover { border-color: var(--linea-2); }
 .entrada-pantalla { min-height: 100dvh; display: grid; place-items: center; padding: calc(24px + var(--sup)) 20px calc(24px + var(--inf)); background: var(--fondo); }
 .entrada-caja { width: min(420px, 100%); display: flex; flex-direction: column; gap: 18px; }
 .entrada-marca { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
-.entrada-marca .marca-logo { width: 52px; height: 52px; border-radius: 14px; }
-.entrada-marca .marca-logo svg { width: 36px; height: 36px; }
+.entrada-marca img { height: 96px; width: auto; }
 .entrada-marca b { font-stretch: 125%; font-weight: 800; font-size: 24px; letter-spacing: .01em; display: block; line-height: 1; }
 .entrada-marca small { color: var(--texto-3); font-size: 13.5px; }
 .entrada-caja h1 { font-size: 26px; font-stretch: 115%; font-weight: 760; line-height: 1.12; }

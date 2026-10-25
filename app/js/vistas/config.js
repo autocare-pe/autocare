@@ -8,17 +8,18 @@ import { aplicarTema } from "../main.js";
 import { Boton, BotonAccion, Hoja, Entrada, Numero, Dinero, Area, Selector, Interruptor, Segmentos, Pestanas, Insignia, Vacio, Fila, Bloque, AvisoLinea, Tabla, aviso, confirmar, useFicha, b } from "../ui.js";
 import { soles, duracion, hoy, descargar, copiar, fechaHora, DIAS } from "../util.js";
 import { CATEGORIAS_SERVICIO, MODULOS, estadoDe } from "../esquema.js";
+import { CampoFotos } from "../piezas.js";
 
 export default function Config({ ruta }) {
   D.useDatos();
   usarTitulo("Configuración");
   const admin = D.esAdmin(), cfg = D.puede("config", 2);
-  const tabs = [cfg && { v: "negocio", n: "Negocio" }, cfg && { v: "servicios", n: "Servicios y precios" }, cfg && { v: "horario", n: "Horario y reservas" },
+  const tabs = [cfg && { v: "negocio", n: "Negocio" }, cfg && { v: "servicios", n: "Servicios y precios" }, cfg && { v: "web", n: "Mi web" }, cfg && { v: "horario", n: "Horario y reservas" },
     admin && { v: "usuarios", n: "Usuarios" }, admin && { v: "integraciones", n: "Avisos y redes" }, { v: "cuenta", n: "Mi cuenta" }].filter(Boolean);
   const t = tabs.some(x => x.v === ruta.partes[0]) ? ruta.partes[0] : tabs[0].v;
   return html`<header class="pagina-cab"><div><h1>Configuración</h1><p>Lo que cambies aquí se guarda en tu hoja y lo usa tu web.</p></div></header>
     <${Pestanas} valor=${t} cambiar=${v => ir("config/" + v, true)} opciones=${tabs} />
-    ${t === "negocio" && html`<${Negocio} />`}${t === "servicios" && html`<${Servicios} />`}${t === "horario" && html`<${Horario} />`}
+    ${t === "negocio" && html`<${Negocio} />`}${t === "servicios" && html`<${Servicios} />`}${t === "web" && html`<${MiWeb} />`}${t === "horario" && html`<${Horario} />`}
     ${t === "usuarios" && html`<${Usuarios} />`}${t === "integraciones" && html`<${Integraciones} />`}${t === "cuenta" && html`<${Cuenta} />`}`;
 }
 
@@ -27,11 +28,11 @@ function Negocio() {
   const n = D.ajuste("negocio", {}), fi = D.ajuste("fidelidad", {});
   const [f, set] = useFicha(Object.assign({ nombre: "AUTOCARE", eslogan: "", tel: "", distrito: "Arequipa", zonas: "", web: location.origin + location.pathname.replace(/\/app\/?.*$/, ""), google: "", ruc: "", pagos: "", ig: "", fb: "", tt: "", yapeNum: "", yapeTit: "" },
     n, { ig: (n.redes || {}).ig || "", fb: (n.redes || {}).fb || "", tt: (n.redes || {}).tt || "", yapeNum: (n.yape || {}).numero || "", yapeTit: (n.yape || {}).titular || "" }));
-  const [F, setF] = useFicha(Object.assign({ activo: true, cada: 6, bono: 2, premio: "Lavado completo", volver: 30 }, fi));
+  const [F, setF] = useFicha(Object.assign({ activo: true, cada: 8, regalo: 2, bono: 1, premio: "Lavado completo", volver: 30, manual: true }, fi));
   const guardar = () => {
     const { ig, fb, tt, yapeNum, yapeTit, ...resto } = f;
     D.fijarAjuste("negocio", Object.assign({}, n, resto, { redes: { ig, fb, tt }, yape: yapeNum ? { numero: yapeNum, titular: yapeTit } : null }));
-    D.fijarAjuste("fidelidad", Object.assign({}, F, { cada: Math.max(2, Number(F.cada) || 6) }));
+    D.fijarAjuste("fidelidad", Object.assign({}, F, { manual: true, cada: Math.max(2, Number(F.cada) || 8) }));
     aviso("Datos del negocio guardados.");
   };
   return html`<div class="columnas mitad">
@@ -47,7 +48,8 @@ function Negocio() {
     </div>
     <div><div class="panel form"><h3>Fidelidad</h3>
       <${Interruptor} etiqueta="Tarjeta de sellos activa" ...${b(F, setF, "activo")} />
-      <div class="rejilla"><${Numero} etiqueta="Servicios para el premio" decimales=${0} ...${b(F, setF, "cada")} /><${Numero} etiqueta="Sellos por cada referido" decimales=${0} ...${b(F, setF, "bono")} /></div>
+      <div class="rejilla"><${Numero} etiqueta="Sellos de la tarjeta" decimales=${0} ...${b(F, setF, "cada")} /><${Numero} etiqueta="Sellos de regalo con el primer servicio" decimales=${0} ...${b(F, setF, "regalo")} /></div>
+      <p class="nota">Con 2 de regalo el cliente siente que ya avanzó y vuelve antes: en un car wash, 34% completó la tarjeta con regalo frente a 19% sin regalo (Nunes y Drèze, 2006). Tú sumas cada sello desde la orden o la ficha del cliente.</p>
       <${Entrada} etiqueta="Premio" ...${b(F, setF, "premio")} />
       <${Numero} etiqueta="Días normales entre lavados" decimales=${0} ...${b(F, setF, "volver")} ayuda="Para avisarte a quién le toca volver si el servicio no tiene sus propios días." />
     </div>
@@ -68,7 +70,7 @@ function Servicios() {
     ${ed && html`<${FormServicio} s=${ed} cerrar=${() => setEd(null)} />`}<//>`;
 }
 function FormServicio({ s, cerrar }) {
-  const [f, set] = useFicha(Object.assign({ nombre: "", categoria: "lavado", precio: null, minutos: 60, estado: "activo", web: true, porTamano: true, adelanto: false, volver: 30, descripcion: "", destacado: false }, s, { pasosTxt: (s.pasos || []).map(p => p.t || p).join("\n") }));
+  const [f, set] = useFicha(Object.assign({ nombre: "", categoria: "lavado", precio: null, minutos: 60, estado: "activo", web: true, porTamano: true, adelanto: false, volver: 30, descripcion: "", destacado: false, paquete: false, incluye: "", fotoId: "" }, s, { pasosTxt: (s.pasos || []).map(p => p.t || p).join("\n") }));
   const guardar = () => {
     if (!String(f.nombre).trim()) return aviso("Escribe el nombre del servicio.", { error: true });
     if (!(Number(f.precio) > 0)) return aviso("Escribe el precio.", { error: true });
@@ -88,9 +90,47 @@ function FormServicio({ s, cerrar }) {
       <${Interruptor} etiqueta="Sube de precio según el tamaño" ayuda="SUV +20%, camioneta +30%, van +40%" ...${b(f, set, "porTamano")} />
       <${Interruptor} etiqueta="Pide adelanto al reservar" ...${b(f, set, "adelanto")} />
       <${Interruptor} etiqueta="Mostrar en la web" ...${b(f, set, "web")} />
-      <${Interruptor} etiqueta="Destacado (el que más recomiendas)" ...${b(f, set, "destacado")} />
+      <${Interruptor} etiqueta="Es un paquete (sale en la sección de paquetes de tu web)" ...${b(f, set, "paquete")} />
+      ${f.paquete && html`<${Area} etiqueta="Qué incluye (una línea por beneficio)" filas=${5} ...${b(f, set, "incluye")} ayuda="Escribe lo que gana el cliente: «Pintura brillante como nueva», no «cera carnauba»." />`}
+      <${Interruptor} etiqueta="Destacado (el que quieres que elijan)" ayuda="Arma 3 paquetes y destaca el del medio. El más caro sirve de ancla para que el del medio se vea conveniente (efecto señuelo, Dan Ariely)." ...${b(f, set, "destacado")} />
+      <${CampoFotos} etiqueta="Foto para la web (opcional)" valor=${f.fotoId ? [f.fotoId] : []} cambiar=${v => set("fotoId", v[v.length - 1] || "")} tipo="marketing" nombre=${"servicio " + f.nombre} max=${1} />
       <${Interruptor} etiqueta="Activo" valor=${f.estado !== "pausado"} cambiar=${v => set("estado", v ? "activo" : "pausado")} />
     </div><//>`;
+}
+
+// ---------------------------------------------------------------- mi web: portada, antes y después, videos y productos
+function MiWeb() {
+  const [gal, setGal] = useState(() => D.ajuste("galeria", []) || []), [vid, setVid] = useState(() => D.ajuste("webVideos", []) || []);
+  const [prod, setProd] = useState(() => D.ajuste("webProductos", []) || []), [port, setPort] = useState(() => (D.ajuste("webPortada", {}) || {}).fotoId || "");
+  const guardar = () => {
+    D.fijarAjuste("galeria", gal.filter(g => g.antesId && g.despuesId)); D.fijarAjuste("webVideos", vid.filter(v => v.url));
+    D.fijarAjuste("webProductos", prod.filter(p => p.nombre)); D.fijarAjuste("webPortada", { fotoId: port });
+    aviso("Tu web se actualiza en unos minutos.");
+  };
+  const cambiar = (l, set, i, k, v) => set(l.map((x, j) => (j === i ? Object.assign({}, x, { [k]: v }) : x)));
+  const web = (N.negocio().web || location.origin + location.pathname.replace(/\/app\/.*$/, "")).replace(/\/+$/, "");
+  return html`<${AvisoLinea} c="oro" icono="lightbulb">Vende la playa, no el avión: muestra cómo queda el auto, no las máquinas. Las fotos reales de antes y después son tu mejor vendedor; con 5 o más opiniones visibles, la probabilidad de compra sube mucho (Spiegel Research Center).<//>
+    <div class="columnas" style="margin-top:16px"><div>
+      <${Bloque} titulo="Antes y después" sub="Mismo ángulo, misma luz. El cliente desliza para comparar.">
+        ${gal.map((g, i) => html`<div class="panel" style="margin-bottom:10px"><div class="rejilla">
+          <${CampoFotos} etiqueta="Antes" valor=${g.antesId ? [g.antesId] : []} cambiar=${v => cambiar(gal, setGal, i, "antesId", v[v.length - 1] || "")} tipo="marketing" nombre="antes" max=${1} />
+          <${CampoFotos} etiqueta="Después" valor=${g.despuesId ? [g.despuesId] : []} cambiar=${v => cambiar(gal, setGal, i, "despuesId", v[v.length - 1] || "")} tipo="marketing" nombre="despues" max=${1} /></div>
+          <${Entrada} etiqueta="Frase corta (opcional)" valor=${g.txt} cambiar=${v => cambiar(gal, setGal, i, "txt", v)} placeholder="Interior de SUV después de 2 años sin limpieza" />
+          <div class="btns fin" style="margin-top:8px"><${Boton} chico tipo="fantasma peligro" icono="trash-2" onClick=${() => setGal(gal.filter((x, j) => j !== i))}>Quitar<//></div></div>`)}
+        ${gal.length < 12 && html`<${Boton} icono="plus" onClick=${() => setGal([...gal, { antesId: "", despuesId: "", txt: "" }])}>Agregar antes y después<//>`}<//>
+      <${Bloque} titulo="Videos" sub="Pega el enlace de un reel de Instagram, un TikTok o un video de YouTube.">
+        ${vid.map((v, i) => html`<div class="rejilla" style="margin-bottom:8px;align-items:end"><${Entrada} etiqueta="Enlace" valor=${v.url} cambiar=${x => cambiar(vid, setVid, i, "url", x)} placeholder="https://www.instagram.com/reel/…" />
+          <div style="display:flex;gap:8px;align-items:end"><${Entrada} etiqueta="Título" valor=${v.titulo} cambiar=${x => cambiar(vid, setVid, i, "titulo", x)} /><${Boton} tipo="fantasma" icono="trash-2" titulo="Quitar" onClick=${() => setVid(vid.filter((x, j) => j !== i))} /></div></div>`)}
+        <${Boton} icono="plus" onClick=${() => setVid([...vid, { url: "", titulo: "" }])}>Agregar video<//><//>
+    </div><div>
+      <${Bloque} titulo="Foto de portada" sub="Tu mejor auto terminado, a lo ancho."><div class="panel"><${CampoFotos} valor=${port ? [port] : []} cambiar=${v => setPort(v[v.length - 1] || "")} tipo="marketing" nombre="portada" max=${1} /></div><//>
+      <${Bloque} titulo="Con qué cuidamos tu auto" sub="Marcas reconocidas dan confianza (Cialdini, autoridad).">
+        ${prod.map((p, i) => html`<div class="panel" style="margin-bottom:10px"><div class="rejilla"><${Entrada} etiqueta="Producto" valor=${p.nombre} cambiar=${v => cambiar(prod, setProd, i, "nombre", v)} /><${Entrada} etiqueta="Marca" valor=${p.marca} cambiar=${v => cambiar(prod, setProd, i, "marca", v)} /></div>
+          <${Entrada} etiqueta="Qué gana tu auto" valor=${p.para} cambiar=${v => cambiar(prod, setProd, i, "para", v)} placeholder="Brillo profundo y protección contra el sol" />
+          <div class="rejilla" style="margin-top:8px;align-items:end"><${CampoFotos} etiqueta="Foto" valor=${p.fotoId ? [p.fotoId] : []} cambiar=${v => cambiar(prod, setProd, i, "fotoId", v[v.length - 1] || "")} tipo="marketing" nombre="producto" max=${1} /><div class="btns fin"><${Boton} chico tipo="fantasma peligro" icono="trash-2" onClick=${() => setProd(prod.filter((x, j) => j !== i))}>Quitar<//></div></div></div>`)}
+        <${Boton} icono="plus" onClick=${() => setProd([...prod, { nombre: "", marca: "", para: "", fotoId: "" }])}>Agregar producto<//><//>
+      <div class="btns"><${Boton} tipo="primario" grande onClick=${guardar}>Guardar mi web<//><${Boton} grande icono="external-link" href=${web}>Ver mi web<//></div>
+    </div></div>`;
 }
 
 // ---------------------------------------------------------------- horario y reservas

@@ -10,9 +10,12 @@ export function Icono({ n, t, clase, titulo }) {
   const s = t ? { width: t + "px", height: t + "px" } : null;
   return html`<svg class=${clases("i", clase)} style=${s} viewBox="0 0 24 24" aria-hidden=${titulo ? null : "true"} role=${titulo ? "img" : null} dangerouslySetInnerHTML=${{ __html: (titulo ? `<title>${titulo}</title>` : "") + d }}></svg>`;
 }
-export const LOGO_AUTO = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4.6 22.2v-3.4c0-1 .6-1.9 1.5-2.3l3.6-1.6 2.3-3c.5-.7 1.3-1.1 2.2-1.1h7.3c.9 0 1.8.4 2.3 1.2l2.1 2.9 3.9.9c1.2.3 2 1.4 2 2.6v3.8z"/><circle cx="10.2" cy="22.6" r="2.9"/><circle cx="22.4" cy="22.6" r="2.9"/><path d="M25.4 3.2l1 2.7 2.7 1-2.7 1-1 2.7-1-2.7-2.7-1 2.7-1z"/></svg>`;
 export function Logo({ src }) {
-  return src ? html`<span class="marca-logo"><img src=${src} alt="" /></span>` : html`<span class="marca-logo" dangerouslySetInnerHTML=${{ __html: LOGO_AUTO }}></span>`;
+  if (src) return html`<span class="marca-logo"><img src=${src} alt="" /></span>`;
+  return html`<span class="marca-logo"><img class="solo-oscuro" src="../assets/marca-clara.svg" alt="AUTOCARE" /><img class="solo-claro" src="../assets/marca.svg" alt="AUTOCARE" /></span>`;
+}
+export function LogoHorizontal() {
+  return html`<img class="marca-h solo-oscuro" src="../assets/logo-horizontal-claro.svg" alt="AUTOCARE" /><img class="marca-h solo-claro" src="../assets/logo-horizontal.svg" alt="AUTOCARE" />`;
 }
 
 // ---------------------------------------------------------------- botones

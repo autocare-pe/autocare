@@ -95,10 +95,13 @@ function Ficha({ id }) {
           ${vehs.length ? html`<div class="grupo">${vehs.map(v => html`<${Fila} icono="car" titulo=${[v.marca, v.modelo].filter(Boolean).join(" ") || "Vehículo"} sub=${[v.placa, v.color, N.tamanoDe(v.tamano).n].filter(Boolean).join(" · ")} onClick=${() => puede && setVeh(v)} />`)}</div>` : html`<p class="nota">Sin vehículos registrados.</p>`}
           ${veh && html`<div style="margin-top:10px"><${FormVehiculoRapido} clienteId=${c.id} inicial=${veh.id ? veh : null} cancelar=${() => setVeh(null)} listo=${() => setVeh(null)} /></div>`}
         <//>
-        ${fid.activo && html`<${Bloque} titulo="Fidelidad"><div class="panel">
+        ${fid.activo && html`<${Bloque} titulo="Tarjeta de sellos"><div class="panel">
           <${Sellos} actuales=${fid.actuales} cada=${fid.cada} />
-          <p style="margin-top:12px">${fid.disponibles ? html`<b>Tiene ${fid.disponibles} premio para canjear:</b> ${fid.premio}.` : `${fid.cada - fid.actuales} servicios más para su ${fid.premio || "premio"}.`}</p>
-          <p class="nota" style="margin-top:6px">Código para recomendar: <b>${c.codigo || "—"}</b>${refs.length ? ` · recomendó a ${refs.length}` : ""}</p></div><//>`}
+          <p style="margin-top:12px">${fid.disponibles ? html`<b>Tiene ${fid.disponibles} premio para canjear:</b> ${fid.premio}.` : fid.sellos ? `${fid.sellos} de ${fid.cada}. Le faltan ${fid.cada - fid.sellos} para su ${fid.premio || "premio"}.` : `Sin sellos todavía. El primero llega con ${fid.regalo} de regalo.`}</p>
+          ${D.puedeEditar("clientes") && html`<div class="btns" style="margin-top:10px"><${Boton} chico tipo="primario" icono="plus" onClick=${() => { const r = N.sumarSello(c); aviso(r.sumados > 1 ? `Sumaste ${r.sumados} sellos (con regalo).` : "Sello sumado."); }}>Sumar sello<//>
+            ${fid.sellos > 0 && html`<${Boton} chico tipo="fantasma" icono="minus" onClick=${() => N.quitarSello(c)}>Quitar<//>`}
+            ${fid.disponibles > 0 && html`<${Boton} chico icono="gift" onClick=${() => { N.canjearPremio(c); aviso("Premio canjeado."); }}>Canjear premio<//>`}</div>`}
+          <p class="nota" style="margin-top:10px">Código para recomendar: <b>${c.codigo || "—"}</b>${refs.length ? ` · recomendó a ${refs.length}` : ""}${fid.usados ? ` · canjeó ${fid.usados} premio(s)` : ""}</p></div><//>`}
       </div>
     </div>
     ${editar && html`<${FormCliente} inicial=${c} cerrar=${() => setEditar(false)} />`}`;

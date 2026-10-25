@@ -153,15 +153,26 @@ export function perfiles() {
   });
 }
 export const perfil = id => perfiles().get(id) || { visitas: 0, gasto: 0, seg: "sin" };
+// Tarjeta de sellos manual: tú pones cada sello desde la app. El primer sello llega con regalo (efecto de progreso
+// dotado, Nunes y Drèze 2006: con 2 sellos de regalo, 34% completó la tarjeta frente a 19% sin regalo).
+export function reglasFidelidad() { return Object.assign({ activo: true, cada: 8, regalo: 2, premio: "Lavado completo", bono: 1, manual: true }, D.ajuste("fidelidad", {})); }
 export function fidelidad(cli) {
-  const F = Object.assign({ activo: true, cada: 6, bono: 2, premio: "Lavado completo" }, D.ajuste("fidelidad", {}));
-  const cada = Math.max(2, Math.round(n0(F.cada) || 6));
-  const ordenes = D.lista("ordenes"), mias = ordenes.filter(o => o.clienteId === cli.id);
-  const pagadas = mias.filter(esPagada).length;
-  const refs = D.lista("clientes").filter(c => c.referidoPor === cli.id && ordenes.some(o => o.clienteId === c.id && esPagada(o))).length;
-  const total = pagadas + refs * Math.max(0, Math.round(n0(F.bono))), ganados = Math.floor(total / cada);
-  const usados = mias.filter(o => o.cobro === "premio" && o.estado !== "anulado").length;
-  return { activo: F.activo !== false, cada, actuales: total % cada, ganados, usados, disponibles: Math.max(0, ganados - usados), referidos: refs, premio: F.premio, bono: n0(F.bono) };
+  const F = reglasFidelidad(), cada = Math.max(2, Math.round(n0(F.cada) || 8));
+  const s = Math.max(0, Math.round(n0(cli && cli.sellos))), disp = Math.floor(s / cada);
+  const refs = D.lista("clientes").filter(c => c.referidoPor === (cli && cli.id)).length;
+  return { activo: F.activo !== false, cada, sellos: s, actuales: disp ? cada : s, disponibles: disp, usados: n0(cli && cli.canjes), referidos: refs, premio: F.premio, regalo: n0(F.regalo), bono: n0(F.bono) };
+}
+/** Suma un sello. Si es el primero, llegan los sellos de regalo (por defecto 2). */
+export function sumarSello(cli, ordenId) {
+  const F = reglasFidelidad(), s = n0(cli.sellos), suma = s === 0 && !n0(cli.canjes) ? Math.max(1, n0(F.regalo) || 1) : 1;
+  const c = D.cambiar("clientes", cli.id, { sellos: s + suma, ultimoSello: Date.now() });
+  if (ordenId) D.cambiar("ordenes", ordenId, { sello: true });
+  return { cliente: c, sumados: suma };
+}
+export function quitarSello(cli) { return D.cambiar("clientes", cli.id, { sellos: Math.max(0, n0(cli.sellos) - 1) }); }
+export function canjearPremio(cli) {
+  const cada = Math.max(2, Math.round(n0(reglasFidelidad().cada) || 8));
+  return D.cambiar("clientes", cli.id, { sellos: Math.max(0, n0(cli.sellos) - cada), canjes: n0(cli.canjes) + 1 });
 }
 export function vehiculosDe(clienteId) { return D.lista("vehiculos").filter(v => v.clienteId === clienteId); }
 export const nombreVehiculo = v => (v ? [v.marca, v.modelo, v.placa && "(" + v.placa + ")"].filter(Boolean).join(" ") : "");
@@ -178,7 +189,7 @@ export function asegurarPortal(c) {
   return D.cambiar("clientes", c.id, { token: c.token || llave(24), codigo: c.codigo || codigoReferido(c.nombre) });
 }
 export function urlPortal(c) {
-  const web = (negocio().web || "").replace(/\/+$/, "");
+  const web = (negocio().web || location.origin + location.pathname.replace(/\/app\/.*$/, "")).replace(/\/+$/, "");
   if (!web || !c) return "";
   c = asegurarPortal(c);
   return web + "/cliente.html#t=" + c.token;
@@ -208,6 +219,22 @@ export function varsCliente(c) {
   const libre = proximoLibre(60);
   return { nombre: primerNombre(c), codigo: (asegurarPortal(c) || c).codigo || "", portal: urlPortal(c), placa: veh ? veh.placa || veh.marca || "auto" : "auto",
     fecha: libre ? fechaLarga(libre.fecha) + " a las " + libre.hora : "", ultima: p.ultima ? fechaLarga(p.ultima) : "" };
+}
+
+// Datos vivos para las respuestas rápidas (se arman con tus precios actuales)
+export function varsRespuesta() {
+  const n = negocio(), servs = serviciosActivos().filter(x => x.web !== false), paq = servs.filter(x => x.paquete);
+  const libre = proximoLibre(90);
+  const web = (n.web || location.origin + location.pathname.replace(/\/app\/.*$/, "")).replace(/\/+$/, "");
+  return {
+    negocio: nombreNegocio(), web, zonas: n.zonas || n.distrito || "Arequipa",
+    precios: servs.filter(x => !x.paquete).map(x => "• " + x.nombre + ": " + soles(x.precio) + (x.porTamano ? " (auto)" : "")).join("\n"),
+    paquetes: (paq.length ? paq : servs.slice(0, 3)).map(x => "• " + x.nombre + ": " + soles(x.precio) + (x.incluye ? " — " + String(x.incluye).split("\n").filter(Boolean).slice(0, 3).join(", ") : "")).join("\n"),
+    libre: libre ? fechaLarga(libre.fecha) + " a las " + libre.hora : "esta semana",
+    planes: D.lista("planes").filter(p => p.activo !== false).map(p => "• " + p.nombre + ": " + soles(p.precio) + (p.incluye ? " — " + p.incluye : "")).join("\n") || "",
+    tamanos: tamanos().filter(t => n0(t.pct)).map(t => t.n + " +" + t.pct + "%").join(", "),
+    pagos: n.pagos || "Efectivo, Yape, Plin o transferencia"
+  };
 }
 
 // ---------------------------------------------------------------- inventario

@@ -1,7 +1,7 @@
 // AUTOCARE · armazón de la app: menú, rutas, barra superior, búsqueda y botón "+"
 import { html, useState, useEffect, useMemo, useRef } from "../vendor/preact-htm.js";
 import * as D from "./datos.js";
-import { Icono, Logo, Boton, Capas, menu, capaExtra, aviso } from "./ui.js";
+import { Icono, Logo, LogoHorizontal, Boton, Capas, menu, capaExtra, aviso } from "./ui.js";
 import { clases, coincide, nombreDe, telBonito, esMovil, fechaCorta, plural } from "./util.js";
 import { srcFoto } from "./datos.js";
 
@@ -30,10 +30,10 @@ export const NAV = [
 ];
 const VISTAS = {
   "": () => import("./vistas/inicio.js"), agenda: () => import("./vistas/agenda.js"), ordenes: () => import("./vistas/ordenes.js"),
-  clientes: () => import("./vistas/clientes.js"), ventas: () => import("./vistas/ventas.js"), campanas: () => import("./vistas/pronto.js"),
+  clientes: () => import("./vistas/clientes.js"), ventas: () => import("./vistas/ventas.js"), campanas: () => import("./vistas/campanas.js"),
   contenido: () => import("./vistas/pronto.js"), resultados: () => import("./vistas/pronto.js"), fidelidad: () => import("./vistas/pronto.js"),
   finanzas: () => import("./vistas/finanzas.js"), inventario: () => import("./vistas/pronto.js"), activos: () => import("./vistas/pronto.js"),
-  tablero: () => import("./vistas/tablero.js"), plan: () => import("./vistas/pronto.js"), config: () => import("./vistas/config.js"), mas: () => import("./vistas/mas.js")
+  tablero: () => import("./vistas/tablero.js"), plan: () => import("./vistas/plan.js"), config: () => import("./vistas/config.js"), mas: () => import("./vistas/mas.js")
 };
 // Enlaces que manda el servidor por Telegram
 const ALIAS = { comercial: "ventas", direccion: "tablero", marketing: "contenido" };
@@ -96,8 +96,8 @@ function cuentas() {
 }
 
 function Marca() {
-  const n = D.ajuste("negocio", {}), m = D.ajuste("marca", {});
-  return html`<a class="marca" href="#/"><${Logo} src=${m.logoId ? srcFoto(m.logoId, 120) : ""} /><span class="marca-txt">${n.nombre || "AUTOCARE"}<small>${n.eslogan || "Gestión del negocio"}</small></span></a>`;
+  const n = D.ajuste("negocio", {});
+  return html`<a class="marca" href="#/" style="display:block"><${LogoHorizontal} /><span class="marca-esl">${n.eslogan || "Gestión del negocio"}</span></a>`;
 }
 function Lateral({ ruta }) {
   const c = cuentas(), u = D.yo() || {};
@@ -135,9 +135,8 @@ function Barra({ titulo, abrirPaleta }) {
   </header>`;
 }
 function BarraMovil({ titulo, abrirPaleta }) {
-  const m = D.ajuste("marca", {});
   return html`<header class="barra-movil">
-    <${Logo} src=${m.logoId ? srcFoto(m.logoId, 80) : ""} />
+    <${Logo} />
     <span class="titulo">${titulo}</span>
     <${EstadoSync} chico />
     <${Boton} tipo="fantasma" icono="search" titulo="Buscar" onClick=${abrirPaleta} />
