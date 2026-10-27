@@ -26,14 +26,14 @@ export const NAV = [
     { r: "finanzas", n: "Finanzas", i: "wallet", mod: "finanzas", d: "Caja, por cobrar, gastos, reparto y rentabilidad" },
     { r: "inventario", n: "Inventario", i: "package", mod: "inventario", d: "Productos, movimientos, compras y proveedores" },
     { r: "activos", n: "Activos y vehículo", i: "car", mod: "activos", d: "Equipos, mantenimientos y depreciación" }] },
-  { g: "Sistema", items: [{ r: "config", n: "Configuración", i: "settings", d: "Negocio, servicios, horario, usuarios e integraciones" }] }
+  { g: "Sistema", items: [{ r: "config", n: "Configuración", i: "settings", d: "Negocio, servicios, horario, usuarios e integraciones" }, { r: "ayuda", n: "Ayuda", i: "circle-help", d: "Primeros pasos, uso diario, WhatsApp Business, Google y redes" }] }
 ];
 const VISTAS = {
   "": () => import("./vistas/inicio.js"), agenda: () => import("./vistas/agenda.js"), ordenes: () => import("./vistas/ordenes.js"),
   clientes: () => import("./vistas/clientes.js"), ventas: () => import("./vistas/ventas.js"), campanas: () => import("./vistas/campanas.js"),
-  contenido: () => import("./vistas/pronto.js"), resultados: () => import("./vistas/pronto.js"), fidelidad: () => import("./vistas/pronto.js"),
-  finanzas: () => import("./vistas/finanzas.js"), inventario: () => import("./vistas/pronto.js"), activos: () => import("./vistas/pronto.js"),
-  tablero: () => import("./vistas/tablero.js"), plan: () => import("./vistas/plan.js"), config: () => import("./vistas/config.js"), mas: () => import("./vistas/mas.js")
+  contenido: () => import("./vistas/contenido.js"), resultados: () => import("./vistas/resultados.js"), fidelidad: () => import("./vistas/fidelidad.js"),
+  finanzas: () => import("./vistas/finanzas.js"), inventario: () => import("./vistas/inventario.js"), activos: () => import("./vistas/activos.js"),
+  tablero: () => import("./vistas/tablero.js"), plan: () => import("./vistas/plan.js"), config: () => import("./vistas/config.js"), ayuda: () => import("./vistas/ayuda.js"), mas: () => import("./vistas/mas.js")
 };
 // Enlaces que manda el servidor por Telegram
 const ALIAS = { comercial: "ventas", direccion: "tablero", marketing: "contenido" };

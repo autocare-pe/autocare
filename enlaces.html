@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AUTOCARE · Enlaces</title>
+<meta name="description" content="Separa tu hora, mira precios y escríbenos. Detailing a domicilio en Arequipa.">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="app/icons/icon-192.png">
+<link rel="stylesheet" href="assets/web.css">
+<style>
+  main { width: min(460px, 100% - 32px); margin: 0 auto; padding: 48px 0 40px; text-align: center; }
+  main > img { width: 120px; margin: 0 auto 10px; }
+  .wm { height: 26px; margin: 0 auto 10px; }
+  .enl { display: flex; flex-direction: column; gap: 12px; margin-top: 26px; }
+  .enl a { justify-content: center; height: 58px; font-size: 16.5px; border-radius: 16px; }
+  .sub2 { color: var(--t2); font-size: 15.5px; }
+  .libre2 { margin-top: 14px; font-size: 14px; color: var(--t2); }
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+<main>
+  <img src="assets/marca-clara.svg" alt="">
+  <img class="wm" src="assets/logo-horizontal-claro.svg" alt="AUTOCARE">
+  <p class="sub2">Tu auto como nuevo, sin moverte de casa.<br>Detailing a domicilio en Arequipa.</p>
+  <p class="libre2 oculto" id="libre"></p>
+  <div class="enl" id="enl">
+    <a class="btn oro" id="e-reservar" href="./#paquetes">Separar mi hora en 1 minuto</a>
+    <a class="btn" id="e-precios" href="./#paquetes">Ver precios de mi auto</a>
+    <a class="btn" id="e-fotos" href="./#resultados">Ver cómo quedan los autos</a>
+    <a class="btn oculto" id="e-wa" href="#" target="_blank" rel="noopener">Resolver mi duda por WhatsApp</a>
+    <a class="btn oculto" id="e-plan" href="./#planes-sec">Tener mi auto siempre limpio (plan mensual)</a>
+    <a class="btn oculto" id="e-google" href="#" target="_blank" rel="noopener">Dejar mi opinión en Google</a>
+  </div>
+  <p class="nota" style="margin-top:26px" id="redes"></p>
+</main>
+<script type="module">
+import { api, CFG, h, wa, fechaLarga } from "./assets/web.js";
+const $ = s => document.querySelector(s);
+const src = new URLSearchParams(location.search).get("src") || "ig";
+["#e-reservar", "#e-precios", "#e-fotos", "#e-plan"].forEach(s => { const a = $(s); a.href = a.getAttribute("href").replace("./", "./?src=" + encodeURIComponent(src)); });
+const ponerWa = t => { if (!t) return; $("#e-wa").href = wa(t, "Hola, vi su Instagram y quiero saber el precio para mi auto."); $("#e-wa").classList.remove("oculto"); };
+ponerWa(CFG.WHATSAPP);
+try { if (!sessionStorage.getItem("ve")) { sessionStorage.setItem("ve", "1"); api("visita", { pagina: "enlaces", fuente: src }); } } catch (e) { }
+api("publico").then(P => {
+  const n = P.negocio, r = n.redes || {};
+  ponerWa(n.tel);
+  if (n.google) { $("#e-google").href = n.google; $("#e-google").classList.remove("oculto"); }
+  if (P.planes && P.planes.length) $("#e-plan").classList.remove("oculto");
+  if (!(P.galeria && P.galeria.length)) $("#e-fotos").classList.add("oculto");
+  $("#redes").innerHTML = [r.ig && `<a href="https://instagram.com/${h(String(r.ig).replace("@", ""))}">Instagram</a>`, r.tt && `<a href="https://tiktok.com/@${h(String(r.tt).replace("@", ""))}">TikTok</a>`, r.fb && `<a href="${h(r.fb)}">Facebook</a>`].filter(Boolean).join(" · ");
+  const base = (P.servicios || []).find(s => s.destacado) || (P.servicios || [])[0];
+  if (base) api("disponibilidad", { servicios: [base.id], tamano: "auto", dias: 7 }).then(d => { const x = d.dias.find(y => y.slots.length); if (x) { $("#libre").textContent = "● Próxima hora libre: " + fechaLarga(x.fecha) + ", " + x.slots[0]; $("#libre").classList.remove("oculto"); } }).catch(() => { });
+}).catch(() => { });
+</script>
+</body>
+</html>

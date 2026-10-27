@@ -6,7 +6,9 @@ import * as N from "../negocio.js";
 import { ir, usarTitulo, abrir } from "../app.js";
 import { Boton, Icono, Hoja, Entrada, Dinero, Area, Selector, Chips, Pestanas, Insignia, Vacio, Fila, Check, AvisoLinea, aviso, confirmar, menu, useFicha, b } from "../ui.js";
 import { enviarWa } from "../piezas.js";
-import { hoy, sumarDias, relativa, hace, soles, suma, telNorm, telBonito, nombreDe, clases, esMovil, duracion, primerNombre } from "../util.js";
+import { hoy, sumarDias, relativa, hace, soles, suma, telNorm, telBonito, nombreDe, clases, esMovil, duracion, primerNombre, fechaCorta, n0 } from "../util.js";
+import { ElegirCliente, ElegirVehiculo, ElegirServicios, EstadoBadge } from "../piezas.js";
+import { Tabla, Numero, Segmentos, Par } from "../ui.js";
 import { ESTADOS, CANALES, MOTIVOS_PERDIDA, estadoDe } from "../esquema.js";
 
 const ETAPAS = ["nuevo", "contactado", "cotizado", "agendado", "ganado", "perdido"];
@@ -14,14 +16,16 @@ const ETAPAS = ["nuevo", "contactado", "cotizado", "agendado", "ganado", "perdid
 export default function Ventas({ ruta }) {
   D.useDatos();
   usarTitulo("Ventas");
-  const t = ruta.partes[0] === "seguimientos" ? "seguimientos" : "embudo";
+  const t = ["seguimientos", "cotizaciones"].includes(ruta.partes[0]) ? ruta.partes[0] : "embudo";
+  const idCot = ruta.partes[0] === "cotizaciones" && ruta.partes[1] ? ruta.partes[1] : null;
   const [nuevo, setNuevo] = useState(false), [tarea, setTarea] = useState(false);
   const idLead = ruta.partes[0] === "lead" ? ruta.partes[1] : null;
   const pendientes = D.lista("tareas").filter(x => !x.hecho && x.fecha && x.fecha <= hoy()).length;
   return html`<header class="pagina-cab"><div><h1>Ventas</h1><p>Cada consulta es una venta posible. Muévela por el embudo hasta cerrarla.</p></div>
       <div class="acciones"><${Boton} icono="list-checks" onClick=${() => setTarea(true)}>Seguimiento<//><${Boton} tipo="primario" icono="plus" onClick=${() => setNuevo(true)}>Nueva consulta<//></div></header>
-    <${Pestanas} valor=${t} cambiar=${v => ir("ventas" + (v === "embudo" ? "" : "/" + v), true)} opciones=${[{ v: "embudo", n: "Embudo" }, { v: "seguimientos", n: "Seguimientos", cuenta: pendientes }]} />
-    ${t === "embudo" ? html`<${Embudo} />` : html`<${Seguimientos} nueva=${() => setTarea(true)} />`}
+    <${Pestanas} valor=${t} cambiar=${v => ir("ventas" + (v === "embudo" ? "" : "/" + v), true)} opciones=${[{ v: "embudo", n: "Embudo" }, { v: "cotizaciones", n: "Cotizaciones", cuenta: D.lista("cotizaciones").filter(c => c.estado === "enviada").length }, { v: "seguimientos", n: "Seguimientos", cuenta: pendientes }]} />
+    ${t === "embudo" ? html`<${Embudo} />` : t === "cotizaciones" ? html`<${Cotizaciones} />` : html`<${Seguimientos} nueva=${() => setTarea(true)} />`}
+    ${idCot && html`<${EditorCotizacion} c=${idCot === "nueva" ? {} : D.uno("cotizaciones", idCot) || {}} cerrar=${() => ir("ventas/cotizaciones", true)} />`}
     ${nuevo && html`<${FormLead} cerrar=${() => setNuevo(false)} />`}${tarea && html`<${FormTarea} cerrar=${() => setTarea(false)} />`}
     ${idLead && html`<${DetalleLead} id=${idLead} cerrar=${() => ir("ventas", true)} />`}`;
 }
@@ -144,4 +148,60 @@ export function FormTarea({ cerrar, inicial }) {
       <div class="rejilla dos-movil"><${Entrada} etiqueta="Fecha" tipo="date" ...${b(f, set, "fecha")} /><${Entrada} etiqueta="Hora" tipo="time" ...${b(f, set, "hora")} /></div>
       <${Selector} etiqueta="Cliente (opcional)" vacio="Ninguno" opciones=${clientes.map(c => ({ v: c.id, n: nombreDe(c) }))} ...${b(f, set, "clienteId")} />
       <${Chips} valor=${f.prioridad} cambiar=${v => set("prioridad", v || "media")} opciones=${[{ v: "alta", n: "Alta" }, { v: "media", n: "Media" }, { v: "baja", n: "Baja" }]} /></div><//>`;
+}
+
+// ---------------------------------------------------------------- cotizaciones (el cliente acepta y firma en su enlace)
+function estadoCot(c) { return c.estado === "enviada" && sumarDias(c.fecha, n0(c.validez) || 7) < hoy() ? "vencida" : c.estado || "borrador"; }
+function Cotizaciones() {
+  const l = D.lista("cotizaciones").slice().sort((a, c) => String(c.fecha + (c.numero || "")).localeCompare(String(a.fecha + (a.numero || ""))));
+  const env = l.filter(c => estadoCot(c) === "enviada"), acep = l.filter(c => c.estado === "aceptada").length, resp = l.filter(c => ["aceptada", "rechazada"].includes(c.estado)).length;
+  return html`<div class="filtros"><p class="tenue" style="flex:1">Para trabajos grandes: detallados de SUV, autos muy sucios, flotas de empresa. ${resp ? `Te aceptan el ${Math.round((acep / resp) * 100)}%.` : ""} ${env.length ? `${env.length} esperan respuesta: haz seguimiento a los 2 días.` : ""}</p>
+      <${Boton} tipo="primario" icono="plus" href="#/ventas/cotizaciones/nueva">Nueva cotización<//></div>
+    <${Tabla} filas=${l} onFila=${c => ir("ventas/cotizaciones/" + c.id)} vacio=${html`<${Vacio} icono="file-text" titulo="Aún no haces cotizaciones" texto="El cliente la ve en su enlace personal, la acepta y la firma desde su celular." />`}
+      movil=${c => html`<${Fila} icono="file-text" titulo=${(c.numero || "Borrador") + " · " + (c._cliente || "")} sub=${fechaCorta(c.fecha)} der=${html`<b class="cifra">${soles(c.total)}</b><${EstadoBadge} ent="cotizaciones" v=${estadoCot(c)} />`} href=${"#/ventas/cotizaciones/" + c.id} />`}
+      cols=${[{ k: "numero", n: "Número", clase: "prin" }, { k: "fecha", n: "Fecha", f: c => fechaCorta(c.fecha) }, { k: "_cliente", n: "Cliente" }, { k: "items", n: "Detalle", ordenar: false, clase: "tenue", f: c => N.nombresItems(c.items) },
+        { k: "total", n: "Total", num: true, f: c => soles(c.total) }, { k: "estado", n: "Estado", f: c => html`<${EstadoBadge} ent="cotizaciones" v=${estadoCot(c)} />` }]} />`;
+}
+function EditorCotizacion({ c, cerrar }) {
+  const [f, set] = useFicha(Object.assign({ fecha: hoy(), clienteId: "", vehiculoId: "", tamano: "auto", items: [], descuento: 0, validez: 7, nota: "", estado: "borrador" }, c));
+  const ids = (f.items || []).map(i => i.servicioId).filter(Boolean);
+  const total = N.totalItems(f.items, f.descuento);
+  const cambiarServ = nuevos => set("items", [...(f.items || []).filter(i => !i.servicioId || nuevos.includes(i.servicioId)), ...N.itemsDeServicios(nuevos.filter(x => !ids.includes(x)), f.tamano)]);
+  const guardar = (extra = {}) => {
+    const cli = D.uno("clientes", f.clienteId);
+    if (!cli) { aviso("Elige el cliente.", { error: true }); return null; }
+    if (!(f.items || []).length) { aviso("Agrega al menos un servicio.", { error: true }); return null; }
+    return D.guardar("cotizaciones", Object.assign({}, f, { total, _cliente: nombreDe(cli) }, extra));
+  };
+  const enviar = () => {
+    const r = guardar({ estado: "enviada", fecha: f.estado === "borrador" ? hoy() : f.fecha }); if (!r) return;
+    const cli = N.asegurarPortal(D.uno("clientes", r.clienteId));
+    enviarWa(cli.tel, N.mensaje("cotizacion", { nombre: cli.nombre, total: soles(r.total), portal: N.urlPortal(cli) }));
+    D.guardar("tareas", { fecha: sumarDias(hoy(), 2), titulo: "Seguimiento a la cotización de " + cli.nombre, tipo: "whatsapp", prioridad: "media", clienteId: cli.id });
+    aviso("Enviada. Te dejé un seguimiento en 2 días."); cerrar();
+  };
+  const agendar = () => {
+    const r = guardar(); if (!r) return; cerrar();
+    abrir(() => import("./agenda.js"), "FormCita", { inicial: { clienteId: r.clienteId, vehiculoId: r.vehiculoId, tamano: r.tamano, servicios: (r.items || []).map(i => i.servicioId).filter(Boolean) } });
+  };
+  const e = estadoCot(f);
+  return html`<${Hoja} ancha titulo=${c.numero ? "Cotización " + c.numero : c.id ? "Cotización" : "Nueva cotización"} sub=${c.id ? estadoDe("cotizaciones", e).n : ""} cerrar=${cerrar}
+    pie=${html`${c.id && html`<${Boton} tipo="fantasma peligro" icono="trash-2" titulo="Eliminar" onClick=${async () => { if (await confirmar({ titulo: "Eliminar cotización", si: "Eliminar", peligro: true })) { D.borrar("cotizaciones", c.id); cerrar(); } }} />`}
+      <${Boton} onClick=${() => { if (guardar()) { aviso("Guardada."); cerrar(); } }}>Guardar<//>
+      ${f.estado === "aceptada" ? html`<${Boton} tipo="primario" icono="calendar-plus" onClick=${agendar}>Agendar el trabajo<//>` : html`<${Boton} tipo="primario" icono="send" onClick=${enviar}>${f.estado === "enviada" ? "Reenviar" : "Enviar por WhatsApp"}<//>`}`}>
+    <div class="form">
+      ${f.estado === "aceptada" && html`<${AvisoLinea} c="verde" icono="signature">Aceptada por ${f.firmaNombre || "el cliente"}${f.respuesta ? " " + hace(f.respuesta) : ""}. Agéndalo ahora.<//>`}
+      ${f.estado === "rechazada" && html`<${AvisoLinea} c="rojo" icono="circle-alert">No aceptada${f.motivoRechazo ? ": " + f.motivoRechazo : ""}.<//>`}
+      <${ElegirCliente} valor=${f.clienteId} cambiar=${id => { const v = N.vehiculosDe(id)[0]; set({ clienteId: id, vehiculoId: v ? v.id : "", tamano: v ? v.tamano || "auto" : f.tamano }); }} />
+      <${ElegirVehiculo} clienteId=${f.clienteId} valor=${f.vehiculoId} cambiar=${(id, v) => set({ vehiculoId: id, tamano: (v && v.tamano) || f.tamano })} />
+      <${Segmentos} etiqueta="Tamaño" valor=${f.tamano} cambiar=${v => set({ tamano: v, items: (f.items || []).map(i => { const s = D.uno("servicios", i.servicioId); return s ? Object.assign({}, i, { precio: N.precioCon(s, v) }) : i; }) })} opciones=${N.tamanos().map(t => ({ v: t.id, n: t.n.split(" ")[0] }))} />
+      <${ElegirServicios} valor=${ids} cambiar=${cambiarServ} tamano=${f.tamano} />
+      ${(f.items || []).map((it, k) => html`<div class="rejilla" style="--col:3;align-items:end"><${Entrada} etiqueta=${k ? "" : "Detalle"} valor=${it.nombre} cambiar=${v => set("items", f.items.map((x, j) => (j === k ? Object.assign({}, x, { nombre: v }) : x)))} />
+        <${Numero} etiqueta=${k ? "" : "Cantidad"} decimales=${0} valor=${it.cant || 1} cambiar=${v => set("items", f.items.map((x, j) => (j === k ? Object.assign({}, x, { cant: v || 1 }) : x)))} />
+        <${Dinero} etiqueta=${k ? "" : "Precio"} valor=${it.precio} cambiar=${v => set("items", f.items.map((x, j) => (j === k ? Object.assign({}, x, { precio: v || 0 }) : x)))} /></div>`)}
+      <${Boton} chico tipo="fantasma" icono="plus" onClick=${() => set("items", [...(f.items || []), { nombre: "Trabajo adicional", cant: 1, precio: 0 }])}>Línea libre<//>
+      <div class="rejilla"><${Dinero} etiqueta="Descuento" ...${b(f, set, "descuento")} /><${Numero} etiqueta="Válida (días)" decimales=${0} ...${b(f, set, "validez")} /></div>
+      <${Area} etiqueta="Nota para el cliente" ...${b(f, set, "nota")} placeholder="Incluye traslado. Si aceptas esta semana, el aroma va de regalo." />
+      <${Par} total n="Total" v=${soles(total)} />
+    </div><//>`;
 }
