@@ -6,6 +6,7 @@ import * as N from "../negocio.js";
 import { ir, usarTitulo, menuCrear } from "../app.js";
 import { Boton, Icono, Fila, Insignia, Resumen, Bloque, Vacio, Progreso } from "../ui.js";
 import { FilaCita } from "./agenda.js";
+import { progresoArranque } from "./arranque.js";
 import { enviarWa } from "../piezas.js";
 import { AREAS, ESTADOS } from "../esquema.js";
 import { hoy, sumarDias, inicioSemana, fechaLarga, relativa, soles, hace, horaDe, minutos, duracion, nombreDe, primerNombre, suma, mesDe, sumarMeses, inicioMes, n0, mapa } from "../util.js";
@@ -82,7 +83,7 @@ export default function Inicio() {
         der=${html`<${Boton} chico icono="message-circle" onClick=${e => { e.preventDefault(); enviarWa(c.tel, N.mensaje("volver", N.varsCliente(c))); }}>Escribir<//>`} />`; })}</div><//>`;
   const sub = campo ? `${fechaLarga(H).replace(/^./, x => x.toUpperCase())}. ${citasHoy.length ? `Tienes ${citasHoy.length} ${citasHoy.length === 1 ? "cita" : "citas"} hoy${cap ? `, ${Math.round((uso / cap) * 100)}% de tu día` : ""}.` : "Hoy no tienes citas."}`
     : `${fechaLarga(H).replace(/^./, x => x.toUpperCase())}. ${todas.length ? `Tienes ${todas.length} ${todas.length === 1 ? "cosa" : "cosas"} por resolver.` : "Todo al día."}`;
-  const cab = html`<header class="pagina-cab"><div><h1>${saludo}, ${primerNombre(u) || u.nombre}</h1><p>${sub}</p></div></header>${D.enPractica() && html`<${Practica} />`}`;
+  const cab = html`<header class="pagina-cab"><div><h1>${saludo}, ${primerNombre(u) || u.nombre}</h1><p>${sub}</p></div></header>${D.puede("config", 2) && html`<${EnMarcha} />`}${D.enPractica() && html`<${Practica} />`}`;
   if (!campo) return html`${cab}${resumenDinero}
     <div class="columnas">
       <div>${orden.map(a => html`<${Bloque} titulo=${AR[a].n} sub=${de(a).length ? "" : "Al día"}>${de(a).length ? html`<div class="grupo">${de(a)}</div>` : html`<div class="panel"><p class="tenue">Nada pendiente aquí. ✓</p></div>`}<//>`)}
@@ -95,6 +96,18 @@ export default function Inicio() {
       <div><${Bloque} titulo="Pendientes">
           ${!todas.length ? html`<div class="panel"><p class="tenue">Todo al día.</p></div>` : html`<div class="grupo">${todas}</div>`}<//></div>
     </div>`;
+}
+
+// Puesta en marcha: mientras falte configurar algo, un solo botón lleva al paso a paso (Krug: un camino claro).
+function EnMarcha() {
+  const p = progresoArranque();
+  if (p.completo || p.oculto) return null;
+  const ocultar = e => { e.preventDefault(); D.fijarAjuste("arranque", Object.assign({}, D.ajuste("arranque", {}) || {}, { oculto: true })); };
+  return html`<section class="panel en-marcha" style="margin-bottom:22px">
+    <div class="en-marcha-cab"><span class="ico oro"><${Icono} n="flag" /></span><div style="flex:1;min-width:0"><h3>Pon tu negocio en marcha</h3><p class="tenue chico">${p.listos} de ${p.total} pasos · unos 10 minutos en total</p></div>
+      <${Boton} tipo="fantasma" chico icono="x" titulo="Ocultar (sigue en Configuración y Ayuda)" onClick=${ocultar} /></div>
+    <${Progreso} v=${p.listos} max=${p.total} />
+    <div class="btns" style="margin-top:12px"><${Boton} tipo="primario" href="#/arranque" icono="arrow-right">${p.listos ? "Seguir donde me quedé" : "Empezar"}<//></div></section>`;
 }
 
 // Aprender haciendo: un servicio completo de práctica, paso a paso. Cada paso se marca solo cuando lo haces.

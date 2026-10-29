@@ -26,6 +26,15 @@ export function itemsDeServicios(ids, tam) {
 export const totalItems = (items, descuento) => Math.max(0, suma(items, i => n0(i.precio) * (i.cant === undefined ? 1 : n0(i.cant))) - n0(descuento));
 export const nombresItems = items => (items || []).map(i => i.nombre + (n0(i.cant) > 1 ? " ×" + i.cant : "")).join(" + ");
 
+// Redes: acepta «@usuario», «usuario» o el enlace completo y siempre lo guarda igual (así los botones nunca fallan)
+export function limpiarRedes(r = {}) {
+  const usuario = (v, dom) => String(v || "").trim().replace(new RegExp("^(https?://)?(www\\.|m\\.)?" + dom + "\\.com/@?", "i"), "").replace(/^@/, "").replace(/[/?#].*$/, "");
+  let fb = String(r.fb || "").trim();
+  if (fb && !/^https?:\/\//i.test(fb)) fb = "https://facebook.com/" + fb.replace(/^@/, "").replace(/^(www\.|m\.)?facebook\.com\//i, "");
+  return { ig: usuario(r.ig, "instagram"), tt: usuario(r.tt, "tiktok"), fb };
+}
+export const telLimpio = t => { let d = String(t || "").replace(/\D/g, ""); if (d.length === 11 && d.startsWith("51")) d = d.slice(2); return d; };
+
 // ---------------------------------------------------------------- horario y agenda
 export function horario() {
   return Object.assign({

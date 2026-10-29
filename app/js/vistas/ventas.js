@@ -8,7 +8,7 @@ import { Boton, Icono, Hoja, Entrada, Dinero, Area, Selector, Chips, Pestanas, I
 import { enviarWa } from "../piezas.js";
 import { hoy, sumarDias, relativa, hace, soles, suma, telNorm, telBonito, nombreDe, clases, esMovil, duracion, primerNombre, fechaCorta, n0 } from "../util.js";
 import { ElegirCliente, ElegirVehiculo, ElegirServicios, EstadoBadge } from "../piezas.js";
-import { Tabla, Numero, Segmentos, Par } from "../ui.js";
+import { Tabla, Numero, Segmentos, Par, MasDatos } from "../ui.js";
 import { ESTADOS, CANALES, MOTIVOS_PERDIDA, estadoDe } from "../esquema.js";
 
 const ETAPAS = ["nuevo", "contactado", "cotizado", "agendado", "ganado", "perdido"];
@@ -119,8 +119,8 @@ export function FormLead({ cerrar, inicial }) {
   return html`<${Hoja} titulo=${inicial ? "Editar consulta" : "Nueva consulta"} cerrar=${cerrar} pie=${html`${inicial && html`<${Boton} tipo="fantasma peligro" icono="trash-2" titulo="Eliminar" onClick=${borrar} />`}<${Boton} tipo="fantasma" onClick=${cerrar}>Cancelar<//><${Boton} tipo="primario" onClick=${guardar}>Guardar<//>`}>
     <div class="form"><div class="rejilla"><${Entrada} etiqueta="Nombre" ...${b(f, set, "nombre")} /><${Entrada} etiqueta="WhatsApp" tipo="tel" ...${b(f, set, "tel")} /></div>
       <${Selector} etiqueta="¿Por dónde llegó?" opciones=${CANALES} ...${b(f, set, "canal")} />
-      <div class="rejilla"><${Entrada} etiqueta="Qué le interesa" ...${b(f, set, "interes")} placeholder="Detallado interior, SUV" /><${Dinero} etiqueta="Valor estimado" ...${b(f, set, "valor")} /></div>
-      <${Area} etiqueta="Notas" ...${b(f, set, "notas")} /></div><//>`;
+      <${Entrada} etiqueta="Qué le interesa" ...${b(f, set, "interes")} placeholder="Detallado interior, SUV" />
+      <${MasDatos} abierto=${!!(f.valor || f.notas)}><${Dinero} etiqueta="Valor estimado" ...${b(f, set, "valor")} ayuda="Cuánto podría comprar. Sirve para ver cuánto hay en juego en el embudo." /><${Area} etiqueta="Notas" ...${b(f, set, "notas")} /><//></div><//>`;
 }
 
 // ---------------------------------------------------------------- seguimientos

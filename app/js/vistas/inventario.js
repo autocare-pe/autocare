@@ -3,7 +3,7 @@ import { html, useState } from "../../vendor/preact-htm.js";
 import * as D from "../datos.js";
 import * as N from "../negocio.js";
 import { ir, usarTitulo } from "../app.js";
-import { Boton, Hoja, Entrada, Numero, Dinero, Area, Selector, Interruptor, Chips, Pestanas, Insignia, Vacio, Fila, Bloque, Resumen, Tabla, Par, AvisoLinea, Check, aviso, confirmar, useFicha, b } from "../ui.js";
+import { Boton, Hoja, Entrada, Numero, Dinero, Area, Selector, Interruptor, Chips, Pestanas, Insignia, Vacio, Fila, Bloque, Resumen, Tabla, Par, AvisoLinea, Check, aviso, confirmar, useFicha, b, MasDatos } from "../ui.js";
 import { hoy, fechaCorta, soles, suma, n0, num, telBonito, wa, clases } from "../util.js";
 import { UNIDADES, METODOS, estadoDe } from "../esquema.js";
 
@@ -40,13 +40,14 @@ function FormProducto({ p, cerrar }) {
   const borrar = async () => { if (await confirmar({ titulo: "Eliminar producto", texto: "Si lo usas en recetas, mejor desactívalo.", si: "Eliminar", peligro: true })) { D.borrar("productos", p.id); cerrar(); } };
   return html`<${Hoja} titulo=${p.id ? "Editar producto" : "Nuevo producto"} cerrar=${cerrar} pie=${html`${p.id && html`<${Boton} tipo="fantasma peligro" icono="trash-2" titulo="Eliminar" onClick=${borrar} />`}<${Boton} tipo="fantasma" onClick=${cerrar}>Cancelar<//><${Boton} tipo="primario" onClick=${guardar}>Guardar<//>`}>
     <div class="form"><${Entrada} etiqueta="Producto" ...${b(f, set, "nombre")} placeholder="Shampoo con cera 4 L" />
-      <div class="rejilla"><${Entrada} etiqueta="Marca" ...${b(f, set, "marca")} /><${Entrada} etiqueta="Categoría" ...${b(f, set, "categoria")} placeholder="Lavado, Interior…" /></div>
       <div class="rejilla"><${Selector} etiqueta="Unidad de compra" opciones=${UNIDADES} ...${b(f, set, "unidad")} /><${Dinero} etiqueta="Costo por unidad" ...${b(f, set, "costoProm")} /></div>
-      <div class="rejilla"><${Numero} etiqueta="¿Para cuántos servicios alcanza una unidad?" decimales=${0} ...${b(f, set, "rinde")} /><${Numero} etiqueta="Avisarme cuando queden" ...${b(f, set, "minimo")} /></div>
-      ${!p.id && html`<${Numero} etiqueta="Stock actual" ...${b(f, set, "stock")} />`}
-      <${Selector} etiqueta="Proveedor" vacio="Ninguno" opciones=${D.lista("proveedores").map(x => ({ v: x.id, n: x.nombre }))} ...${b(f, set, "proveedorId")} />
+      <div class="rejilla"><${Numero} etiqueta="¿Para cuántos servicios alcanza una unidad?" decimales=${0} ...${b(f, set, "rinde")} />${!p.id && html`<${Numero} etiqueta="Stock actual" ...${b(f, set, "stock")} />`}</div>
       ${n0(f.rinde) > 0 && n0(f.costoProm) > 0 && html`<${Par} total n="Costo por uso" v=${soles(n0(f.costoProm) / n0(f.rinde))} />`}
-      ${p.id && html`<${Interruptor} etiqueta="Activo" ...${b(f, set, "activo")} />`}</div><//>`;
+      <${MasDatos} abierto=${!!(f.marca || f.categoria || f.proveedorId)}>
+        <div class="rejilla"><${Entrada} etiqueta="Marca" ...${b(f, set, "marca")} /><${Entrada} etiqueta="Categoría" ...${b(f, set, "categoria")} placeholder="Lavado, Interior…" /></div>
+        <div class="rejilla"><${Numero} etiqueta="Avisarme cuando queden" ...${b(f, set, "minimo")} /><${Selector} etiqueta="Proveedor" vacio="Ninguno" opciones=${D.lista("proveedores").map(x => ({ v: x.id, n: x.nombre }))} ...${b(f, set, "proveedorId")} /></div>
+        ${p.id && html`<${Interruptor} etiqueta="Activo" ...${b(f, set, "activo")} />`}
+      <//></div><//>`;
 }
 function FormMovimiento({ p, cerrar }) {
   const [f, set] = useFicha({ tipo: "entrada", cantidad: null, costoUnit: p.costoProm, motivo: "" });

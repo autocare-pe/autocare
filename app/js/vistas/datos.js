@@ -61,7 +61,7 @@ function Portada() {
   const [reinicio, setReinicio] = useState(false);
   const activar = async v => {
     if (!v && totalPrueba && !(await confirmar({ titulo: "Terminar la práctica", texto: `Tienes ${totalPrueba} datos de práctica. Si terminas sin borrarlos, se quedan como si fueran reales. ¿Seguro?`, si: "Terminar sin borrar" }))) return;
-    D.fijarAjuste("practica", v ? { activo: true, desde: Date.now(), por: (D.yo() || {}).nombre || "" } : { activo: false });
+    D.fijarAjuste("practica", v ? { activo: true, desde: Date.now(), por: (D.yo() || {}).nombre || "" } : { activo: false, hecha: true });
     aviso(v ? "Modo práctica activado: todo lo nuevo se marca para borrarlo después." : "Modo práctica terminado.");
   };
   const ejemplo = async () => {

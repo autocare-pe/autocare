@@ -5,7 +5,7 @@ import * as N from "../negocio.js";
 import { api } from "../api.js";
 import { ir, usarTitulo } from "../app.js";
 import { aplicarTema } from "../main.js";
-import { Boton, BotonAccion, Hoja, Entrada, Numero, Dinero, Area, Selector, Interruptor, Segmentos, Pestanas, Insignia, Vacio, Fila, Bloque, AvisoLinea, Tabla, Icono, aviso, confirmar, useFicha, b } from "../ui.js";
+import { Boton, BotonAccion, Hoja, Entrada, Numero, Dinero, Area, Selector, Interruptor, Segmentos, Pestanas, Insignia, Vacio, Fila, Bloque, AvisoLinea, Tabla, Icono, MasDatos, aviso, confirmar, useFicha, b } from "../ui.js";
 import { soles, duracion, hoy, descargar, copiar, fechaHora, DIAS } from "../util.js";
 import { CATEGORIAS_SERVICIO, MODULOS, AREAS, estadoDe } from "../esquema.js";
 import { CampoFotos } from "../piezas.js";
@@ -31,20 +31,31 @@ function Negocio() {
   const [F, setF] = useFicha(Object.assign({ activo: true, cada: 8, regalo: 2, bono: 1, premio: "Lavado completo", volver: 30, manual: true }, fi));
   const guardar = () => {
     const { ig, fb, tt, yapeNum, yapeTit, ...resto } = f;
-    D.fijarAjuste("negocio", Object.assign({}, n, resto, { redes: { ig, fb, tt }, yape: yapeNum ? { numero: yapeNum, titular: yapeTit } : null }));
+    const tel = N.telLimpio(resto.tel);
+    if (tel && tel.length !== 9) return aviso("El WhatsApp del negocio debe tener 9 dígitos (sin +51).", { error: true });
+    D.fijarAjuste("negocio", Object.assign({}, n, resto, { tel, redes: Object.assign({}, n.redes || {}, N.limpiarRedes({ ig, fb, tt })), yape: yapeNum ? { numero: N.telLimpio(yapeNum), titular: yapeTit } : null }));
     D.fijarAjuste("fidelidad", Object.assign({}, F, { manual: true, cada: Math.max(2, Number(F.cada) || 8) }));
     aviso("Datos del negocio guardados.");
   };
-  return html`<div class="columnas mitad">
-    <div class="panel form"><h3>Tu negocio</h3>
+  return html`<div style="margin-bottom:16px"><${AvisoLinea} c="oro" icono="info" accion=${html`<${Boton} chico href="#/arranque">Paso a paso<//>`}>Todo lo de aquí se cambia cuando quieras y se actualiza solo en tu web, la tarjeta de tus clientes, tus enlaces y tus mensajes (en unos minutos).<//></div>
+    <div class="columnas mitad">
+    <div class="panel form">
+      <div class="titulo-seccion"><h3>Lo básico</h3></div>
       <div class="rejilla"><${Entrada} etiqueta="Nombre" ...${b(f, set, "nombre")} /><${Entrada} etiqueta="Frase corta" ...${b(f, set, "eslogan")} placeholder="Detailing a domicilio" /></div>
-      <div class="rejilla"><${Entrada} etiqueta="WhatsApp del negocio" ...${b(f, set, "tel")} /><${Entrada} etiqueta="Ciudad o distrito base" ...${b(f, set, "distrito")} /></div>
-      <${Entrada} etiqueta="Zonas que atiendes" ...${b(f, set, "zonas")} placeholder="Cayma, Yanahuara, Cerro Colorado…" />
-      <${Entrada} etiqueta="Dirección de tu web" ...${b(f, set, "web")} ayuda="Se usa para el enlace personal de cada cliente." />
-      <${Entrada} etiqueta="Enlace para dejar reseña en Google" ...${b(f, set, "google")} ayuda="Google Business Profile → Pedir reseñas → copiar enlace. Se muestra a todos los clientes por igual (regla de Google)." />
+      <div class="rejilla"><${Entrada} etiqueta="Ciudad o distrito base" ...${b(f, set, "distrito")} /><${Entrada} etiqueta="Zonas que atiendes" ...${b(f, set, "zonas")} placeholder="Cayma, Yanahuara, Cerro Colorado…" /></div>
+      <div class="separador"></div>
+      <div class="titulo-seccion"><h3>Contacto y pagos</h3><p>¿Cambias de número? Solo cámbialo aquí. Lo impreso (polo, QR, stickers, tarjetas) no lleva tu número: no tienes que reimprimir nada.</p></div>
+      <${Entrada} etiqueta="WhatsApp del negocio" ...${b(f, set, "tel")} />
       <div class="rejilla"><${Entrada} etiqueta="Yape: número" ...${b(f, set, "yapeNum")} /><${Entrada} etiqueta="Yape: titular" ...${b(f, set, "yapeTit")} /></div>
-      <div class="rejilla"><${Entrada} etiqueta="Instagram (usuario)" ...${b(f, set, "ig")} /><${Entrada} etiqueta="Facebook (enlace)" ...${b(f, set, "fb")} /></div>
-      <div class="rejilla"><${Entrada} etiqueta="TikTok (usuario)" ...${b(f, set, "tt")} /><${Entrada} etiqueta="RUC (si tienes)" ...${b(f, set, "ruc")} /></div>
+      <div class="separador"></div>
+      <div class="titulo-seccion"><h3>Redes</h3><p>Salen como botones en tu web, en la tarjeta de tus clientes y en tu página de enlaces.</p></div>
+      <div class="rejilla"><${Entrada} etiqueta="Instagram (usuario)" ...${b(f, set, "ig")} /><${Entrada} etiqueta="TikTok (usuario)" ...${b(f, set, "tt")} /></div>
+      <${Entrada} etiqueta="Facebook (enlace)" ...${b(f, set, "fb")} />
+      <${Entrada} etiqueta="Enlace para dejar reseña en Google" ...${b(f, set, "google")} ayuda="Google Business Profile → Pedir reseñas → copiar enlace. Se muestra a todos los clientes por igual (regla de Google)." />
+      <${MasDatos} titulo="Avanzado (opcional)">
+        <${Entrada} etiqueta="Dirección de tu web" ...${b(f, set, "web")} ayuda="Se usa para el enlace personal de cada cliente y los QR. Cámbiala solo si mueves tu web." />
+        <${Entrada} etiqueta="RUC (si tienes)" ...${b(f, set, "ruc")} />
+      <//>
     </div>
     <div><div class="panel form"><h3>Fidelidad</h3>
       <${Interruptor} etiqueta="Tarjeta de sellos activa" ...${b(F, setF, "activo")} />
@@ -83,18 +94,24 @@ function FormServicio({ s, cerrar }) {
     <div class="form">
       <${Entrada} etiqueta="Nombre" ...${b(f, set, "nombre")} placeholder="Lavado completo" />
       <div class="rejilla"><${Dinero} etiqueta="Precio (auto o sedán)" ...${b(f, set, "precio")} /><${Numero} etiqueta="Minutos que demora" decimales=${0} ...${b(f, set, "minutos")} /></div>
-      <div class="rejilla"><${Selector} etiqueta="Categoría" opciones=${Object.keys(CATEGORIAS_SERVICIO).map(k => ({ v: k, n: CATEGORIAS_SERVICIO[k] }))} ...${b(f, set, "categoria")} />
-        <${Numero} etiqueta="El cliente vuelve cada (días)" decimales=${0} ...${b(f, set, "volver")} /></div>
-      <${Area} etiqueta="Descripción para tu web" ...${b(f, set, "descripcion")} placeholder="Qué incluye, en palabras del cliente" />
-      <${Area} etiqueta="Pasos del servicio (uno por línea)" filas=${6} ...${b(f, set, "pasosTxt")} ayuda="Se vuelven el checklist de cada orden. Así lo haces igual siempre, y mañana un ayudante también." />
-      <${Interruptor} etiqueta="Sube de precio según el tamaño" ayuda="SUV +20%, camioneta +30%, van +40%" ...${b(f, set, "porTamano")} />
-      <${Interruptor} etiqueta="Pide adelanto al reservar" ...${b(f, set, "adelanto")} />
       <${Interruptor} etiqueta="Mostrar en la web" ...${b(f, set, "web")} />
-      <${Interruptor} etiqueta="Es un paquete (sale en la sección de paquetes de tu web)" ...${b(f, set, "paquete")} />
-      ${f.paquete && html`<${Area} etiqueta="Qué incluye (una línea por beneficio)" filas=${5} ...${b(f, set, "incluye")} ayuda="Escribe lo que gana el cliente: «Pintura brillante como nueva», no «cera carnauba»." />`}
-      <${Interruptor} etiqueta="Destacado (el que quieres que elijan)" ayuda="Arma 3 paquetes y destaca el del medio. El más caro sirve de ancla para que el del medio se vea conveniente (efecto señuelo, Dan Ariely)." ...${b(f, set, "destacado")} />
-      <${CampoFotos} etiqueta="Foto para la web (opcional)" valor=${f.fotoId ? [f.fotoId] : []} cambiar=${v => set("fotoId", v[v.length - 1] || "")} tipo="marketing" nombre=${"servicio " + f.nombre} max=${1} />
-      <${Interruptor} etiqueta="Activo" valor=${f.estado !== "pausado"} cambiar=${v => set("estado", v ? "activo" : "pausado")} />
+      <${Interruptor} etiqueta="Activo" valor=${f.estado !== "pausado"} cambiar=${v => set("estado", v ? "activo" : "pausado")} ayuda="Si lo apagas, deja de ofrecerse, pero no se borra." />
+      <${MasDatos} titulo="Cómo se ve en tu web" abierto=${!!(f.paquete || f.descripcion)}>
+        <${Interruptor} etiqueta="Es un paquete (sale en la sección de paquetes de tu web)" ...${b(f, set, "paquete")} />
+        ${f.paquete && html`<${Area} etiqueta="Qué incluye (una línea por beneficio)" filas=${5} ...${b(f, set, "incluye")} ayuda="Escribe lo que gana el cliente: «Pintura brillante como nueva», no «cera carnauba»." />`}
+        <${Interruptor} etiqueta="Destacado (el que quieres que elijan)" ayuda="Arma 3 paquetes y destaca el del medio. El más caro sirve de ancla para que el del medio se vea conveniente (efecto señuelo, Dan Ariely)." ...${b(f, set, "destacado")} />
+        <${Area} etiqueta="Descripción para tu web" ...${b(f, set, "descripcion")} placeholder="Qué incluye, en palabras del cliente" />
+        <${CampoFotos} etiqueta="Foto para la web (opcional)" valor=${f.fotoId ? [f.fotoId] : []} cambiar=${v => set("fotoId", v[v.length - 1] || "")} tipo="marketing" nombre=${"servicio " + f.nombre} max=${1} />
+      <//>
+      <${MasDatos} titulo="Pasos del servicio" abierto=${!!String(f.pasosTxt || "").trim()}>
+        <${Area} etiqueta="Pasos del servicio (uno por línea)" filas=${6} ...${b(f, set, "pasosTxt")} ayuda="Se vuelven el checklist de cada orden. Así lo haces igual siempre, y mañana un ayudante también." />
+      <//>
+      <${MasDatos} titulo="Más ajustes (opcional)">
+        <div class="rejilla"><${Selector} etiqueta="Categoría" opciones=${Object.keys(CATEGORIAS_SERVICIO).map(k => ({ v: k, n: CATEGORIAS_SERVICIO[k] }))} ...${b(f, set, "categoria")} />
+          <${Numero} etiqueta="El cliente vuelve cada (días)" decimales=${0} ...${b(f, set, "volver")} /></div>
+        <${Interruptor} etiqueta="Sube de precio según el tamaño" ayuda="SUV +20%, camioneta +30%, van +40%" ...${b(f, set, "porTamano")} />
+        <${Interruptor} etiqueta="Pide adelanto al reservar" ...${b(f, set, "adelanto")} />
+      <//>
     </div><//>`;
 }
 
@@ -234,6 +251,7 @@ function Integraciones() {
   const tareas = p => api("tareasGuardar", Object.assign({ noche: ta.noche, semanal: ta.semanal, frecuente: ta.frecuente, redes: ta.redes }, p)).then(r => { setI(r); aviso("Guardado."); });
   return html`<div class="columnas mitad">
     <div class="panel form"><h3>Avisos al celular (Telegram)</h3>
+      <p class="nota">Una sola vez se crea el bot. Después, cada persona del equipo conecta su Telegram desde su celular. ¿Cambiaste de celular o de cuenta? «Desconectar el mío» y vuelve a conectar.</p>
       ${!t.conectado ? html`
         <p class="tenue">1. En Telegram busca <b>@BotFather</b>, escribe <b>/newbot</b> y ponle un nombre (por ejemplo AUTOCARE Avisos). 2. Te da un código largo: cópialo y pégalo aquí.</p>
         <${Entrada} etiqueta="Código del bot" valor=${tk} cambiar=${setTk} autocapitalize="off" placeholder="7012345678:AAH…" />
@@ -248,7 +266,8 @@ function Integraciones() {
         <${Interruptor} etiqueta="Aviso antes de cada cita y publicaciones programadas" valor=${ta.frecuente} cambiar=${v => tareas({ frecuente: v })} />
         <${Interruptor} etiqueta="Traer seguidores de Instagram y Facebook cada día" valor=${ta.redes} cambiar=${v => tareas({ redes: v })} />`}`}
     </div>
-    <div class="panel form"><h3>Instagram y Facebook</h3>
+    <div class="panel form"><h3>Instagram y Facebook (opcional)</h3>
+      <p class="nota">Solo para traer tus seguidores y publicar solo. Tu usuario de Instagram para los botones de la web se cambia en Negocio, no aquí. Si cambias de cuenta, desconecta y conecta la nueva.</p>
       <p class="nota">Primero crea tu Instagram profesional y tu página de Facebook. El código (token) se saca del panel de Meta para desarrolladores; te guío paso a paso cuando llegues aquí.</p>
       ${i.instagram.conectado ? html`<${AvisoLinea} c="verde" icono="instagram">Instagram @${i.instagram.usuario} conectado.${i.instagram.error ? " Aviso: " + i.instagram.error : ""}<//>`
         : html`<${Entrada} etiqueta="Código de Instagram" valor=${ig} cambiar=${setIg} autocapitalize="off" /><${BotonAccion} accion=${async () => setI(await api("igConectar", { token: ig }))}>Conectar Instagram<//>`}

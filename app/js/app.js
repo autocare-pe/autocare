@@ -34,7 +34,7 @@ const VISTAS = {
   clientes: () => import("./vistas/clientes.js"), ventas: () => import("./vistas/ventas.js"), campanas: () => import("./vistas/campanas.js"),
   contenido: () => import("./vistas/contenido.js"), resultados: () => import("./vistas/resultados.js"), fidelidad: () => import("./vistas/fidelidad.js"),
   finanzas: () => import("./vistas/finanzas.js"), inventario: () => import("./vistas/inventario.js"), activos: () => import("./vistas/activos.js"),
-  tablero: () => import("./vistas/tablero.js"), plan: () => import("./vistas/plan.js"), config: () => import("./vistas/config.js"), ayuda: () => import("./vistas/ayuda.js"), datos: () => import("./vistas/datos.js"), mas: () => import("./vistas/mas.js")
+  tablero: () => import("./vistas/tablero.js"), plan: () => import("./vistas/plan.js"), config: () => import("./vistas/config.js"), ayuda: () => import("./vistas/ayuda.js"), datos: () => import("./vistas/datos.js"), arranque: () => import("./vistas/arranque.js"), mas: () => import("./vistas/mas.js")
 };
 // Enlaces que manda el servidor por Telegram
 const ALIAS = { comercial: "ventas", direccion: "tablero", marketing: "contenido" };
@@ -147,7 +147,7 @@ const marcarVisto = m => { try { localStorage.setItem("autocare.visto." + m, "1"
 function PrimeraVez({ modulo }) {
   const [, rep] = useState(0);
   const g = GUIAS[modulo];
-  if (!g || visto(modulo)) return null;
+  if (!g || modulo === "arranque" || visto(modulo)) return null;   // el paso a paso ya se explica solo
   const listo = () => { marcarVisto(modulo); rep(x => x + 1); };
   return html`<div class="primera-vez"><${Icono} n="circle-help" /><div><b>¿Primera vez en ${g.t}?</b> ${g.para}
     <div class="btns" style="margin-top:8px"><${Boton} chico tipo="primario" onClick=${() => { listo(); abrirGuia(modulo); }}>Ver cómo se usa<//><${Boton} chico tipo="fantasma" onClick=${listo}>Ya entendí<//></div></div></div>`;

@@ -5,7 +5,7 @@ import { html, useState, useMemo } from "../../vendor/preact-htm.js";
 import * as D from "../datos.js";
 import * as N from "../negocio.js";
 import { ir, usarTitulo } from "../app.js";
-import { Boton, Icono, Hoja, Entrada, Area, Selector, Interruptor, Buscador, Chips, Insignia, Vacio, Fila, Tabla, Resumen, Sellos, Bloque, AvisoLinea, aviso, confirmar, menu, useFicha, b } from "../ui.js";
+import { Boton, Icono, Hoja, Entrada, Area, Selector, Interruptor, Buscador, Chips, Insignia, Vacio, Fila, Tabla, Resumen, Sellos, Bloque, AvisoLinea, MasDatos, aviso, confirmar, menu, useFicha, b } from "../ui.js";
 import { FormVehiculoRapido, enviarWa, EstadoBadge } from "../piezas.js";
 import { FilaCita } from "./agenda.js";
 import { hoy, fechaCorta, relativa, soles, nombreDe, telBonito, telNorm, coincide, copiar, n0 } from "../util.js";
@@ -121,15 +121,16 @@ export function FormCliente({ inicial, cerrar, alGuardar }) {
   };
   return html`<${Hoja} titulo=${inicial ? "Editar cliente" : "Nuevo cliente"} cerrar=${cerrar} pie=${html`<${Boton} tipo="fantasma" onClick=${cerrar}>Cancelar<//><${Boton} tipo="primario" onClick=${guardar}>Guardar<//>`}>
     <div class="form">
-      <div class="rejilla"><${Entrada} etiqueta="Nombre" ...${b(f, set, "nombre")} /><${Entrada} etiqueta="Apellido" ...${b(f, set, "apellido")} /></div>
-      <div class="rejilla"><${Entrada} etiqueta="WhatsApp" tipo="tel" inputmode="tel" ...${b(f, set, "tel")} /><${Entrada} etiqueta="Correo" tipo="email" ...${b(f, set, "email")} /></div>
-      <div class="rejilla"><${Entrada} etiqueta="Distrito" ...${b(f, set, "distrito")} /><${Entrada} etiqueta="Cumpleaños" tipo="date" ...${b(f, set, "cumple")} /></div>
+      <div class="rejilla"><${Entrada} etiqueta="Nombre" ...${b(f, set, "nombre")} /><${Entrada} etiqueta="WhatsApp" tipo="tel" inputmode="tel" ...${b(f, set, "tel")} /></div>
+      <div class="rejilla"><${Entrada} etiqueta="Distrito" ...${b(f, set, "distrito")} placeholder="Cayma" /><${Selector} etiqueta="¿Cómo te conoció?" vacio="Elegir" opciones=${CANALES} ...${b(f, set, "canal")} /></div>
       <${Entrada} etiqueta="Dirección" ...${b(f, set, "direccion")} />
-      <${Entrada} etiqueta="Referencia" ...${b(f, set, "referencia")} placeholder="Frente al parque, portón negro" />
-      <${Selector} etiqueta="¿Cómo te conoció?" vacio="Elegir" opciones=${CANALES} ...${b(f, set, "canal")} />
-      <${Area} etiqueta="Preferencias y notas" ...${b(f, set, "notas")} />
-      <div class="rejilla"><${Selector} etiqueta="Documento (para boleta o factura)" vacio="Ninguno" opciones=${["DNI", "RUC", "CE"]} ...${b(f, set, "docTipo")} /><${Entrada} etiqueta="Número" ...${b(f, set, "docNum")} /></div>
-      <${Interruptor} etiqueta="Acepta recibir promociones" ayuda="Ley 29733: solo envía campañas a quien aceptó." ...${b(f, set, "acepta")} />
-      ${inicial && html`<${Interruptor} etiqueta="Cliente activo" valor=${f.estado !== "inactivo"} cambiar=${v => set("estado", v ? "activo" : "inactivo")} />`}
+      <${MasDatos} abierto=${!!(f.apellido || f.email || f.cumple || f.referencia || f.notas || f.docNum)}>
+        <div class="rejilla"><${Entrada} etiqueta="Apellido" ...${b(f, set, "apellido")} /><${Entrada} etiqueta="Correo" tipo="email" ...${b(f, set, "email")} /></div>
+        <div class="rejilla"><${Entrada} etiqueta="Referencia" ...${b(f, set, "referencia")} placeholder="Frente al parque, portón negro" /><${Entrada} etiqueta="Cumpleaños" tipo="date" ...${b(f, set, "cumple")} /></div>
+        <${Area} etiqueta="Preferencias y notas" ...${b(f, set, "notas")} />
+        <div class="rejilla"><${Selector} etiqueta="Documento (para boleta o factura)" vacio="Ninguno" opciones=${["DNI", "RUC", "CE"]} ...${b(f, set, "docTipo")} /><${Entrada} etiqueta="Número" ...${b(f, set, "docNum")} /></div>
+        <${Interruptor} etiqueta="Acepta recibir promociones" ayuda="Ley 29733: solo envía campañas a quien aceptó." ...${b(f, set, "acepta")} />
+        ${inicial && html`<${Interruptor} etiqueta="Cliente activo" valor=${f.estado !== "inactivo"} cambiar=${v => set("estado", v ? "activo" : "inactivo")} />`}
+      <//>
     </div><//>`;
 }

@@ -9,13 +9,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="AUTOCARE">
-<link rel="apple-touch-icon" href="app/icons/icon-180.png">
-<link rel="icon" href="app/icons/icon-192.png">
+<link rel="apple-touch-icon" href="app/icons/icon-180.png?v=2">
+<link rel="icon" type="image/png" sizes="32x32" href="app/icons/favicon-32.png?v=2">
+<link rel="icon" type="image/png" sizes="192x192" href="app/icons/icon-192.png?v=2">
 <link rel="stylesheet" href="assets/web.css">
 <script src="config.js"></script>
 </head>
 <body>
-<header class="cab"><div class="envoltura"><a class="logo" href="./" aria-label="AUTOCARE"><img src="assets/logo-horizontal-claro.svg" alt="AUTOCARE"></a><a class="btn oro chico" href="./?src=portal#paquetes" style="margin-left:auto">Separar mi hora</a></div></header>
+<header class="cab"><div class="envoltura"><a class="logo" href="./" aria-label="AUTOCARE"><img src="assets/logo-chico-claro.svg" alt="AUTOCARE"></a><a class="btn oro chico" href="./?src=portal#paquetes" style="margin-left:auto">Separar mi hora</a></div></header>
 <main class="envoltura" style="max-width:720px;padding:28px 0 80px" id="app"><p class="nota">Cargando tu información…</p></main>
 <script type="module">
 import { api, h, soles, fechaLarga, wa, firma, CFG } from "./assets/web.js";
@@ -82,7 +83,7 @@ function pintar() {
   // 3) tarjeta de sellos
   if (f.activo) {
     const falta = f.cada - f.actuales;
-    out += `<section class="tarjeta-sellos tarjeta" id="sellos"><div class="ts-cab"><img src="assets/logo-horizontal-claro.svg" alt="AUTOCARE"><span>${h([c.nombre, c.apellido].filter(Boolean).join(" "))}</span></div>
+    out += `<section class="tarjeta-sellos tarjeta" id="sellos"><div class="ts-cab"><img src="assets/logo-chico-claro.svg" alt="AUTOCARE"><span>${h([c.nombre, c.apellido].filter(Boolean).join(" "))}</span></div>
       <div class="sellos ts">${Array.from({ length: f.cada }, (_, i) => `<span class="sello ${i < f.actuales ? "si" : ""}">${i < f.actuales ? "✦" : i === f.cada - 1 ? "🎁" : ""}</span>`).join("")}</div>
       <p class="ts-txt">${f.disponibles ? `<b>¡Completaste tu tarjeta!</b> Pide tu regalo en tu próxima cita.` : f.actuales ? `<b>Llevas ${f.actuales} de ${f.cada}.</b> ${falta === 1 ? "¡Te falta solo 1 sello!" : `Te faltan solo ${falta} sellos.`}` : `Con tu primer servicio tu tarjeta llega con sellos de regalo.`}</p>
       <p class="ts-premio">Tu regalo${/ o /.test(f.premio || "") ? " a elegir" : ""}: ${h(String(f.premio || "un servicio gratis").replace(/^\s*tu regalo( a elegir)?\s*:\s*/i, ""))}</p></section>`;
@@ -174,7 +175,8 @@ function conectar() {
 }
 // Sin enlace: pide su número y le llega su tarjeta por WhatsApp. Nunca mostramos datos con solo un número.
 function entrada(error) {
-  const tel = CFG.WHATSAPP || "";
+  let tel = CFG.WHATSAPP || "";
+  api("publico").then(P => { tel = ((P && P.negocio) || {}).tel || tel; }).catch(() => { });   // el número de Configuración → Negocio
   $("#app").innerHTML = `<div class="hola"><h1>Tu tarjeta AUTOCARE</h1><p class="nota">Tus sellos, las fotos de tu auto y tu próxima hora, en un solo lugar.</p></div>
     ${error ? `<div class="aviso rojo" style="margin:16px 0">${h(error)}</div>` : ""}
     <section class="caja tarjeta" style="margin-top:20px" id="caja-pedir"><h2>¿Ya eres cliente?</h2>

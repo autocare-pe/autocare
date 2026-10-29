@@ -42,6 +42,7 @@ const TEMAS = [
     S("5. Al final del día", "Finanzas → Caja del día: revisa que el efectivo cuadre y ciérrala. Mira en Inicio a quién le toca volver mañana."),
     S("Cada lunes (15 minutos)", "Plan y revisión → Revisión semanal: mira tus números, escribe qué salió bien, qué salió mal y una sola cosa que harás distinto. Luego revisa el Tablero.")] },
   { id: "inicio", t: "Primeros pasos (una sola vez)", i: "flag", c: [
+    S("Pon tu negocio en marcha", "Configuración → Negocio → «Paso a paso» (o la tarjeta de Inicio): 8 pasos en orden, solo con lo esencial (negocio, contacto y pagos, redes, precios, horario, avisos, tu socia y una práctica). Puedes saltar cualquiera y todo se cambia después."),
     S("Carga tu configuración inicial", "Con el botón de arriba se cargan tus paquetes, adicionales, plan mensual, productos de Extreme Wash con su costo por uso, equipos, vehículos y la tarjeta de 8 sellos. Después ajusta lo que quieras."),
     S("Revisa tus datos", "Configuración → Negocio: WhatsApp, Yape, zonas y redes. Configuración → Servicios y precios: revisa precios y tiempos. Configuración → Mi web: sube tu portada, antes y después y productos."),
     S("Activa los avisos", "Configuración → Avisos y redes: conecta tu bot de Telegram y activa las tareas automáticas (agenda de mañana, resumen del lunes, aviso antes de cada cita)."),
@@ -52,7 +53,8 @@ const TEMAS = [
     S("Si cambia el servidor", "Abre Apps Script → Config.gs → selecciona todo y pega el código nuevo → guarda → Implementar → Gestionar implementaciones → lápiz → Versión: Nueva versión → Implementar. La dirección /exec no cambia."),
     S("Si cambias un archivo tú mismo", "Sube el número de VERSION en app/sw.js para que los celulares descarguen el cambio.")] },
   { id: "whatsapp", t: "WhatsApp Business (gratis)", i: "message-circle", c: [
-    S("Pásate a WhatsApp Business", "Descarga «WhatsApp Business» en tu iPhone y usa tu número 945 798 876. Pon tu logo, la descripción y el enlace de tu web."),
+    S("Pásate a WhatsApp Business", "Descarga «WhatsApp Business» en tu iPhone y usa el número de tu negocio (el mismo de Configuración → Negocio). Pon tu logo, la descripción y el enlace de tu web."),
+    S("Si cambias de número", "1) En WhatsApp Business: Ajustes → Cuenta → Cambiar número (conservas tus chats y tu perfil). 2) En la app: Configuración → Negocio → WhatsApp del negocio → Guardar. Tu web, tus enlaces, la tarjeta de tus clientes y los botones de WhatsApp se actualizan solos en unos minutos. Lo impreso (QR del polo, stickers, tarjetas) no lleva tu número: no hay que reimprimir."),
     S("Mensajes automáticos", "En Herramientas para la empresa: Mensaje de bienvenida y Mensaje de ausencia. Copia los textos de Campañas → Respuestas rápidas → «Para tu WhatsApp Business»."),
     S("Respuestas rápidas", "En Herramientas → Respuestas rápidas crea atajos: /precios, /zonas, /pago, /reserva. Copia los textos desde la app: se arman con tus precios actuales."),
     S("Etiquetas", "Usa etiquetas como «Nuevo», «Cotizado», «Cliente», «Plan» para ver de un vistazo en qué etapa está cada chat."),
@@ -157,6 +159,7 @@ export default function Ayuda() {
   return html`<header class="pagina-cab"><div><h1>Ayuda</h1><p>Todo lo que necesitas para usar, actualizar y hacer crecer AUTOCARE.</p></div></header>
     ${D.esAdmin() && html`<div style="margin-bottom:18px">${sem ? html`<${AvisoLinea} c="verde" icono="circle-check">Configuración inicial cargada el ${sem.fecha}. Puedes volver a cargarla: solo agrega lo que falte.<//>`
       : html`<${AvisoLinea} c="oro" icono="sparkles" accion=${html`<${Boton} tipo="primario" chico onClick=${cargar}>Cargar ahora<//>`}><b>Empieza aquí:</b> carga tu configuración inicial (paquetes, plan mensual, productos de Extreme Wash, equipos y tarjeta de 8 sellos).<//>`}</div>`}
+    ${D.puede("config", 2) && html`<div style="margin-bottom:18px"><${Fila} icono="flag" colorIcono="oro" titulo="Pon tu negocio en marcha" sub="El paso a paso de la configuración, en orden y solo con lo esencial" href="#/arranque" flecha /></div>`}
     <div class="filtros"><${Buscador} valor=${q} cambiar=${setQ} placeholder="Buscar en la ayuda" /></div>
     ${temas.map(t => html`<section class="bloque"><button class="fila" style="border:1px solid var(--linea);border-radius:16px;background:var(--capa)" onClick=${() => setAbierto(abierto === t.id && !q ? "" : t.id)}>
         <span class="ico oro"><${Icono} n=${t.i} /></span><span class="cuerpo"><span class="t">${t.t}</span></span><span class="der">${abierto === t.id || q ? "−" : "+"}</span></button>

@@ -13,10 +13,10 @@ export function Icono({ n, t, clase, titulo }) {
 }
 export function Logo({ src }) {
   if (src) return html`<span class="marca-logo"><img src=${src} alt="" /></span>`;
-  return html`<span class="marca-logo"><img class="solo-oscuro" src="../assets/marca-clara.svg" alt="AUTOCARE" /><img class="solo-claro" src="../assets/marca.svg" alt="AUTOCARE" /></span>`;
+  return html`<span class="marca-logo"><img class="solo-oscuro" src="../assets/marca-chica-clara.svg" alt="AUTOCARE" /><img class="solo-claro" src="../assets/marca-chica.svg" alt="AUTOCARE" /></span>`;
 }
 export function LogoHorizontal() {
-  return html`<img class="marca-h solo-oscuro" src="../assets/logo-horizontal-claro.svg" alt="AUTOCARE" /><img class="marca-h solo-claro" src="../assets/logo-horizontal.svg" alt="AUTOCARE" />`;
+  return html`<img class="marca-h solo-oscuro" src="../assets/logo-chico-claro.svg" alt="AUTOCARE" /><img class="marca-h solo-claro" src="../assets/logo-chico.svg" alt="AUTOCARE" />`;
 }
 
 // ---------------------------------------------------------------- botones
@@ -88,6 +88,10 @@ export function Selector({ etiqueta, ayuda, error, valor, cambiar, opciones, vac
       ${vacio !== undefined && html`<option value="">${vacio}</option>`}
       ${ops.map(o => html`<option value=${o.v} selected=${String(o.v) === String(valor == null ? "" : valor)}>${o.n}</option>`)}
     </select><//>`;
+}
+/** Lo opcional, plegado: primero lo esencial (Krug: que llenar un formulario no canse) */
+export function MasDatos({ titulo = "Más datos (opcional)", abierto, children }) {
+  return html`<details class="mas-datos" open=${!!abierto}><summary><span>${titulo}</span><${Icono} n="chevron-down" /></summary><div class="form">${children}</div></details>`;
 }
 export function Interruptor({ etiqueta, ayuda, valor, cambiar, disabled }) {
   ayuda = ayudaDe(etiqueta, ayuda);
