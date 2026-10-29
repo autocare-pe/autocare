@@ -109,7 +109,8 @@ function Detalle({ id }) {
   };
   return html`
     <div class="ficha-cab">
-      <div><h1>${o.numero || "Orden nueva"} · ${o._cliente}</h1><p class="tenue">${[o._vehiculo, N.tamanoDe(o.tamano).n, fechaCorta(o.fecha)].filter(Boolean).join(" · ")}</p></div>
+      <div><h1>${o.numero || "Orden nueva"} · ${o._cliente}</h1><p class="tenue">${[o._vehiculo, N.tamanoDe(o.tamano).n, fechaCorta(o.fecha)].filter(Boolean).join(" · ")}</p>
+        ${cli && (N.gustosTexto(cli) || cli.notas) && html`<p class="nota" style="margin-top:6px;max-width:640px">💡 ${[N.gustosTexto(cli), cli.notas].filter(Boolean).join(" · ")}</p>`}</div>
       <div class="acciones">
         <${EstadoBadge} ent="ordenes" v=${o.estado} />
         ${cli && html`<${Boton} icono="message-circle" onClick=${() => enviarWa(cli.tel, "")}>WhatsApp<//>`}
@@ -249,9 +250,11 @@ function Cierre({ o, g, cli, puede }) {
       <//>
       ${fid && fid.activo && html`<${Bloque} titulo="Tarjeta de sellos"><div class="panel">
         <${Sellos} actuales=${fid.actuales} cada=${fid.cada} />
-        <p style="margin:12px 0">${fid.disponibles ? html`<b>¡Tiene ${fid.disponibles} premio disponible!</b> ${fid.premio}. Para usarlo, pon el tipo de cobro en «Premio de fidelidad» y toca Canjear.` : fid.sellos ? `${fid.sellos} de ${fid.cada} sellos. Le faltan ${fid.cada - fid.sellos} para su ${fid.premio || "premio"}.` : `Aún no tiene sellos. Al sumar el primero recibe ${fid.regalo} de regalo: se siente más cerca del premio y vuelve antes.`}</p>
+        <p style="margin:12px 0">${fid.disponibles ? html`<b>¡Tiene ${fid.disponibles} premio disponible!</b> ${fid.premio}. Para usarlo, pon el tipo de cobro en «Premio de fidelidad» y toca Canjear.` : fid.sellos ? `${fid.sellos} de ${fid.cada} sellos. Le faltan ${fid.cada - fid.sellos} para su regalo: ${N.premioCorto(fid.premio)}.` : `Aún no tiene sellos. Al sumar el primero recibe ${fid.regalo} de regalo: se siente más cerca del premio y vuelve antes.`}</p>
         <div class="btns">${o.sello ? html`<span class="nota">✓ Ya sumaste el sello de esta orden</span>` : puede && (!o.cobro || o.cobro === "normal") && html`<${Boton} tipo="primario" chico icono="sparkles" onClick=${() => { const r = N.sumarSello(cli, o.id); aviso(r.sumados > 1 ? `Sumaste ${r.sumados} sellos (incluye el regalo de bienvenida).` : "Sello sumado."); }}>${fid.sellos ? "Sumar sello" : `Sumar primer sello (+${fid.regalo})`}<//>`}
-          ${fid.disponibles > 0 && puede && html`<${Boton} chico icono="gift" onClick=${() => { N.canjearPremio(cli); g({ cobro: "premio" }); aviso("Premio canjeado. La tarjeta vuelve a empezar."); }}>Canjear premio<//>`}</div>
+          ${fid.disponibles > 0 && puede && html`<${Boton} chico icono="gift" onClick=${() => { N.canjearPremio(cli); g({ cobro: "premio" }); aviso("Premio canjeado. La tarjeta vuelve a empezar."); }}>Canjear premio<//>`}
+          <${Boton} chico icono="qr-code" onClick=${() => import("../app.js").then(m => m.abrir(() => import("./acceso.js"), "AccesoCliente", { id: cli.id }))}>Darle su tarjeta<//></div>
+        <p class="nota" style="margin-top:8px">Dale su tarjeta ahora, mientras ve su auto terminado: el final es lo que más recuerda.</p>
       </div><//>`}
     </div>
     <div>

@@ -155,6 +155,8 @@ export function perfiles() {
 export const perfil = id => perfiles().get(id) || { visitas: 0, gasto: 0, seg: "sin" };
 // Tarjeta de sellos manual: tú pones cada sello desde la app. El primer sello llega con regalo (efecto de progreso
 // dotado, Nunes y Drèze 2006: con 2 sellos de regalo, 34% completó la tarjeta frente a 19% sin regalo).
+/** El premio sin el prefijo «Tu regalo a elegir:» para poder usarlo dentro de una frase */
+export const premioCorto = p => String(p || "un servicio gratis").replace(/^\s*tu regalo( a elegir)?\s*:\s*/i, "");
 export function reglasFidelidad() { return Object.assign({ activo: true, cada: 8, regalo: 2, premio: "Lavado completo", bono: 1, manual: true }, D.ajuste("fidelidad", {})); }
 export function fidelidad(cli) {
   const F = reglasFidelidad(), cada = Math.max(2, Math.round(n0(F.cada) || 8));
@@ -188,11 +190,20 @@ export function asegurarPortal(c) {
   if (!c || (c.token && c.codigo)) return c;
   return D.cambiar("clientes", c.id, { token: c.token || llave(24), codigo: c.codigo || codigoReferido(c.nombre) });
 }
-export function urlPortal(c) {
-  const web = (negocio().web || location.origin + location.pathname.replace(/\/app\/.*$/, "")).replace(/\/+$/, "");
+/** Lo que el cliente contó en su tarjeta (Danny Meyer: colecciona los puntos y conéctalos) */
+export function gustosTexto(c) {
+  const g = (c && c.gustos) || {};
+  return [g.importa && "Le importa: " + g.importa.toLowerCase(), g.aroma && "Aroma: " + g.aroma.toLowerCase(), g.mascota === "Sí" && "Viaja con mascota",
+    g.nota && "«" + g.nota + "»"].filter(Boolean).join(" · ");
+}
+/** Dirección de tu web (la de Configuración → Negocio, o la deduce de donde está abierta la app) */
+export function webBase() { return (negocio().web || location.origin + location.pathname.replace(/\/app\/.*$/, "")).replace(/\/+$/, ""); }
+/** Enlace personal del cliente. src = por dónde entra (qr, nfc, tarjeta, sticker, wa…) para medir cuál funciona */
+export function urlPortal(c, src) {
+  const web = webBase();
   if (!web || !c) return "";
   c = asegurarPortal(c);
-  return web + "/cliente.html#t=" + c.token;
+  return web + "/cliente.html" + (src ? "?src=" + src : "") + "#t=" + c.token;
 }
 
 // ---------------------------------------------------------------- mensajes de WhatsApp

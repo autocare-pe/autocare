@@ -32,7 +32,7 @@ function SellosVista() {
         <div style="margin-top:10px"><${Boton} chico icono="settings" href="#/config/negocio">Cambiar reglas<//></div></div><//>
       ${cerca.length > 0 && html`<${Bloque} titulo="Están a punto del premio" sub="Avísales: la meta cercana motiva a volver (efecto de gradiente de meta, Kivetz)">
         <div class="grupo">${cerca.map(x => html`<${Fila} avatar=${nombreDe(x.c)} titulo=${nombreDe(x.c)} sub=${`${x.sellos} de ${x.cada} sellos`} href=${"#/clientes/" + x.c.id}
-          der=${html`<${Boton} chico icono="message-circle" onClick=${e => { e.preventDefault(); enviarWa(x.c.tel, `Hola ${x.c.nombre}, ¡te falta${x.cada - x.sellos === 1 ? " solo 1 sello" : "n solo " + (x.cada - x.sellos) + " sellos"} para tu regalo en ${N.nombreNegocio()}! ${F.premio}. ¿Te separo una hora esta semana?`); }}>Avisar<//>`} />`)}</div><//>`}
+          der=${html`<${Boton} chico icono="message-circle" onClick=${e => { e.preventDefault(); enviarWa(x.c.tel, `Hola ${x.c.nombre}, ¡te falta${x.cada - x.sellos === 1 ? " solo 1 sello" : "n solo " + (x.cada - x.sellos) + " sellos"} para tu regalo en ${N.nombreNegocio()}! Tu regalo: ${N.premioCorto(F.premio)}. ¿Te separo una hora esta semana?`); }}>Avisar<//>`} />`)}</div><//>`}
     </div><div>
       ${listos.length > 0 && html`<${Bloque} titulo="Tienen premio para canjear"><div class="grupo">${listos.map(x => html`<${Fila} icono="gift" colorIcono="oro" titulo=${nombreDe(x.c)} sub=${x.premio} href=${"#/clientes/" + x.c.id} flecha />`)}</div><//>`}
       <${Bloque} titulo="Los que más te recomiendan" sub="Agradéceles: la reciprocidad trae más recomendaciones (Cialdini)">

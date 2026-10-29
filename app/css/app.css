@@ -678,3 +678,17 @@ button.kpi:hover { border-color: var(--linea-2); }
   .hoja-cuerpo { overflow: visible; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+/* ---------- tarjeta del cliente: QR, NFC, piezas para imprimir ---------- */
+.qr-acceso { display: flex; gap: 18px; align-items: center; }
+.qr-acceso .qr { flex: none; width: 172px; height: 172px; background: #fff; border-radius: 16px; padding: 4px; }
+.qr-acceso .qr svg { width: 100%; height: 100%; display: block; }
+.qr-acceso p { color: var(--texto-2); font-size: 14.5px; }
+.qr-acceso p b { color: var(--texto); }
+@media (max-width: 560px) {
+  .qr-acceso { flex-direction: column; text-align: center; }
+  .qr-acceso .qr { width: min(250px, 78vw); height: auto; aspect-ratio: 1; }
+}
+.pieza-vista { margin-top: 16px; }
+.pieza-vista img { width: 100%; display: block; border-radius: 14px; border: 1px solid var(--linea); background: #000; }
+.pasos-nfc { padding-left: 20px; display: grid; gap: 6px; margin: 2px 0 12px; }

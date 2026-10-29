@@ -3,10 +3,26 @@ import { html, useState } from "../../vendor/preact-htm.js";
 import * as D from "../datos.js";
 import * as N from "../negocio.js";
 import { usarTitulo } from "../app.js";
-import { Boton, Icono, Bloque, AvisoLinea, Fila, Buscador, aviso, confirmar } from "../ui.js";
+import { Boton, Icono, Bloque, AvisoLinea, Fila, Buscador, Dinero, Numero, aviso, confirmar } from "../ui.js";
 import { coincide, copiar } from "../util.js";
 
 const S = (t, ...p) => ({ t, p });
+const C = (t, comp) => ({ t, p: [], comp });
+
+// Kevin Kelly (1,000 True Fans) y Paul Jarvis (Company of One): no necesitas miles, necesitas que vuelvan
+function Fans() {
+  D.useDatos();
+  const ots = D.lista("ordenes").filter(o => o.estado === "entregado" && Number(o.total) > 0);
+  const ticketReal = ots.length ? Math.round(ots.reduce((a, o) => a + Number(o.total), 0) / ots.length) : 79;
+  const fieles = D.lista("clientes").filter(c => (N.perfil(c.id).visitas || 0) >= 2).length;
+  const [meta, setMeta] = useState(3000), [ticket, setTicket] = useState(ticketReal), [cada, setCada] = useState(3);
+  const necesitas = Math.ceil((Number(meta) || 0) / Math.max(1, (Number(ticket) || 1) * (4.33 / Math.max(1, Number(cada) || 1))));
+  return html`<div class="panel" style="margin:6px 0 2px;width:100%">
+    <div class="rejilla"><${Dinero} etiqueta="Quiero vender al mes" valor=${meta} cambiar=${setMeta} decimales=${0} /><${Dinero} etiqueta="Ticket promedio" valor=${ticket} cambiar=${setTicket} decimales=${0} />
+      <${Numero} etiqueta="Vuelve cada" valor=${cada} cambiar=${setCada} decimales=${0} sufijo="semanas" /></div>
+    <p style="margin-top:12px;font-size:17px">Necesitas unos <b style="color:var(--oro-texto)">${necesitas} clientes fieles</b>. Hoy tienes ${fieles} que ya volvieron al menos una vez.</p>
+    <p class="nota" style="margin-top:6px">No necesitas miles de seguidores: necesitas que esos clientes vuelvan. Para eso están la tarjeta, los recordatorios y el plan mensual.</p></div>`;
+}
 const TEMAS = [
   { id: "dia", t: "Tu día a día, paso a paso", i: "sun", c: [
     S("1. Llega una consulta", "Si llega por la web, te avisa Telegram y aparece en Ventas → Embudo. Si llega por WhatsApp o Instagram, anótala con «+ → Nueva consulta». Respóndela en menos de una hora con una respuesta rápida (Ventas → la consulta → Responder)."),
@@ -52,6 +68,49 @@ const TEMAS = [
     S("Dónde están", "Todo vive en tu hoja de Google «AUTOCARE»; las fotos, en tu Drive (carpeta AUTOCARE). Puedes abrir la hoja desde Configuración → Mi cuenta."),
     S("Respaldo", "Activa el resumen del lunes: guarda una copia en tu Drive cada semana. También puedes descargar un respaldo en Mi cuenta."),
     S("Sin señal", "La app guarda en tu celular y envía todo cuando vuelve la señal. El punto de arriba se pone verde cuando todo está guardado.")] },
+  { id: "tarjeta", t: "Cómo entra el cliente a su tarjeta", i: "qr-code", c: [
+    S("Al entregar el auto", "En la orden, en «Listo», toca «Darle su tarjeta»: aparece su QR en tu pantalla y lo escanea con la cámara, como cuando paga con Yape. Se abre su tarjeta con sus sellos, sus fotos de antes y después y el botón para separar su próxima hora."),
+    S("Por WhatsApp o enlace", "En la misma hoja: «Enviarle su tarjeta por WhatsApp» (mensaje listo) o «Copiar su enlace». También sale en los mensajes de «Tu auto está listo» y en los recordatorios."),
+    S("Tarjeta física y sticker", "«Tarjeta para imprimir» crea una imagen tamaño tarjeta de crédito con su nombre y su QR; «Sticker para su auto» crea uno de 5 × 5 cm con la fecha de su próximo lavado. Toca «Guardar o enviar a la imprenta» y mándala por WhatsApp a tu imprenta."),
+    S("Con NFC (acercar el celular)", "Compra stickers o tarjetas NFC NTAG213 o NTAG215. En la hoja toca «Grabarla en una tarjeta o sticker NFC»: en iPhone se usa la app gratis NFC Tools (Escribir → Añadir un registro → URL → pega el enlace → Escribir). Funciona con iPhone XS o más nuevo y casi todos los Android."),
+    S("Si pierde su enlace", "En tu web toca «Mi tarjeta» y escribe su número: te llega un aviso por Telegram con un botón para enviárselo por WhatsApp, y queda un seguimiento en la app. Por seguridad nunca se muestran datos con solo un número."),
+    S("Si perdió su tarjeta o la compartió", "En su ficha → «Darle su tarjeta» → «Cambiar su enlace». El anterior deja de funcionar; dale el nuevo."),
+    S("Ícono en su celular", "Cuando abre su tarjeta, queda recordada en ese celular. En iPhone: Compartir → «Agregar a pantalla de inicio» y tiene el ícono de AUTOCARE."),
+    S("QR de tu negocio", "Configuración → Mi web → «Crear QR de mi negocio»: uno para la ventana de tu auto, uno para volantes (con oferta y fecha) y uno para pedir reseñas en Google. Cada uno lleva su origen y lo ves en Resultados → De dónde vienen.")] },
+  { id: "expertos", t: "Consejos de expertos para hacer crecer AUTOCARE", i: "graduation-cap", c: [
+    S("Cómo usar esta sección", "Está ordenada como el «plan de marketing de una página» de Allan Dib (The 1-Page Marketing Plan): ANTES (que te encuentren), DURANTE (que te elijan) y DESPUÉS (que vuelvan y te recomienden). La mayor ganancia de un negocio de servicio está en el DESPUÉS. Aplica una idea por semana."),
+    S("ANTES · Seth Godin — This Is Marketing", "Idea: elige el «mercado mínimo viable», a quién sirves y a quién no.", "En AUTOCARE: profesionales de Cayma, Yanahuara y Cerro Colorado, con auto nuevo o SUV, que valoran su tiempo; y condominios. Escribe cada post pensando en esa persona."),
+    S("ANTES · Byron Sharp — How Brands Grow", "Idea: crece la marca que es fácil de recordar y fácil de comprar, con señales distintivas que se repiten siempre.", "En AUTOCARE: siempre el mismo verde lima con negro y el mismo logo. QR en tu auto, enlaces en tu bio y reserva en 1 minuto."),
+    S("ANTES · Jay Conrad Levinson — Guerrilla Marketing", "Idea: constancia e ingenio valen más que presupuesto.", "En AUTOCARE: el QR en la ventana de tu auto, volantes en condominios y alianzas con edificios, gimnasios u oficinas cercanas."),
+    S("ANTES · Dan Kennedy — No B.S. Direct Marketing", "Idea: toda pieza debe tener una oferta clara, una fecha límite y una forma de medir quién respondió.", "En AUTOCARE: el QR de volantes acepta oferta y fecha, y cada QR lleva su origen. En Resultados → De dónde vienen ves cuál funcionó."),
+    S("ANTES · Donald Miller — StoryBrand", "Idea: el cliente es el héroe; tú eres el guía con un plan simple.", "En AUTOCARE: «Tu auto como nuevo, sin moverte de casa», 3 pasos claros y un solo botón principal: «Separar mi hora»."),
+    S("ANTES · David Ogilvy — Confessions of an Advertising Man", "Idea: el titular lo leen 5 veces más personas que el resto. Sé específico.", "En AUTOCARE: titula con el resultado concreto («Interior sin pelos de mascota en 2 horas»), no con el servicio («Lavado de interiores»)."),
+    S("ANTES · Jonah Berger — Contagious", "Idea: lo que se ve se imita, y lo útil se comparte.", "En AUTOCARE: el sticker visible en el auto, los antes y después, y tips prácticos («cómo cuidar tu pintura del sol de Arequipa»)."),
+    S("ANTES · Gary Vaynerchuk — Jab, Jab, Jab, Right Hook", "Idea: da valor varias veces antes de pedir.", "En AUTOCARE: 3 publicaciones útiles por cada publicación de venta (Marketing → Contenido)."),
+    S("DURANTE · James Oldroyd — Harvard Business Review (2011)", "Idea: quien responde en la primera hora tiene casi 7 veces más probabilidad de concretar que quien tarda más.", "En AUTOCARE: Telegram te avisa cada consulta; responde con una respuesta rápida desde Ventas."),
+    S("DURANTE · Chris Voss — Never Split the Difference", "Idea: nombra lo que siente la otra persona («parece que…»), pregunta con «qué» o «cómo», y haz preguntas fáciles de responder con «no».", "En AUTOCARE: nuevas respuestas rápidas «Lo voy a pensar», «¿Me haces descuento?» y «Otro lo hace más barato» (Campañas → Respuestas rápidas)."),
+    S("DURANTE · Alex Hormozi — $100M Offers", "Idea: el valor sube con el resultado soñado y la seguridad de lograrlo, y baja con el tiempo y el esfuerzo que cuesta. No bajes el precio: sube el valor.", "En AUTOCARE: a domicilio (cero esfuerzo), garantía de repaso y fotos (seguridad) y la próxima hora libre visible (cero espera)."),
+    S("DURANTE · Dan Ariely — Predictably Irrational", "Idea: el efecto señuelo; una opción de referencia hace que la del medio parezca la mejor compra.", "En AUTOCARE: 3 paquetes, con Brillo Total destacado al centro."),
+    S("DURANTE · Robert Cialdini — Influence", "Idea: prueba social, autoridad, reciprocidad y compromiso.", "En AUTOCARE: reseñas reales, marcas de tus productos, un detalle de regalo y pedir que confirme su cita (compromiso)."),
+    S("DURANTE · Clayton Christensen — Competing Against Luck", "Idea: la gente «contrata» un servicio para lograr un avance en su vida. No compra un lavado: compra orgullo, higiene o vender mejor su auto.", "En AUTOCARE: en su tarjeta el cliente marca qué le importa. Lo ves en su ficha y en la orden: háblale de eso."),
+    S("DESPUÉS · Joey Coleman — Never Lose a Customer Again", "Idea: entre 20% y 70% de los clientes nuevos se pierden en los primeros 100 días. Los que pasan del día 101 se quedan años.", "En AUTOCARE: día 0, su tarjeta y sus fotos. Día 2: «¿quedó como esperabas?» y la reseña. Día 21: «le toca». Pide referidos solo después de un buen resultado."),
+    S("DESPUÉS · Chip y Dan Heath — The Power of Moments, y Daniel Kahneman (regla pico-final)", "Idea: de una experiencia se recuerdan el mejor momento y el final.", "En AUTOCARE: haz de la entrega un ritual. Muéstrale el antes y después en tu celular, dale su tarjeta y deja un detalle."),
+    S("DESPUÉS · Will Guidara — Unreasonable Hospitality", "Idea: gestos personales e inesperados («leyendas»). Regla 95/5: controla el 95% de tus gastos al centavo y usa el 5% con generosidad en detalles.", "En AUTOCARE: si en el auto hay un juguete de su hijo, déjalo limpio en el asiento con una nota. Separa un monto chico al mes para estos detalles."),
+    S("DESPUÉS · Danny Meyer — Setting the Table", "Idea: «colecciona los puntos y conéctalos»: recuerda lo que le importa a cada cliente.", "En AUTOCARE: aroma, mascota, dónde deja las llaves. Él lo cuenta en su tarjeta y tú lo ves en su ficha y en cada orden, sin que lo repita."),
+    S("DESPUÉS · Nir Eyal — Hooked", "Idea: aviso → acción fácil → recompensa → inversión. Mientras más pone el cliente de su parte, más vuelve.", "En AUTOCARE: recordatorio (aviso), separar en 1 minuto (acción), antes y después y sellos (recompensa), sus gustos guardados (inversión)."),
+    S("DESPUÉS · Nunes y Drèze (2006) y Kivetz (2006)", "Idea: el progreso de regalo y la meta cercana aceleran la vuelta. Con 2 sellos de regalo, 34% completó la tarjeta frente a 19% sin regalo.", "En AUTOCARE: tarjeta de 8 con 2 sellos de regalo en el primer servicio, y el mensaje «te faltan solo…»."),
+    S("DESPUÉS · Jay Baer — Talk Triggers", "Idea: un detalle distinto que haces siempre y que la gente cuenta sola. En los hoteles DoubleTree, cerca de 1 de cada 3 huéspedes mencionó por su cuenta la galleta de bienvenida.", "En AUTOCARE: elige tu detalle (por ejemplo, un ambientador con tu logo y su tarjeta NFC) y hazlo en cada entrega."),
+    S("DESPUÉS · John Jantsch — Duct Tape Marketing y The Referral Engine", "Idea: el camino del cliente es conocer, gustar, confiar, probar, comprar, repetir y recomendar. Haz que recomendar sea fácil.", "En AUTOCARE: código y QR de referido en su tarjeta, y un sello por cada amigo que llega."),
+    S("DESPUÉS · Fred Reichheld — The Ultimate Question (NPS)", "Idea: retener 5% más de clientes puede subir las utilidades de 25% a 85% (Reichheld y Sasser, HBR 1990).", "En AUTOCARE: pide la nota de 0 a 10 al terminar y llama ese mismo día a quien te dé de 0 a 6."),
+    C("DESPUÉS · Kevin Kelly — 1,000 True Fans, y Paul Jarvis — Company of One", Fans),
+    S("OPERACIÓN · Michael Gerber — The E-Myth Revisited", "Idea: trabaja EN tu negocio, no solo DENTRO de él. Documenta todo como si fueras a franquiciarlo.", "En AUTOCARE: los pasos y la receta de cada servicio (Configuración → Servicios), para que un ayudante lo haga igual que tú."),
+    S("OPERACIÓN · Carl Sewell — Customers for Life (concesionario de autos)", "Idea: sistemas, no solo sonrisas. Mide las 3 cosas que más le importan al cliente y di que sí a lo razonable. Un favor que te gana un cliente de por vida vale más que un anuncio.", "En AUTOCARE: mide si cobraste lo cotizado, si llegaste a tiempo y si tuviste que repetir algo. Cotiza con un pequeño margen y cumple de más."),
+    S("OPERACIÓN · Atul Gawande — The Checklist Manifesto", "Idea: una lista corta evita errores tontos, incluso a los expertos.", "En AUTOCARE: la lista de control de calidad antes de entregar cada auto."),
+    S("OPERACIÓN · Sistema de Producción Toyota (5S y kaizen)", "Idea: orden, limpieza y pequeñas mejoras todos los días.", "En AUTOCARE: cada producto y equipo en su lugar; repón con «Por comprar» antes de que se acabe."),
+    S("DINERO · Mike Michalowicz — Profit First", "Idea: separa tu ganancia primero, no al final.", "En AUTOCARE: Finanzas → Reparto: cada sol que cobras se divide en ganancia, impuestos, tu sueldo y gastos."),
+    S("DINERO · Eliyahu Goldratt — La Meta", "Idea: el cuello de botella manda. En tu caso son tus horas.", "En AUTOCARE: Finanzas muestra tu ganancia por hora; súbela antes de buscar más clientes."),
+    S("HÁBITOS · BJ Fogg — Tiny Habits, y James Clear — Atomic Habits", "Idea: hábitos pequeños, fáciles y con un aviso visible.", "En AUTOCARE: tu revisión de 15 minutos cada lunes. Para tus clientes: QR y NFC para entrar sin escribir nada."),
+    S("HÁBITOS · Eric Ries — The Lean Startup", "Idea: construir, medir, aprender. Prueba algo pequeño, mídelo y quédate con lo que funciona.", "En AUTOCARE: prueba una idea al mes (un volante, una oferta, un tipo de reel) y revisa su resultado en Resultados.")] },
   { id: "faq", t: "Preguntas frecuentes", i: "circle-help", c: [
     S("Olvidé mi clave", "En Apps Script ejecuta «reiniciarAcceso», copia el código y úsalo en la pantalla de entrada → «Olvidé mi clave»."),
     S("No se guarda / punto rojo", "Toca el punto para reintentar. Si sigue, revisa tu internet o que el servidor esté publicado para «Cualquier usuario»."),
@@ -76,7 +135,7 @@ export default function Ayuda() {
     <div class="filtros"><${Buscador} valor=${q} cambiar=${setQ} placeholder="Buscar en la ayuda" /></div>
     ${temas.map(t => html`<section class="bloque"><button class="fila" style="border:1px solid var(--linea);border-radius:16px;background:var(--capa)" onClick=${() => setAbierto(abierto === t.id && !q ? "" : t.id)}>
         <span class="ico oro"><${Icono} n=${t.i} /></span><span class="cuerpo"><span class="t">${t.t}</span></span><span class="der">${abierto === t.id || q ? "−" : "+"}</span></button>
-      ${(abierto === t.id || q) && html`<div class="grupo" style="margin-top:8px">${t.c.map(x => html`<div class="fila" style="align-items:flex-start"><span class="cuerpo"><span class="t" style="white-space:normal">${x.t}</span><span class="s multi" style="margin-top:4px;line-height:1.5">${x.p.join(" ")}</span></span></div>`)}</div>`}
+      ${(abierto === t.id || q) && html`<div class="grupo" style="margin-top:8px">${t.c.map(x => html`<div class="fila" style="align-items:flex-start"><span class="cuerpo"><span class="t" style="white-space:normal">${x.t}</span>${x.p.map(y => html`<span class="s multi" style="display:block;margin-top:4px;line-height:1.5">${y}</span>`)}${x.comp && html`<${x.comp} />`}</span></div>`)}</div>`}
     </section>`)}
     ${D.esAdmin() && sem && html`<div style="margin-top:10px"><${Boton} tipo="fantasma" icono="rotate-ccw" onClick=${cargar}>Volver a cargar lo que falte de la configuración inicial<//></div>`}`;
 }

@@ -3,61 +3,127 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mi cuenta · AUTOCARE</title>
+<title>Mi AUTOCARE</title>
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AUTOCARE">
+<link rel="apple-touch-icon" href="app/icons/icon-180.png">
 <link rel="icon" href="app/icons/icon-192.png">
 <link rel="stylesheet" href="assets/web.css">
 <script src="config.js"></script>
 </head>
 <body>
-<header class="cab"><div class="envoltura"><a class="logo" href="./" aria-label="AUTOCARE"><img src="assets/logo-horizontal-claro.svg" alt="AUTOCARE"></a><a class="btn oro chico" href="./#paquetes" style="margin-left:auto">Separar mi próxima hora</a></div></header>
+<header class="cab"><div class="envoltura"><a class="logo" href="./" aria-label="AUTOCARE"><img src="assets/logo-horizontal-claro.svg" alt="AUTOCARE"></a><a class="btn oro chico" href="./?src=portal#paquetes" style="margin-left:auto">Separar mi hora</a></div></header>
 <main class="envoltura" style="max-width:720px;padding:28px 0 80px" id="app"><p class="nota">Cargando tu información…</p></main>
 <script type="module">
-import { api, h, soles, fechaLarga, wa, firma } from "./assets/web.js";
+import { api, h, soles, fechaLarga, wa, firma, CFG } from "./assets/web.js";
 const $ = s => document.querySelector(s);
-const t = (location.hash.match(/t=([\w-]+)/) || [])[1] || "";
-let D = null;
+// La tarjeta se recuerda en este celular: la próxima vez entra directo (y sirve como ícono en su pantalla de inicio)
+const LS = "autocare_tarjeta";
+const recordada = () => { try { return localStorage.getItem(LS) || ""; } catch (e) { return ""; } };
+const recordar = v => { try { v ? localStorage.setItem(LS, v) : localStorage.removeItem(LS); } catch (e) { } };
+let t = (location.hash.match(/t=([\w-]+)/) || [])[1] || recordada();
+const src = new URLSearchParams(location.search).get("src") || "";
+try { if (!sessionStorage.getItem("vp")) { sessionStorage.setItem("vp", "1"); api("visita", { pagina: "portal", fuente: src || "portal" }).catch(() => { }); } } catch (e) { }
+// los atajos bajan a su sección sin borrar la llave del enlace
+document.addEventListener("click", e => {
+  const a = e.target.closest && e.target.closest('a[href^="#"]');
+  if (!a || a.getAttribute("href").startsWith("#t=")) return;
+  const destino = document.querySelector(a.getAttribute("href"));
+  if (destino) { e.preventDefault(); destino.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); }
+});
+let D = null, PUB = null;
 const accion = async (accion, d = {}) => {
   try { await api("portalAccion", Object.assign({ t, accion }, d)); await cargar(); window.scrollTo({ top: 0, behavior: "smooth" }); }
   catch (e) { alerta(e.message); }
 };
 function alerta(m) { const a = $("#alerta"); if (a) { a.textContent = m; a.classList.remove("oculto"); a.scrollIntoView({ block: "center" }); } }
 
+function urlVideo(u) {
+  u = String(u || "").trim(); let m;
+  if ((m = u.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{11})/))) return `https://www.youtube-nocookie.com/embed/${m[1]}`;
+  if ((m = u.match(/instagram\.com\/(?:reel|reels|p)\/([\w-]+)/))) return `https://www.instagram.com/reel/${m[1]}/embed`;
+  if ((m = u.match(/tiktok\.com\/.*video\/(\d+)/))) return `https://www.tiktok.com/embed/v2/${m[1]}`;
+  return "";
+}
+const comparador = (a, d) => `<div class="comparar"><img src="${h(a)}" alt="Antes" loading="lazy"><img class="despues" src="${h(d)}" alt="Después" loading="lazy"><span class="et" style="left:10px">Antes</span><span class="et" style="right:10px">Después</span><span class="barra-c"></span><input type="range" min="0" max="100" value="50" aria-label="Comparar antes y después"></div>`;
 function pintar() {
-  const n = D.negocio, c = D.cliente, f = D.fidelidad;
-  const caja = (titulo, cuerpo) => `<section class="caja tarjeta"><h2>${titulo}</h2>${cuerpo}</section>`;
-  let out = `<h1 style="font-stretch:118%;font-weight:780;font-size:32px;line-height:1.1;margin-bottom:6px">Hola, ${h(c.nombre)}</h1><p class="nota" style="margin-bottom:22px">Tu espacio personal en ${h(n.nombre)}.</p><div id="alerta" class="aviso rojo oculto" style="margin-bottom:14px"></div>`;
+  const n = D.negocio, c = D.cliente, f = D.fidelidad, P = PUB || {};
+  const caja = (titulo, cuerpo, id = "") => `<section class="caja tarjeta" ${id ? `id="${id}"` : ""}><h2>${titulo}</h2>${cuerpo}</section>`;
+  const reservar = "./?src=portal#paquetes";
+  const hoyISO = new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
+  const ult = D.historial[0], dias = ult ? Math.round((Date.parse(hoyISO) - Date.parse(ult.fecha)) / 86400000) : null;
+  const vehs = D.vehiculos.map(v => [v.marca, v.modelo].filter(Boolean).join(" ") || v.placa).filter(Boolean);
+  let out = `<div class="hola"><h1>Hola, ${h(c.nombre)}</h1><p class="nota">${vehs.length ? "Tu " + h(vehs.join(" y tu ")) + " en buenas manos." : "Tu espacio personal en " + h(n.nombre) + "."}</p>
+    <nav class="atajos"><a href="#sellos">Mis sellos</a>${D.historial.length ? `<a href="#mi-auto">Mi auto</a>` : ""}<a href="#recomendar">Recomendar</a><a href="#precios">Precios</a></nav></div>
+    <div id="alerta" class="aviso rojo oculto" style="margin-bottom:14px"></div>`;
+  // 1) lo que necesita tu respuesta
   D.recepciones.forEach(r => out += caja("Revisa y firma la llegada de tu auto", `<p class="nota">${h(r.numero || "")} · ${h(r.vehiculo)} · ${fechaLarga(r.fecha)}</p>
-    ${r.items.length ? r.items.map(i => `<div class="par"><span>${h(i.zona)}</span><b>${h(({ rayon: "Rayón", abolladura: "Abolladura", mancha: "Mancha", rotura: "Rotura o falta pieza", otro: "Otro" })[i.estado] || i.estado)}${i.nota ? ": " + h(i.nota) : ""}</b></div>`).join("") : `<p style="margin:10px 0">Sin observaciones: el auto llegó en buen estado.</p>`}
+    ${r.items.length ? r.items.map(i => `<div class="par"><span>${h(i.zona)}</span><b>${h(({ rayon: "Rayón", abolladura: "Abolladura", mancha: "Mancha", rotura: "Rotura o falta pieza", otro: "Otro" })[i.estado] || i.estado)}${i.nota ? ": " + h(i.nota) : ""}</b></div>`).join("") : `<p style="margin:10px 0">Sin observaciones: tu auto llegó en buen estado.</p>`}
     ${r.objetos ? `<div class="par"><span>Objetos en el auto</span><b>${h(r.objetos)}</b></div>` : ""}${r.obs ? `<p style="margin:8px 0">${h(r.obs)}</p>` : ""}
-    ${r.fotos.length ? `<div class="fotos">${r.fotos.map(s => `<img src="${h(s)}" alt="Foto de llegada" loading="lazy">`).join("")}</div>` : ""}
+    ${r.fotos.length ? `<div class="fotos">${r.fotos.map(x => `<img src="${h(x)}" alt="Foto de llegada" loading="lazy">`).join("")}</div>` : ""}
     ${firmaForm("rec-" + r.id, "Firmo que revisé el estado de mi auto", "Firmar")}`));
-  D.cotizaciones.filter(x => x.estado === "enviada").forEach(q => out += caja("Cotización " + h(q.numero || ""), `${q.items.map(i => `<div class="par"><span>${h(i.nombre)}${i.cant > 1 ? " ×" + i.cant : ""}</span><b>${soles(i.precio * (i.cant || 1))}</b></div>`).join("")}
+  D.cotizaciones.filter(x => x.estado === "enviada").forEach(q => out += caja("Tu cotización " + h(q.numero || ""), `${q.items.map(i => `<div class="par"><span>${h(i.nombre)}${i.cant > 1 ? " ×" + i.cant : ""}</span><b>${soles(i.precio * (i.cant || 1))}</b></div>`).join("")}
     ${q.descuento ? `<div class="par"><span>Descuento</span><b>−${soles(q.descuento)}</b></div>` : ""}<div class="par total"><span>Total</span><b>${soles(q.total)}</b></div>
     ${q.nota ? `<p style="margin:8px 0">${h(q.nota)}</p>` : ""}<p class="nota">Válida hasta el ${fechaLarga(q.vence)}.</p>
-    ${firmaForm("cot-" + q.id, "Acepto esta cotización", "Aceptar")}<button class="btn chico" style="margin-top:8px" data-rechazar="${q.id}">No me interesa</button>`));
+    ${firmaForm("cot-" + q.id, "Acepto esta cotización", "Aceptar y separar mi trabajo")}<button class="btn chico" style="margin-top:8px" data-rechazar="${q.id}">No me interesa por ahora</button>`));
   D.calificar.forEach(o => out += caja("¿Cómo quedó tu auto?", `<p class="nota">${h(o.servicios)} · ${fechaLarga(o.fecha)}</p>
     <div class="estrellas" data-orden="${o.id}" style="margin:12px 0">${[1, 2, 3, 4, 5].map(i => `<button data-e="${i}" aria-label="${i} estrellas">★</button>`).join("")}</div>
     <p style="margin:12px 0 8px">Del 0 al 10, ¿qué tan probable es que nos recomiendes a un amigo?</p><div class="nps" data-orden="${o.id}">${Array.from({ length: 11 }, (_, i) => `<button data-n="${i}">${i}</button>`).join("")}</div>
     <textarea class="entrada" id="com-${o.id}" placeholder="¿Algo que quieras contarnos?" style="margin-top:12px"></textarea>
     <button class="btn oro bloque" style="margin-top:12px" data-calificar="${o.id}">Enviar mi opinión</button>`));
-  if (D.citas.length) out += caja("Tus próximas citas", D.citas.map(x => `<div style="padding:10px 0;border-top:1px solid var(--linea)"><b>${fechaLarga(x.fecha)}, ${h(x.hora)}</b><p class="nota">${h(x.servicios)}${x.direccion ? " · " + h(x.direccion) : ""}</p>
-    ${x.estado === "solicitada" ? `<p class="nota">Por confirmar. Te escribiremos por WhatsApp.</p>` : ""}${x.adelanto && x.adelantoEstado !== "recibido" ? `<p class="nota">Adelanto pendiente: ${soles(x.adelanto)}${n.yape && n.yape.numero ? " por Yape al " + h(n.yape.numero) : ""}.</p>` : ""}
-    <div style="display:flex;gap:8px;margin-top:8px">${!x.confirmo ? `<button class="btn oro chico" data-confirmar="${x.id}">Confirmo que estaré</button>` : `<span class="nota">✓ Confirmaste</span>`}<button class="btn chico" data-cancelar="${x.id}">Cancelar</button></div></div>`).join(""));
-  if (f.activo) out += caja("Tu tarjeta de sellos", `<div class="sellos">${Array.from({ length: f.cada }, (_, i) => `<span class="sello ${i < f.actuales ? "si" : ""}">${i < f.actuales ? "✦" : i === f.cada - 1 ? "🎁" : ""}</span>`).join("")}</div>
-    <p>${f.disponibles ? `<b>¡Completaste tu tarjeta! Tu ${h(f.premio || "premio")} es gratis.</b> Úsalo en tu próxima cita.` : f.actuales ? `<b>Ya llevas ${f.actuales} de ${f.cada}.</b> Te faltan solo ${f.cada - f.actuales} para tu ${h(f.premio || "premio")} gratis.` : `Tu tarjeta empieza con tu primer servicio, y llega con sellos de regalo.`}</p>
-    ${D.referido.codigo ? `<p class="nota" style="margin-top:10px">Recomienda con tu código <b>${h(D.referido.codigo)}</b>: cada amigo que venga te suma ${f.bono || 1} ${(f.bono || 1) === 1 ? "sello" : "sellos"}.</p>
-    <button class="btn chico" style="margin-top:10px" id="compartir">Compartir mi enlace</button>` : ""}`);
-  if (D.plan) out += caja("Tu plan", `<p><b>${h(D.plan.nombre)}</b> · ${h(D.plan.incluye)}</p><p class="nota">Este mes usaste ${D.plan.usos} servicio(s)${D.plan.fin ? ". Vigente hasta el " + fechaLarga(D.plan.fin) : ""}.</p>`);
-  if (D.historial.length) out += caja("Tu historial", D.historial.map(o => `<div style="padding:12px 0;border-top:1px solid var(--linea)"><div class="par" style="padding:0"><span>${fechaLarga(o.fecha)} · ${h(o.servicios)}</span><b>${o.cobro === "normal" ? soles(o.total) : o.cobro === "premio" ? "Premio" : ""}</b></div>
-    ${o.antes.length && o.despues.length ? `<div class="comparar" style="margin-top:10px"><img src="${h(o.antes[0])}" alt="Antes" loading="lazy"><img class="despues" src="${h(o.despues[0])}" alt="Después" loading="lazy"><span class="et" style="left:10px">Antes</span><span class="et" style="right:10px">Después</span><span class="barra-c"></span><input type="range" min="0" max="100" value="50" aria-label="Comparar"></div>`
-      : o.antes.length || o.despues.length ? `<div class="fotos">${[...o.antes, ...o.despues].slice(0, 4).map(s => `<img src="${h(s)}" alt="Foto" loading="lazy">`).join("")}</div>` : ""}</div>`).join(""));
-  out += caja("Tus datos", `<div class="campos"><label class="campo">Correo<input class="entrada" id="d-email" value="${h(c.email)}"></label><label class="campo">Cumpleaños<input class="entrada" type="date" id="d-cumple" value="${h(c.cumple)}"></label>
-    <label class="check todo"><input type="checkbox" id="d-acepta" ${c.acepta ? "checked" : ""}> Quiero recibir recordatorios y promociones por WhatsApp</label></div><button class="btn chico" style="margin-top:12px" id="d-guardar">Guardar mis datos</button>`);
-  const red = n.redes || {}, redes = [red.ig && `<a class="btn chico" href="https://instagram.com/${h(String(red.ig).replace("@", ""))}" target="_blank" rel="noopener">Ver más trabajos en Instagram</a>`, red.tt && `<a class="btn chico" href="https://tiktok.com/@${h(String(red.tt).replace("@", ""))}" target="_blank" rel="noopener">Ver videos en TikTok</a>`].filter(Boolean);
-  out += caja("Tu próximo lavado", `<p class="nota" style="margin-bottom:12px">Separa tu hora en un minuto y mantén tu auto como nuevo.</p><a class="btn oro bloque" href="./#paquetes">Separar mi próxima hora</a>${redes.length ? `<div class="redes" style="margin-top:12px">${redes.join("")}</div>` : ""}`);
-  out += `<p class="nota" style="text-align:center;margin-top:20px">${n.tel ? `<a href="${wa(n.tel, "Hola, soy " + c.nombre + ".")}" target="_blank" rel="noopener">Escríbenos por WhatsApp</a> · ` : ""}<a href="./">Ver servicios y reservar</a></p>`;
+  // 2) tu próxima cita, o cuándo te toca
+  if (D.citas.length) out += caja("Tu próxima cita", D.citas.map(x => `<div class="cita-p"><b>${fechaLarga(x.fecha)}, ${h(x.hora)}</b><p class="nota">${h(x.servicios)}${x.direccion ? " · " + h(x.direccion) : ""}</p>
+    ${x.estado === "solicitada" ? `<p class="nota">Por confirmar: te escribimos por WhatsApp.</p>` : ""}${x.adelanto && x.adelantoEstado !== "recibido" ? `<p class="nota">Adelanto pendiente: ${soles(x.adelanto)}${n.yape && n.yape.numero ? " por Yape al " + h(n.yape.numero) : ""}.</p>` : ""}
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">${!x.confirmo ? `<button class="btn oro chico" data-confirmar="${x.id}">Confirmo que estaré</button>` : `<span class="nota">✓ Confirmaste</span>`}<button class="btn chico" data-cancelar="${x.id}">Cancelar</button></div></div>`).join(""));
+  else if (ult) out += `<section class="caja tarjeta toca"><h2>${dias <= 14 ? "Tu auto sigue brillando ✨" : "Ya le toca a tu auto"}</h2><p class="nota" style="margin-bottom:14px">Tu último servicio fue hace ${dias} ${dias === 1 ? "día" : "días"}. Lavarlo cada 2 o 3 semanas mantiene la pintura protegida del polvo y el sol de Arequipa.</p><a class="btn oro bloque" href="${reservar}">Separar mi próxima hora</a></section>`;
+  // 3) tarjeta de sellos
+  if (f.activo) {
+    const falta = f.cada - f.actuales;
+    out += `<section class="tarjeta-sellos tarjeta" id="sellos"><div class="ts-cab"><img src="assets/logo-horizontal-claro.svg" alt="AUTOCARE"><span>${h([c.nombre, c.apellido].filter(Boolean).join(" "))}</span></div>
+      <div class="sellos ts">${Array.from({ length: f.cada }, (_, i) => `<span class="sello ${i < f.actuales ? "si" : ""}">${i < f.actuales ? "✦" : i === f.cada - 1 ? "🎁" : ""}</span>`).join("")}</div>
+      <p class="ts-txt">${f.disponibles ? `<b>¡Completaste tu tarjeta!</b> Pide tu regalo en tu próxima cita.` : f.actuales ? `<b>Llevas ${f.actuales} de ${f.cada}.</b> ${falta === 1 ? "¡Te falta solo 1 sello!" : `Te faltan solo ${falta} sellos.`}` : `Con tu primer servicio tu tarjeta llega con sellos de regalo.`}</p>
+      <p class="ts-premio">Tu regalo${/ o /.test(f.premio || "") ? " a elegir" : ""}: ${h(String(f.premio || "un servicio gratis").replace(/^\s*tu regalo( a elegir)?\s*:\s*/i, ""))}</p></section>`;
+  }
+  if (D.plan) out += caja("Tu plan " + h(D.plan.nombre), `<p>${h(D.plan.incluye)}</p><p class="nota" style="margin-top:6px">Este mes usaste ${D.plan.usos} servicio(s)${D.plan.fin ? ". Vigente hasta el " + fechaLarga(D.plan.fin) : ""}.</p>`);
+  // 4) recomendar
+  if (D.referido.codigo) out += caja("Recomienda y suma sellos", `<p>Por cada amigo que venga con tu código <b class="codigo">${h(D.referido.codigo)}</b> sumas ${f.bono || 1} ${(f.bono || 1) === 1 ? "sello" : "sellos"}.${f.referidos ? ` Ya recomendaste a ${f.referidos}. ¡Gracias!` : ""}</p>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn oro" id="compartir">Compartir con un amigo</button><button class="btn chico" id="copiar-cod">Copiar mi enlace</button><button class="btn chico" id="qr-ref">Mostrar mi QR</button></div>
+    <div id="qr-ref-caja" class="qr-portal oculto"><div class="qr"></div><p class="nota">Que tu amigo lo escanee con la cámara de su celular.</p></div>`, "recomendar");
+  // 5) tu auto: antes y después
+  if (D.historial.length) {
+    const conFotos = D.historial.find(o => o.antes.length && o.despues.length);
+    out += caja("Tu auto", `${conFotos ? `<p class="nota" style="margin-bottom:10px">${h(conFotos.servicios)} · ${fechaLarga(conFotos.fecha)}. Desliza para comparar.</p>${comparador(conFotos.antes[0], conFotos.despues[0])}` : ""}
+      <div style="margin-top:${conFotos ? 16 : 0}px">${D.historial.map(o => `<div class="par hist"><span>${fechaLarga(o.fecha)}<br><small>${h(o.servicios)}${o.vehiculo ? " · " + h(o.vehiculo) : ""}</small></span><b>${o.cobro === "normal" ? soles(o.total) : o.cobro === "premio" ? "🎁 Regalo" : o.cobro === "plan" ? "Plan" : ""}</b></div>`).join("")}</div>`, "mi-auto");
+  }
+  // 5b) sus gustos. Danny Meyer (colecciona los puntos), Nir Eyal (inversión: mientras más nos cuenta, más vale
+  // quedarse) y Clayton Christensen (Jobs to Be Done: para qué nos «contrata» de verdad)
+  const g = c.gustos || {};
+  const opc = (nombre, vals) => `<div class="chips" role="radiogroup">${vals.map(v => `<label class="chip-r"><input type="radio" name="${nombre}" value="${h(v)}" ${g[nombre.slice(2)] === v ? "checked" : ""}><span>${h(v)}</span></label>`).join("")}</div>`;
+  const formGustos = `<p class="campo-t">Lo que más te importa</p>${opc("g-importa", ["Que se vea impecable", "Cuidar la pintura del sol", "Interior limpio (niños o mascotas)", "Venderlo a mejor precio", "Ahorrar mi tiempo"])}
+    <p class="campo-t">Aroma</p>${opc("g-aroma", ["Sin aroma", "Suave", "Intenso"])}<p class="campo-t">¿Viajas con mascota?</p>${opc("g-mascota", ["Sí", "No"])}
+    <label class="campo">Algo que debamos saber<textarea class="entrada" id="g-nota" placeholder="Dónde dejas las llaves, una zona delicada, algo que prefieres que no toquemos…">${h(g.nota || "")}</textarea></label>
+    <button class="btn oro bloque" style="margin-top:12px" id="g-guardar">Guardar mis gustos</button>`;
+  out += g.fecha ? `<details class="caja tarjeta datos" id="gustos"><summary><h2 style="display:inline">Cómo te gusta tu auto ✓</h2></summary><div style="margin-top:6px">${formGustos}</div></details>`
+    : caja("Cuéntanos cómo te gusta tu auto", `<p class="nota">30 segundos, y la próxima vez lo atendemos sin que tengas que repetirlo.</p>${formGustos}`, "gustos");
+  // 6) para tu próxima visita: paquetes y adicionales
+  const pq = (P.servicios || []).filter(x => x.paquete), ex = (P.servicios || []).filter(x => !x.paquete);
+  if (pq.length || ex.length) out += caja("Para tu próxima visita", `${pq.map(x => `<a class="paq-mini ${x.destacado ? "dest" : ""}" href="${reservar}"><span><b>${h(x.nombre)}</b>${x.destacado ? ` <i>El más elegido</i>` : ""}<small>${h(String(x.incluye || x.descripcion || "").split("\n").filter(y => y && !/\+$/.test(y)).slice(0, 2).join(" · "))}</small></span><b class="p">${soles(x.precio)}</b></a>`).join("")}
+    ${ex.length ? `<p class="nota" style="margin:12px 0 6px">Súmale:</p><div class="chips">${ex.map(x => `<span class="chip" style="cursor:default">${h(x.nombre)} · ${soles(x.precio)}</span>`).join("")}</div>` : ""}
+    ${!D.plan && (P.planes || []).length ? `<div class="aviso" style="margin-top:14px">💡 <b>${h(P.planes[0].nombre)}:</b> ${h(P.planes[0].incluye)} por ${soles(P.planes[0].precio)} al mes. <a href="${wa(n.tel, "Hola, quiero el " + P.planes[0].nombre)}" target="_blank" rel="noopener" style="color:var(--oro)">Quiero mi plan</a></div>` : ""}
+    <a class="btn oro bloque" style="margin-top:14px" href="${reservar}">Separar mi próxima hora</a><p class="nota" style="margin-top:8px">Precios para auto o sedán.</p>`, "precios");
+  // 7) con qué cuidamos tu auto y videos
+  if ((P.productos || []).length) out += caja("Con qué cuidamos tu auto", `<div class="productos">${P.productos.slice(0, 6).map(x => `<div class="producto">${x.foto ? `<img src="${h(x.foto)}" alt="" loading="lazy">` : ""}<small>${h(x.marca)}</small><b>${h(x.nombre)}</b><p>${h(x.para)}</p></div>`).join("")}</div>`);
+  const vids = (P.videos || []).map(v => ({ t: v.titulo, src: urlVideo(v.url) })).filter(v => v.src).slice(0, 2);
+  if (vids.length) out += caja("Míralo en acción", `<div class="videos">${vids.map(v => `<div class="video"><iframe src="${h(v.src)}" loading="lazy" allowfullscreen title="${h(v.t || "Video")}"></iframe>${v.t ? `<p>${h(v.t)}</p>` : ""}</div>`).join("")}</div>`);
+  const red = n.redes || {}, redes = [red.ig && `<a class="btn chico" href="https://instagram.com/${h(String(red.ig).replace("@", ""))}" target="_blank" rel="noopener">Ver más trabajos en Instagram</a>`, red.tt && `<a class="btn chico" href="https://tiktok.com/@${h(String(red.tt).replace("@", ""))}" target="_blank" rel="noopener">Ver videos en TikTok</a>`, n.google && `<a class="btn chico" href="${h(n.google)}" target="_blank" rel="noopener">Dejar mi opinión en Google</a>`].filter(Boolean);
+  if (redes.length) out += caja("Síguenos", `<div class="redes">${redes.join("")}</div>`);
+  out += `<details class="caja tarjeta datos"><summary><h2 style="display:inline">Tus datos</h2></summary><div class="campos" style="margin-top:14px"><label class="campo">Correo<input class="entrada" id="d-email" value="${h(c.email)}"></label><label class="campo">Cumpleaños (te damos un regalo)<input class="entrada" type="date" id="d-cumple" value="${h(c.cumple)}"></label>
+    <label class="check todo"><input type="checkbox" id="d-acepta" ${c.acepta ? "checked" : ""}> Quiero recibir recordatorios y promociones por WhatsApp</label></div><button class="btn chico" style="margin-top:12px" id="d-guardar">Guardar mis datos</button></details>`;
+  if (/iP(hone|ad)/.test(navigator.userAgent) && !navigator.standalone) out += `<p class="nota" style="text-align:center;margin-top:18px">Ten tu tarjeta siempre a mano: toca Compartir → «Agregar a pantalla de inicio».</p>`;
+  out += `<p class="nota" style="text-align:center;margin-top:14px">${n.tel ? `<a href="${wa(n.tel, "Hola, soy " + c.nombre + ".")}" target="_blank" rel="noopener">Escríbenos por WhatsApp</a> · ` : ""}<a href="./">Ver la web</a></p>`;
   $("#app").innerHTML = out;
   conectar();
 }
@@ -94,15 +160,53 @@ function conectar() {
       } catch (err) { alerta(err.message); b.disabled = false; }
     } else if (b.id === "d-guardar") accion("datos", { email: $("#d-email").value, cumple: $("#d-cumple").value, acepta: $("#d-acepta").checked });
     else if (b.id === "compartir") {
-      const txt = `Te recomiendo ${D.negocio.nombre}: lavan tu auto en tu casa. Reserva con mi código ${D.referido.codigo}: ${D.referido.enlace}`;
-      if (navigator.share) navigator.share({ text: txt }).catch(() => { }); else location.href = wa("", txt);
-    }
+      const txt = `Te recomiendo ${D.negocio.nombre}: lavan tu auto en tu casa y queda como nuevo. Reserva con mi código ${D.referido.codigo}: ${D.referido.enlace}`;
+      if (navigator.share) navigator.share({ text: txt }).catch(() => { }); else window.open("https://wa.me/?text=" + encodeURIComponent(txt), "_blank");
+    } else if (b.id === "g-guardar") {
+      const val = k => (document.querySelector(`input[name="${k}"]:checked`) || {}).value || "";
+      accion("datos", { gustos: { importa: val("g-importa"), aroma: val("g-aroma"), mascota: val("g-mascota"), nota: $("#g-nota").value } });
+    } else if (b.id === "qr-ref") {
+      const caja = $("#qr-ref-caja");
+      if (!caja.querySelector("svg")) { const { qrSvg } = await import("./assets/qr.js"); caja.querySelector(".qr").innerHTML = qrSvg(D.referido.enlace || D.referido.codigo, { margen: 3 }); }
+      caja.classList.toggle("oculto"); b.textContent = caja.classList.contains("oculto") ? "Mostrar mi QR" : "Ocultar mi QR";
+    } else if (b.id === "copiar-cod") { try { await navigator.clipboard.writeText(D.referido.enlace || D.referido.codigo); b.textContent = "¡Copiado!"; } catch (err) { } }
   };
 }
+// Sin enlace: pide su número y le llega su tarjeta por WhatsApp. Nunca mostramos datos con solo un número.
+function entrada(error) {
+  const tel = CFG.WHATSAPP || "";
+  $("#app").innerHTML = `<div class="hola"><h1>Tu tarjeta AUTOCARE</h1><p class="nota">Tus sellos, las fotos de tu auto y tu próxima hora, en un solo lugar.</p></div>
+    ${error ? `<div class="aviso rojo" style="margin:16px 0">${h(error)}</div>` : ""}
+    <section class="caja tarjeta" style="margin-top:20px" id="caja-pedir"><h2>¿Ya eres cliente?</h2>
+      <p class="nota" style="margin-bottom:14px">Escribe tu WhatsApp y te enviamos el enlace de tu tarjeta. Por tu seguridad, solo llega a tu número.</p>
+      <form id="pedir"><label class="campo">Tu número de WhatsApp<input class="entrada" id="p-tel" inputmode="tel" autocomplete="tel" placeholder="987 654 321" required></label>
+        <input type="text" id="p-web" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">
+        <div id="p-error" class="aviso rojo oculto" style="margin-top:10px"></div>
+        <button class="btn oro bloque" style="margin-top:12px" type="submit">Recibir mi enlace por WhatsApp</button></form>
+      <p class="nota" style="margin-top:12px">¿Tienes tu tarjeta o el sticker de tu auto? Escanea su QR o acércala a tu celular.</p></section>
+    <section class="caja tarjeta"><h2>¿Todavía no eres cliente?</h2><p class="nota" style="margin-bottom:14px">Con tu primer servicio, tu tarjeta llega con sellos de regalo.</p>
+      <a class="btn oro bloque" href="./?src=portal#paquetes">Separar mi primera hora</a></section>`;
+  $("#pedir").addEventListener("submit", async e => {
+    e.preventDefault();
+    const b = e.target.querySelector("button"); b.disabled = true; b.textContent = "Enviando…";
+    try {
+      await api("portalPedir", { tel: $("#p-tel").value, web: $("#p-web").value });
+      $("#caja-pedir").innerHTML = `<h2>¡Listo!</h2><p style="margin-top:6px">Si tu número está registrado, te enviamos tu enlace por WhatsApp lo antes posible.</p>
+        ${tel ? `<p class="nota" style="margin-top:12px">¿No te llega? <a href="${wa(tel, "Hola, quiero el enlace de mi tarjeta AUTOCARE.")}" target="_blank" rel="noopener">Escríbenos por WhatsApp</a>.</p>` : ""}`;
+    } catch (err) { const p = $("#p-error"); p.textContent = err.message; p.classList.remove("oculto"); b.disabled = false; b.textContent = "Recibir mi enlace por WhatsApp"; }
+  });
+}
 async function cargar() {
-  if (!t) { $("#app").innerHTML = `<div class="aviso">Este enlace está incompleto. Pide tu enlace personal por WhatsApp.</div>`; return; }
-  try { D = await api("portal", { t }); pintar(); }
-  catch (e) { $("#app").innerHTML = `<div class="aviso rojo">${h(e.message)}</div><p style="margin-top:16px"><a class="btn" href="./">Ir a la web</a></p>`; }
+  if (!t) return entrada();
+  try {
+    [D, PUB] = await Promise.all([api("portal", { t }), api("publico").catch(() => null)]);
+    recordar(t);
+    if (!/t=/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search + "#t=" + t);
+    pintar();
+  } catch (e) {
+    if (/no es válido|cambió/i.test(e.message)) { recordar(""); t = ""; return entrada("Este enlace ya no funciona (quizá lo cambiamos por tu seguridad). Pide el nuevo aquí abajo."); }
+    $("#app").innerHTML = `<div class="aviso rojo">${h(e.message)}</div><p style="margin-top:16px"><button class="btn" onclick="location.reload()">Intentar de nuevo</button></p>`;
+  }
 }
 cargar();
 </script>

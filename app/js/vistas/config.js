@@ -129,6 +129,9 @@ function MiWeb() {
           <${Entrada} etiqueta="Qué gana tu auto" valor=${p.para} cambiar=${v => cambiar(prod, setProd, i, "para", v)} placeholder="Brillo profundo y protección contra el sol" />
           <div class="rejilla" style="margin-top:8px;align-items:end"><${CampoFotos} etiqueta="Foto" valor=${p.fotoId ? [p.fotoId] : []} cambiar=${v => cambiar(prod, setProd, i, "fotoId", v[v.length - 1] || "")} tipo="marketing" nombre="producto" max=${1} /><div class="btns fin"><${Boton} chico tipo="fantasma peligro" icono="trash-2" onClick=${() => setProd(prod.filter((x, j) => j !== i))}>Quitar<//></div></div></div>`)}
         <${Boton} icono="plus" onClick=${() => setProd([...prod, { nombre: "", marca: "", para: "", fotoId: "" }])}>Agregar producto<//><//>
+      <${Bloque} titulo="QR para imprimir" sub="Para la ventana de tu auto, volantes y reseñas en Google."><div class="panel">
+        <p class="nota" style="margin-bottom:10px">Cada QR lleva su origen: en Resultados ves cuántas personas llegaron por cada uno.</p>
+        <${Boton} icono="qr-code" onClick=${() => import("../app.js").then(m => m.abrir(() => import("./acceso.js"), "QrNegocio"))}>Crear QR de mi negocio<//></div><//>
       <div class="btns"><${Boton} tipo="primario" grande onClick=${guardar}>Guardar mi web<//><${Boton} grande icono="external-link" href=${web}>Ver mi web<//></div>
     </div></div>`;
 }

@@ -58,7 +58,7 @@ function Ficha({ id }) {
     { n: "Invitar a recomendar", icono: "gift", f: () => enviarWa(c.tel, N.mensaje("referido", N.varsCliente(c))) },
     { n: "Pedir reseña", icono: "star", f: () => enviarWa(c.tel, N.mensaje("resena", N.varsCliente(c))) },
     { n: "Mensaje libre", icono: "message-circle", f: () => enviarWa(c.tel, "") }]);
-  const portal = async () => { const u = N.urlPortal(c); if (!u) return aviso("Primero escribe la dirección de tu web en Configuración → Negocio.", { error: true }); await copiar(u); aviso("Enlace personal copiado.", { accion: { n: "Enviar", f: () => enviarWa(c.tel, "Hola " + c.nombre + ", aquí ves tus sellos, tus citas y tus fotos: " + u) } }); };
+  const portal = () => import("../app.js").then(m => m.abrir(() => import("./acceso.js"), "AccesoCliente", { id: c.id }));
   const eliminar = async () => {
     if (ots.length) return aviso("Tiene órdenes registradas. Márcalo como inactivo en vez de eliminarlo.", { error: true });
     if (!(await confirmar({ titulo: "Eliminar cliente", texto: "Se borra de tu hoja.", si: "Eliminar", peligro: true }))) return;
@@ -73,7 +73,7 @@ function Ficha({ id }) {
         ${D.puedeEditar("citas") && html`<${Boton} tipo="primario" icono="calendar-plus" onClick=${() => import("../app.js").then(m => m.abrir(() => import("./agenda.js"), "FormCita", { inicial: { clienteId: c.id, vehiculoId: vehs[0] ? vehs[0].id : "", tamano: vehs[0] ? vehs[0].tamano : "auto", direccion: [c.direccion, c.distrito].filter(Boolean).join(", ") } }))}>Agendar<//>`}
         <${Boton} icono="ellipsis" titulo="Más" onClick=${() => menu(nombreDe(c), [
           puede && { n: "Editar datos", icono: "pencil", f: () => setEditar(true) },
-          { n: "Copiar su enlace personal", icono: "link", d: "Ve sus sellos, citas, fotos y firma desde su celular", f: portal },
+          { n: "Darle su tarjeta", icono: "qr-code", d: "QR, WhatsApp, NFC, tarjeta y sticker para imprimir", f: portal },
           { n: "Llamar", icono: "phone", f: () => (location.href = "tel:" + c.tel) },
           puede && { n: "Eliminar", icono: "trash-2", peligro: true, f: eliminar }])} />
       </div></div>
@@ -87,8 +87,8 @@ function Ficha({ id }) {
           ${ots.length ? html`<div class="grupo">${ots.slice(0, 30).map(o => html`<${Fila} icono="clipboard-list" titulo=${fechaCorta(o.fecha) + " · " + (N.nombresItems(o.items) || "Servicio")} sub=${[o.numero, o._vehiculo, o.calificacion ? o.calificacion + "★" : ""].filter(Boolean).join(" · ")}
             der=${html`<b class="cifra">${soles(o.total)}</b><${EstadoBadge} ent="ordenes" v=${o.estado} />`} href=${"#/ordenes/" + o.id} />`)}</div>`
             : html`<p class="nota">Todavía no lo atiendes.</p>`}<//>
-        ${(c.notas || puede) && html`<${Bloque} titulo="Preferencias y notas" der=${puede && html`<${Boton} chico tipo="fantasma" icono="pencil" onClick=${() => setEditar(true)}>Editar<//>`}>
-          <div class="panel"><p class=${c.notas ? "" : "nota"} style="white-space:pre-wrap">${c.notas || "Anota lo que le gusta: aroma, cómo deja las llaves, si tiene mascota. La próxima vez lo atiendes como si lo recordaras todo."}</p></div><//>`}
+        ${(c.notas || c.gustos || puede) && html`<${Bloque} titulo="Preferencias y notas" der=${puede && html`<${Boton} chico tipo="fantasma" icono="pencil" onClick=${() => setEditar(true)}>Editar<//>`}>
+          <div class="panel">${N.gustosTexto(c) && html`<p style="margin-bottom:10px"><b>Nos contó en su tarjeta:</b> ${N.gustosTexto(c)}</p>`}<p class=${c.notas ? "" : "nota"} style=${"white-space:pre-wrap" + (!c.notas && c.gustos ? ";display:none" : "")}>${c.notas || "Anota lo que le gusta: aroma, cómo deja las llaves, si tiene mascota. La próxima vez lo atiendes como si lo recordaras todo."}</p></div><//>`}
       </div>
       <div>
         <${Bloque} titulo="Vehículos" der=${puede && html`<${Boton} chico tipo="fantasma" icono="plus" onClick=${() => setVeh({})}>Agregar<//>`}>
@@ -97,11 +97,11 @@ function Ficha({ id }) {
         <//>
         ${fid.activo && html`<${Bloque} titulo="Tarjeta de sellos"><div class="panel">
           <${Sellos} actuales=${fid.actuales} cada=${fid.cada} />
-          <p style="margin-top:12px">${fid.disponibles ? html`<b>Tiene ${fid.disponibles} premio para canjear:</b> ${fid.premio}.` : fid.sellos ? `${fid.sellos} de ${fid.cada}. Le faltan ${fid.cada - fid.sellos} para su ${fid.premio || "premio"}.` : `Sin sellos todavía. El primero llega con ${fid.regalo} de regalo.`}</p>
+          <p style="margin-top:12px">${fid.disponibles ? html`<b>Tiene ${fid.disponibles} premio para canjear:</b> ${fid.premio}.` : fid.sellos ? `${fid.sellos} de ${fid.cada}. Le faltan ${fid.cada - fid.sellos} para su regalo: ${N.premioCorto(fid.premio)}.` : `Sin sellos todavía. El primero llega con ${fid.regalo} de regalo.`}</p>
           ${D.puedeEditar("clientes") && html`<div class="btns" style="margin-top:10px"><${Boton} chico tipo="primario" icono="plus" onClick=${() => { const r = N.sumarSello(c); aviso(r.sumados > 1 ? `Sumaste ${r.sumados} sellos (con regalo).` : "Sello sumado."); }}>Sumar sello<//>
             ${fid.sellos > 0 && html`<${Boton} chico tipo="fantasma" icono="minus" onClick=${() => N.quitarSello(c)}>Quitar<//>`}
             ${fid.disponibles > 0 && html`<${Boton} chico icono="gift" onClick=${() => { N.canjearPremio(c); aviso("Premio canjeado."); }}>Canjear premio<//>`}</div>`}
-          <p class="nota" style="margin-top:10px">Código para recomendar: <b>${c.codigo || "—"}</b>${refs.length ? ` · recomendó a ${refs.length}` : ""}${fid.usados ? ` · canjeó ${fid.usados} premio(s)` : ""}</p></div><//>`}
+          <p class="nota" style="margin-top:10px">Código para recomendar: <b>${c.codigo || "—"}</b>${refs.length ? ` · recomendó a ${refs.length}` : ""}${fid.usados ? ` · canjeó ${fid.usados} premio(s)` : ""}</p><div class="btns" style="margin-top:12px"><${Boton} chico icono="qr-code" onClick=${portal}>Darle su tarjeta<//></div></div><//>`}
       </div>
     </div>
     ${editar && html`<${FormCliente} inicial=${c} cerrar=${() => setEditar(false)} />`}`;
