@@ -1,6 +1,7 @@
 // AUTOCARE · piezas de la interfaz (botones, campos, hojas, listas, indicadores, gráficos)
 import { html, useState, useEffect, useRef, useMemo, useCallback } from "../vendor/preact-htm.js";
 import { ICONOS } from "./iconos.js";
+import { AYUDA_CAMPOS, EJEMPLOS } from "./guias.js";
 import { clases, esMovil, num, soles, iniciales } from "./util.js";
 
 // ---------------------------------------------------------------- íconos y marca
@@ -38,7 +39,11 @@ export function BotonAccion({ accion, children, ...resto }) {
 }
 
 // ---------------------------------------------------------------- campos
+// Si el formulario no trae su propia ayuda, usamos la de guias.js según la etiqueta del campo
+const ayudaDe = (etiqueta, ayuda) => (ayuda !== undefined ? ayuda : typeof etiqueta === "string" ? AYUDA_CAMPOS[etiqueta] : undefined);
+const ejemploDe = (etiqueta, resto) => (resto.placeholder !== undefined || typeof etiqueta !== "string" ? {} : EJEMPLOS[etiqueta] ? { placeholder: EJEMPLOS[etiqueta] } : {});
 export function Campo({ etiqueta, ayuda, error, children, clase, id }) {
+  ayuda = ayudaDe(etiqueta, ayuda);
   return html`<div class=${clases("campo", clase)}>
     ${etiqueta && html`<label for=${id}>${etiqueta}</label>`}
     ${children}
@@ -49,7 +54,7 @@ let idCampo = 0;
 const useId = () => useMemo(() => "c" + (++idCampo), []);
 export function Entrada({ etiqueta, ayuda, error, valor, cambiar, tipo = "text", prefijo, clase, ...resto }) {
   const id = useId();
-  const inp = html`<input id=${id} class="entrada" type=${tipo} value=${valor == null ? "" : valor} onInput=${e => cambiar && cambiar(e.currentTarget.value)} ...${resto} />`;
+  const inp = html`<input id=${id} class="entrada" type=${tipo} value=${valor == null ? "" : valor} onInput=${e => cambiar && cambiar(e.currentTarget.value)} ...${ejemploDe(etiqueta, resto)} ...${resto} />`;
   return html`<${Campo} etiqueta=${etiqueta} ayuda=${ayuda} error=${error} id=${id} clase=${clase}>${prefijo ? html`<div class="con-prefijo"><span>${prefijo}</span>${inp}</div>` : inp}<//>`;
 }
 export function Numero({ etiqueta, ayuda, error, valor, cambiar, prefijo, sufijo, decimales = 2, clase, ...resto }) {
@@ -85,6 +90,7 @@ export function Selector({ etiqueta, ayuda, error, valor, cambiar, opciones, vac
     </select><//>`;
 }
 export function Interruptor({ etiqueta, ayuda, valor, cambiar, disabled }) {
+  ayuda = ayudaDe(etiqueta, ayuda);
   return html`<label class="interruptor">
     <input type="checkbox" checked=${!!valor} disabled=${disabled} onChange=${e => cambiar(e.currentTarget.checked)} />
     <span class="pista"></span>

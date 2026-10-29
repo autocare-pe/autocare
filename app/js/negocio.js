@@ -1,7 +1,7 @@
 // AUTOCARE · reglas del negocio (precios, agenda, cobros, clientes, inventario, finanzas)
 // Si cambias una regla aquí, cambia también en el servidor (Publico.gs) las que usa tu web.
 import * as D from "./datos.js";
-import { TAMANOS, PLANTILLAS, CUENTAS } from "./esquema.js";
+import { TAMANOS, PLANTILLAS, CUENTAS, METODOS } from "./esquema.js";
 import { hoy, sumarDias, diasEntre, minutos, hhmm, diaSemana, msDe, n0, suma, porId, nombreDe, primerNombre, rellenar, fechaLarga, horaDe, soles, llave, mesDe, inicioMes, finMes, isoDe } from "./util.js";
 
 // ---------------------------------------------------------------- negocio y catálogo
@@ -190,6 +190,58 @@ export function asegurarPortal(c) {
   if (!c || (c.token && c.codigo)) return c;
   return D.cambiar("clientes", c.id, { token: c.token || llave(24), codigo: c.codigo || codigoReferido(c.nombre) });
 }
+// ---------------------------------------------------------------- cobros por verificar (separación de funciones)
+// Quien cobra en el campo no es quien confirma que el dinero llegó: control interno básico (COSO) que protege a los dos socios.
+const esc = t => String(t == null ? "" : t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+export const pagosPorVerificar = () => D.lista("pagos").filter(p => p.verificado === false).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+export function verificarPago(p, llego = true) {
+  const yo = D.yo() || {};
+  D.cambiar("pagos", p.id, llego ? { verificado: true, verificadoPor: yo.nombre || "", verificadoEn: Date.now(), problema: "" } : { problema: "No aparece en la cuenta", revisadoPor: yo.nombre || "" });
+}
+/** Avisa por Telegram a quien lleva los cobros (solo si el cobro quedó por verificar) */
+export function avisarCobro(p) {
+  if (!p || p.verificado !== false) return p;
+  const app = location.origin + location.pathname;
+  import("./api.js").then(m => m.api("avisar", { tema: "pagos",
+    texto: `💰 <b>${esc(p.cobradoPor)} cobró ${esc(soles(p.monto))}</b> por ${esc(METODOS[p.metodo] || p.metodo || "")}\n${esc(p._cliente || p.concepto || "")}${p.referencia ? "\nOperación: " + esc(p.referencia) : ""}\nConfirma que llegó.`,
+    botones: [{ text: "Verificar en la app", url: app + "#/finanzas/verificar" }] })).catch(() => { });
+  return p;
+}
+// ---------------------------------------------------------------- borrar con todo lo relacionado
+/** Deshace el stock que movió un movimiento y lo borra */
+export function revertirMovimiento(m) {
+  const p = D.uno("productos", m.productoId), c = n0(m.cantidad);
+  if (p) D.cambiar("productos", p.id, { stock: Math.round((n0(p.stock) + (m.tipo === "salida" ? c : -c)) * 1000) / 1000 });
+  D.borrar("movimientos", m.id);
+}
+export function relacionadosOrden(o) {
+  return { pagos: D.lista("pagos").filter(p => p.ordenId === o.id), movimientos: D.lista("movimientos").filter(m => m.ordenId === o.id),
+    resenas: D.lista("resenas").filter(r => r.ordenId === o.id), reclamos: D.lista("reclamos").filter(r => r.ordenId === o.id) };
+}
+/** Borra una orden con sus cobros y devuelve al inventario lo que gastó */
+export function borrarOrden(o) {
+  const r = relacionadosOrden(o);
+  r.pagos.forEach(p => D.borrar("pagos", p.id)); r.movimientos.forEach(revertirMovimiento);
+  r.resenas.forEach(x => D.borrar("resenas", x.id)); r.reclamos.forEach(x => D.borrar("reclamos", x.id));
+  D.borrar("ordenes", o.id);
+  return r;
+}
+export function relacionadosCliente(c) {
+  const id = c.id, ordenes = D.lista("ordenes").filter(o => o.clienteId === id), ids = new Set(ordenes.map(o => o.id));
+  const de = e => D.lista(e).filter(x => x.clienteId === id);
+  return { ordenes, citas: de("citas"), pagos: D.lista("pagos").filter(p => p.clienteId === id || ids.has(p.ordenId)), vehiculos: de("vehiculos"), cotizaciones: de("cotizaciones"),
+    tareas: de("tareas"), resenas: de("resenas"), membresias: de("membresias"), reclamos: de("reclamos"), leads: de("leads") };
+}
+const NOMBRES_REL = { ordenes: "órdenes", citas: "citas", pagos: "cobros", vehiculos: "vehículos", cotizaciones: "cotizaciones", tareas: "seguimientos", resenas: "reseñas", membresias: "planes", reclamos: "reclamos", leads: "consultas", movimientos: "movimientos de inventario" };
+export const textoRelacionados = r => Object.keys(r).filter(k => r[k].length).map(k => r[k].length + " " + NOMBRES_REL[k]).join(", ");
+/** Borra un cliente con todo su historial (para limpiar pruebas o duplicados) */
+export function borrarClienteCompleto(c) {
+  const r = relacionadosCliente(c);
+  r.ordenes.forEach(borrarOrden);
+  ["citas", "pagos", "vehiculos", "cotizaciones", "tareas", "resenas", "membresias", "reclamos", "leads"].forEach(k => r[k].forEach(x => D.borrar(k, x.id)));
+  D.borrar("clientes", c.id);
+  return r;
+}
 /** Lo que el cliente contó en su tarjeta (Danny Meyer: colecciona los puntos y conéctalos) */
 export function gustosTexto(c) {
   const g = (c && c.gustos) || {};
@@ -360,7 +412,9 @@ export function resultadosMes(mes) { return resultados(mes + "-01", finMes(mes +
 // Reparto de cada cobro (Profit First)
 export function cuentasReparto() {
   const d = D.ajuste("distribucion", {}), pcts = d.pcts || {};
-  return CUENTAS.map(c => Object.assign({}, c, { pct: pcts[c.id] !== undefined ? n0(pcts[c.id]) : c.pct }));
+  const socios = (D.ajuste("socios", []) || []).length > 1 || D.equipo().filter(x => x.rol === "admin").length > 1;
+  const nombres = socios ? { sueldo: { n: "Sueldo de los socios", d: "Lo que se pagan por trabajar en el negocio. Se reparte abajo según lo acordado." }, ganancia: { n: "Ganancia de los socios", d: "Lo que queda para los dueños. Se retira cada trimestre y se reparte según lo acordado." } } : {};
+  return CUENTAS.map(c => Object.assign({}, c, nombres[c.id] || {}, { pct: pcts[c.id] !== undefined ? n0(pcts[c.id]) : c.pct }));
 }
 export function reparto(desde, hasta) {
   const en = f => f >= desde && f <= hasta;

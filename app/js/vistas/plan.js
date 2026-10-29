@@ -33,6 +33,7 @@ function PlanTrimestre() {
       ${objs.length > 3 && html`<div style="margin-bottom:12px"><${AvisoLinea} c="ambar" icono="triangle-alert">Tienes ${objs.length} prioridades. Con 3 o menos se logran más cosas: si todo es prioridad, nada lo es (Harnish, Scaling Up).<//></div>`}
       ${objs.length ? objs.map(o => html`<div class="panel" style="margin-bottom:12px">
           <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px"><b style="font-size:16px;flex:1">${o.titulo}</b><${Insignia} c=${estadoDe("objetivos", o.estado || "en_curso").c}>${estadoDe("objetivos", o.estado || "en_curso").n}<//>${puede && html`<${Boton} chico tipo="fantasma" icono="pencil" titulo="Editar" onClick=${() => setEd(o)} />`}</div>
+          ${o.responsableId && D.somosVarios() && html`<p class="nota" style="margin-bottom:6px">Responsable: <b>${D.nombreUsuario(o.responsableId) || "—"}</b></p>`}
           ${o.porque && html`<p class="tenue chico" style="margin-bottom:10px">${o.porque}</p>`}
           <${Progreso} v=${avance(o)} max=${1} c=${avance(o) >= 1 ? "verde" : ""} /><p class="nota" style="margin:4px 0 10px">${Math.round(avance(o) * 100)}% de avance</p>
           ${(o.resultados || []).map((r, i) => html`<div class="par"><span>${r.t}</span><span style="display:flex;gap:8px;align-items:center">
@@ -71,6 +72,7 @@ function FormObjetivo({ o, cerrar }) {
   return html`<${Hoja} titulo=${o.id ? "Editar prioridad" : "Nueva prioridad"} cerrar=${cerrar} pie=${html`${o.id && html`<${Boton} tipo="fantasma peligro" icono="trash-2" titulo="Eliminar" onClick=${borrar} />`}<${Boton} tipo="fantasma" onClick=${cerrar}>Cancelar<//><${Boton} tipo="primario" onClick=${guardar}>Guardar<//>`}>
     <div class="form"><${Entrada} etiqueta="Prioridad (qué quieres lograr)" ...${b(f, set, "titulo")} placeholder="Tener clientes que vuelven cada mes" />
       <${Area} etiqueta="Por qué importa" ...${b(f, set, "porque")} />
+      ${D.somosVarios() && html`<${Selector} etiqueta="Responsable (una sola persona)" ayuda="Cada prioridad tiene un solo dueño que responde por ella (Wickman, Traction)." vacio="Elegir" opciones=${D.equipo().map(x => ({ v: x.id, n: x.nombre }))} ...${b(f, set, "responsableId")} />`}
       <p class="etq" style="font-size:13px;font-weight:600;color:var(--texto-2)">Resultados que lo demuestran (números, no tareas)</p>
       ${rs.map((r, i) => html`<div class="rejilla" style="--col:3"><${Entrada} etiqueta="Resultado" valor=${r.t} cambiar=${v => setRs(rs.map((x, j) => (j === i ? Object.assign({}, x, { t: v }) : x)))} placeholder="Clientes con plan" />
         <${Numero} etiqueta="Meta" valor=${r.meta} cambiar=${v => setRs(rs.map((x, j) => (j === i ? Object.assign({}, x, { meta: v }) : x)))} /><${Entrada} etiqueta="Unidad" valor=${r.unidad} cambiar=${v => setRs(rs.map((x, j) => (j === i ? Object.assign({}, x, { unidad: v }) : x)))} placeholder="clientes" /></div>`)}
@@ -106,20 +108,47 @@ function Revision() {
       <div style="margin-top:16px">${yaHecha ? html`<div class="panel"><h3>Tu revisión · nota ${yaHecha.nota || "—"}/10</h3>
           ${[["logros", "Qué salió bien"], ["problemas", "Qué salió mal"], ["aprendizajes", "Qué aprendí"], ["acciones", "Qué haré distinto"]].map(([k, t]) => yaHecha[k] && html`<p class="nota" style="margin-top:10px">${t}</p><p style="white-space:pre-wrap">${yaHecha[k]}</p>`)}
           <div style="margin-top:12px"><${Boton} chico icono="pencil" onClick=${() => setAbierta(yaHecha)}>Editar<//></div></div>`
-        : D.puede("direccion", 2) && html`<${Boton} tipo="primario" grande icono="clipboard-check" onClick=${() => setAbierta({})}>Hacer la revisión de esta semana (15 min)<//>`}</div>
+        : D.puede("direccion", 2) && html`<${Boton} tipo="primario" grande icono="clipboard-check" onClick=${() => setAbierta({})}>${D.somosVarios() ? "Hacer la reunión de socios (30 min)" : "Hacer la revisión de esta semana (15 min)"}<//>`}</div>
+      ${yaHecha && (yaHecha.acuerdos || []).length > 0 && html`<${Bloque} titulo="Acuerdos de la reunión"><div class="grupo">${yaHecha.acuerdos.map(a => { const t = a.tareaId && D.uno("tareas", a.tareaId);
+        return html`<${Fila} icono=${t && t.hecho ? "circle-check" : "list-checks"} colorIcono=${t && t.hecho ? "verde" : "azul"} titulo=${a.t} sub=${[D.nombreUsuario(a.para) || "", a.fecha ? "para el " + fechaCorta(a.fecha) : "", t && t.hecho ? "hecho" : "pendiente"].filter(Boolean).join(" · ")} />`; })}</div><//>`}
     </div>
-    <div><div class="panel"><h3>Cómo hacerla</h3><p class="tenue chico">Cada lunes, 15 minutos, con un café. Mira los números, escribe con honestidad y elige <b>una sola</b> cosa que harás distinto. Es el ciclo de Deming: planear, hacer, revisar, ajustar. Lo que se revisa cada semana mejora; lo que no, se olvida.</p></div>
+    <div>${D.somosVarios() && html`<div class="panel" style="margin-bottom:16px"><h3>Reunión de socios (30 min)</h3>
+      <p class="tenue chico">El mismo día y hora cada semana, con el celular en silencio. Adaptada de la reunión semanal de EOS (Gino Wickman, <i>Traction</i>):</p>
+      <ol class="tenue chico" style="padding-left:18px;margin-top:8px;display:grid;gap:4px">
+        <li><b>Buenas noticias</b> (3 min): una personal y una del negocio, cada uno.</li>
+        <li><b>Números de la semana</b> (5 min): los de la izquierda. Solo «en meta» o «fuera de meta».</li>
+        <li><b>Prioridades del trimestre</b> (3 min): cada responsable dice si va «en camino» o no.</li>
+        <li><b>Acuerdos de la semana pasada</b> (2 min): ¿hecho o no hecho? Sin excusas.</li>
+        <li><b>Problemas</b> (15 min): elijan los 3 más importantes. Para cada uno: identificar la causa real, discutir y resolver con un acuerdo.</li>
+        <li><b>Cierre</b> (2 min): repasen los acuerdos y pónganle nota a la reunión.</li></ol>
+      <p class="tenue chico" style="margin-top:8px">Discutan las ideas, no a las personas: el conflicto sano es señal de confianza (Lencioni, <i>Las cinco disfunciones de un equipo</i>).</p></div>`}
+      <div class="panel"><h3>Cómo hacerla</h3><p class="tenue chico">Cada lunes, 15 minutos, con un café. Mira los números, escribe con honestidad y elige <b>una sola</b> cosa que harás distinto. Es el ciclo de Deming: planear, hacer, revisar, ajustar. Lo que se revisa cada semana mejora; lo que no, se olvida.</p></div>
       <${Bloque} titulo="Revisiones anteriores">${hechas.length ? html`<div class="grupo">${hechas.slice(0, 12).map(r => html`<${Fila} icono="clipboard-check" titulo=${r.semana + " · nota " + (r.nota || "—") + "/10"} sub=${r.acciones || r.logros || ""} />`)}</div>` : html`<p class="nota">Aún no haces ninguna.</p>`}<//></div>
     ${abierta && html`<${FormRevision} r=${abierta} sem=${sem} numeros=${n} cerrar=${() => setAbierta(false)} />`}
   </div>`;
 }
 function FormRevision({ r, sem, numeros, cerrar }) {
   const [f, set] = useFicha(Object.assign({ nota: 7, logros: "", problemas: "", aprendizajes: "", acciones: "" }, r));
-  const guardar = () => { D.guardar("revisiones", Object.assign({}, f, { fecha: r.fecha || hoy(), semana: semanaISO(sem), indicadores: numeros })); aviso("Revisión guardada."); cerrar(); };
+  const varios = D.somosVarios(), yo = (D.yo() || {}).id;
+  const [acs, setAcs] = useState(r.acuerdos && r.acuerdos.length ? r.acuerdos : varios ? [{ t: "", para: yo, fecha: sumarDias(hoy(), 7) }] : []);
+  const guardar = () => {
+    // cada acuerdo se vuelve un seguimiento con responsable y fecha (EOS: «to-dos» de 7 días)
+    const acuerdos = acs.filter(a => String(a.t || "").trim()).map(a => {
+      const t = a.tareaId && D.uno("tareas", a.tareaId);
+      const tarea = D.guardar("tareas", Object.assign({}, t || {}, { titulo: "Acuerdo: " + a.t.trim(), fecha: a.fecha || sumarDias(hoy(), 7), tipo: "acuerdo", prioridad: "alta", hecho: t ? t.hecho : false, asignadoId: a.para || yo }));
+      return Object.assign({}, a, { t: a.t.trim(), tareaId: tarea.id });
+    });
+    D.guardar("revisiones", Object.assign({}, f, { fecha: r.fecha || hoy(), semana: semanaISO(sem), indicadores: numeros, acuerdos })); aviso(varios ? "Reunión guardada. Los acuerdos quedaron en Seguimientos." : "Revisión guardada."); cerrar();
+  };
   return html`<${Hoja} titulo=${"Revisión " + semanaISO(sem)} cerrar=${cerrar} pie=${html`<${Boton} tipo="fantasma" onClick=${cerrar}>Cancelar<//><${Boton} tipo="primario" onClick=${guardar}>Guardar revisión<//>`}>
     <div class="form"><${Numero} etiqueta="¿Qué nota le pones a la semana? (1 a 10)" decimales=${0} ...${b(f, set, "nota")} />
       <${Area} etiqueta="Qué salió bien" ...${b(f, set, "logros")} /><${Area} etiqueta="Qué salió mal" ...${b(f, set, "problemas")} />
-      <${Area} etiqueta="Qué aprendí" ...${b(f, set, "aprendizajes")} /><${Area} etiqueta="Qué haré distinto esta semana (una sola cosa)" ...${b(f, set, "acciones")} /></div><//>`;
+      <${Area} etiqueta="Qué aprendí" ...${b(f, set, "aprendizajes")} /><${Area} etiqueta=${varios ? "Qué haremos distinto esta semana (una sola cosa)" : "Qué haré distinto esta semana (una sola cosa)"} ...${b(f, set, "acciones")} />
+      ${varios && html`<div><p class="etq" style="font-size:13px;font-weight:600;color:var(--texto-2);margin-bottom:8px">Acuerdos: qué, quién y para cuándo</p>
+        ${acs.map((a, i) => html`<div class="panel" style="margin-bottom:8px"><${Entrada} etiqueta="Acuerdo" valor=${a.t} cambiar=${v => setAcs(acs.map((x, j) => (j === i ? Object.assign({}, x, { t: v }) : x)))} placeholder="Publicar 3 antes y después esta semana" />
+          <div class="rejilla dos-movil" style="margin-top:8px"><${Selector} etiqueta="Responsable" opciones=${D.equipo().map(x => ({ v: x.id, n: x.nombre }))} valor=${a.para} cambiar=${v => setAcs(acs.map((x, j) => (j === i ? Object.assign({}, x, { para: v }) : x)))} />
+          <${Entrada} etiqueta="Para cuándo" tipo="date" valor=${a.fecha} cambiar=${v => setAcs(acs.map((x, j) => (j === i ? Object.assign({}, x, { fecha: v }) : x)))} /></div></div>`)}
+        ${acs.length < 7 && html`<${Boton} chico icono="plus" onClick=${() => setAcs([...acs, { t: "", para: yo, fecha: sumarDias(hoy(), 7) }])}>Otro acuerdo<//>`}</div>`}</div><//>`;
 }
 
 // ---------------------------------------------------------------- mejoras (kaizen)

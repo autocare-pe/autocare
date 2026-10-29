@@ -117,7 +117,8 @@ function Detalle({ id }) {
         ${puede && html`<${Boton} icono="ellipsis" titulo="Más" onClick=${() => menu("Orden", [
           { n: "Editar servicios y precio", icono: "pencil", f: () => setVer("listo") },
           { n: "Imprimir o guardar PDF", icono: "printer", f: () => window.print() },
-          o.estado !== "anulado" && { n: "Anular orden", icono: "circle-alert", peligro: true, f: anular }])} />`}
+          o.estado !== "anulado" && { n: "Anular orden", icono: "circle-alert", peligro: true, d: "Queda en el historial como anulada", f: anular },
+          D.esAdmin() && { n: "Eliminar orden", icono: "trash-2", peligro: true, d: o.prueba ? "Es de práctica" : "Se borra con sus cobros", f: async () => { const m = await import("./datos.js"); if (await m.eliminarConConfirmacion("ordenes", o)) ir("ordenes"); } }])} />`}
       </div>
     </div>
     ${o.estado === "anulado" ? html`<${AvisoLinea} c="rojo" icono="circle-alert">Orden anulada${o.motivo ? ": " + o.motivo : ""}.<//>` : html`
@@ -277,7 +278,7 @@ function FormPago({ o, saldo, cerrar }) {
   const [f, set] = useFicha({ monto: saldo, metodo: "yape", referencia: "" });
   const guardar = () => {
     if (!(n0(f.monto) > 0)) return aviso("Escribe el monto.", { error: true });
-    D.guardar("pagos", { fecha: hoy(), _cliente: o._cliente, concepto: "Orden " + (o.numero || ""), monto: n0(f.monto), metodo: f.metodo, referencia: f.referencia, ordenId: o.id, clienteId: o.clienteId, citaId: o.citaId || "" });
+    N.avisarCobro(D.guardar("pagos", { fecha: hoy(), _cliente: o._cliente, concepto: "Orden " + (o.numero || ""), monto: n0(f.monto), metodo: f.metodo, referencia: f.referencia, ordenId: o.id, clienteId: o.clienteId, citaId: o.citaId || "" }));
     aviso("Cobro de " + soles(f.monto) + " registrado."); cerrar();
   };
   return html`<${Hoja} centro titulo="Registrar cobro" cerrar=${cerrar} pie=${html`<${Boton} tipo="fantasma" onClick=${cerrar}>Cancelar<//><${Boton} tipo="primario" onClick=${guardar}>Guardar cobro<//>`}>

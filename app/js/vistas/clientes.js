@@ -60,9 +60,8 @@ function Ficha({ id }) {
     { n: "Mensaje libre", icono: "message-circle", f: () => enviarWa(c.tel, "") }]);
   const portal = () => import("../app.js").then(m => m.abrir(() => import("./acceso.js"), "AccesoCliente", { id: c.id }));
   const eliminar = async () => {
-    if (ots.length) return aviso("Tiene órdenes registradas. Márcalo como inactivo en vez de eliminarlo.", { error: true });
-    if (!(await confirmar({ titulo: "Eliminar cliente", texto: "Se borra de tu hoja.", si: "Eliminar", peligro: true }))) return;
-    D.borrar("clientes", c.id); ir("clientes");
+    const m = await import("./datos.js");
+    if (await m.eliminarConConfirmacion("clientes", c)) ir("clientes");
   };
   return html`
     <div class="ficha-cab"><span class="avatar grande oro">${(c.nombre || "?")[0]}</span>

@@ -1,7 +1,8 @@
 // AUTOCARE · armazón de la app: menú, rutas, barra superior, búsqueda y botón "+"
 import { html, useState, useEffect, useMemo, useRef } from "../vendor/preact-htm.js";
 import * as D from "./datos.js";
-import { Icono, Logo, LogoHorizontal, Boton, Capas, menu, capaExtra, aviso } from "./ui.js";
+import { Icono, Logo, LogoHorizontal, Boton, Hoja, Capas, menu, capaExtra, aviso } from "./ui.js";
+import { GUIAS } from "./guias.js";
 import { clases, coincide, nombreDe, telBonito, esMovil, fechaCorta, plural } from "./util.js";
 import { srcFoto } from "./datos.js";
 
@@ -26,18 +27,22 @@ export const NAV = [
     { r: "finanzas", n: "Finanzas", i: "wallet", mod: "finanzas", d: "Caja, por cobrar, gastos, reparto y rentabilidad" },
     { r: "inventario", n: "Inventario", i: "package", mod: "inventario", d: "Productos, movimientos, compras y proveedores" },
     { r: "activos", n: "Activos y vehículo", i: "car", mod: "activos", d: "Equipos, mantenimientos y depreciación" }] },
-  { g: "Sistema", items: [{ r: "config", n: "Configuración", i: "settings", d: "Negocio, servicios, horario, usuarios e integraciones" }, { r: "ayuda", n: "Ayuda", i: "circle-help", d: "Primeros pasos, uso diario, WhatsApp Business, Google y redes" }] }
+  { g: "Sistema", items: [{ r: "config", n: "Configuración", i: "settings", d: "Negocio, servicios, horario, usuarios e integraciones" }, { r: "datos", n: "Mis datos", i: "database", d: "Practicar, corregir y borrar datos" }, { r: "ayuda", n: "Ayuda", i: "circle-help", d: "Primeros pasos, uso diario, WhatsApp Business, Google y redes" }] }
 ];
 const VISTAS = {
   "": () => import("./vistas/inicio.js"), agenda: () => import("./vistas/agenda.js"), ordenes: () => import("./vistas/ordenes.js"),
   clientes: () => import("./vistas/clientes.js"), ventas: () => import("./vistas/ventas.js"), campanas: () => import("./vistas/campanas.js"),
   contenido: () => import("./vistas/contenido.js"), resultados: () => import("./vistas/resultados.js"), fidelidad: () => import("./vistas/fidelidad.js"),
   finanzas: () => import("./vistas/finanzas.js"), inventario: () => import("./vistas/inventario.js"), activos: () => import("./vistas/activos.js"),
-  tablero: () => import("./vistas/tablero.js"), plan: () => import("./vistas/plan.js"), config: () => import("./vistas/config.js"), ayuda: () => import("./vistas/ayuda.js"), mas: () => import("./vistas/mas.js")
+  tablero: () => import("./vistas/tablero.js"), plan: () => import("./vistas/plan.js"), config: () => import("./vistas/config.js"), ayuda: () => import("./vistas/ayuda.js"), datos: () => import("./vistas/datos.js"), mas: () => import("./vistas/mas.js")
 };
 // Enlaces que manda el servidor por Telegram
 const ALIAS = { comercial: "ventas", direccion: "tablero", marketing: "contenido" };
 export const puedeRuta = it => !it.mod || D.puede(it.mod, 1);
+// Menú más simple: cada persona ve primero las secciones de sus áreas (las demás, en «Ver todas las secciones»)
+const MOD_AREAS = { tablero: ["pagos"], agenda: ["campo", "ventas", "logistica"], ordenes: ["campo", "pagos"], ventas: ["ventas"], campanas: ["ventas", "marketing"],
+  contenido: ["marketing"], resultados: ["marketing"], fidelidad: ["ventas", "marketing"], finanzas: ["pagos"], inventario: ["campo", "logistica"], activos: ["campo", "logistica"] };
+export const esMio = it => { const a = MOD_AREAS[it.r]; return !a || a.some(x => D.tengoArea(x)); };
 export const itemsNav = () => NAV.flatMap(g => g.items);
 
 // ---------------------------------------------------------------- rutas (#/agenda/cita/123)
@@ -100,16 +105,18 @@ function Marca() {
   return html`<a class="marca" href="#/" style="display:block"><${LogoHorizontal} /><span class="marca-esl">${n.eslogan || "Gestión del negocio"}</span></a>`;
 }
 function Lateral({ ruta }) {
-  const c = cuentas(), u = D.yo() || {};
+  const c = cuentas(), u = D.yo() || {}, [todo, setTodo] = useState(false);
+  const ocultos = itemsNav().filter(puedeRuta).filter(it => !esMio(it)).length;
   return html`<aside class="lateral" aria-label="Menú principal">
     <${Marca} />
     ${NAV.map(g => {
-      const items = g.items.filter(puedeRuta);
+      const items = g.items.filter(puedeRuta).filter(it => todo || esMio(it) || ruta.modulo === it.r);
       if (!items.length) return null;
       return html`${g.g && html`<div class="nav-grupo">${g.g}</div>`}
         ${items.map(it => html`<a class=${clases("nav-item", ruta.modulo === it.r && "activo")} href=${"#/" + it.r} title=${it.n}>
           <${Icono} n=${it.i} /><span>${it.n}</span>${c[it.r] ? html`<span class="cuenta">${c[it.r]}</span>` : null}</a>`)}`;
     })}
+    ${ocultos > 0 && html`<button class="nav-item" style="width:100%;background:none;border:0;cursor:pointer;text-align:left" onClick=${() => setTodo(!todo)}><${Icono} n=${todo ? "chevron-up" : "chevron-down"} /><span>${todo ? "Ver menos" : "Ver todas las secciones"}</span></button>`}
     <div class="lateral-pie">
       <a class="yo" href="#/config/cuenta" title="Mi cuenta"><span class="avatar">${(u.nombre || "?").slice(0, 1).toUpperCase()}</span><div><b>${u.nombre}</b><small>${u.rol === "admin" ? "Administrador" : u.rol === "ventas" ? "Ventas" : "Técnico"}</small></div></a>
     </div>
@@ -124,21 +131,48 @@ function EstadoSync({ chico }) {
   };
   return html`<button class=${clases("sync", e.sync)} onClick=${clic} title=${e.error || txt}><span class="punto"></span>${!chico && html`<span>${txt}</span>`}</button>`;
 }
-function Barra({ titulo, abrirPaleta }) {
+// ---------------------------------------------------------------- ayuda de cada pantalla (botón «?»)
+export function abrirGuia(modulo) { capaExtra(html`<${GuiaPantalla} modulo=${modulo} cerrar=${() => capaExtra(null)} />`); }
+function GuiaPantalla({ modulo, cerrar }) {
+  const g = GUIAS[modulo] || GUIAS[""];
+  return html`<${Hoja} titulo=${"Cómo se usa: " + g.t} cerrar=${cerrar} pie=${html`<${Boton} tipo="fantasma" onClick=${() => { cerrar(); ir("ayuda"); }}>Más ayuda<//><${Boton} tipo="primario" onClick=${cerrar}>Entendido<//>`}>
+    <div class="guia"><p class="guia-para">${g.para}</p>
+      ${g.pasos.length > 0 && html`<h3>Cómo se usa</h3><ol>${g.pasos.map(p => html`<li>${p}</li>`)}</ol>`}
+      ${g.datos.length > 0 && html`<h3>Qué significa</h3><dl>${g.datos.map(([t, d]) => html`<dt>${t}</dt><dd>${d}</dd>`)}</dl>`}
+      ${g.consejo && html`<p class="guia-consejo"><${Icono} n="lightbulb" />${g.consejo}</p>`}
+      ${!D.enPractica() && D.esAdmin() && html`<p class="nota" style="margin-top:14px">¿Quieres probar sin miedo? En <a class="enlace" href="#/datos" onClick=${cerrar}>Mis datos</a> activa el modo práctica y carga datos de ejemplo.</p>`}</div><//>`;
+}
+const visto = m => { try { return !!localStorage.getItem("autocare.visto." + m); } catch (e) { return true; } };
+const marcarVisto = m => { try { localStorage.setItem("autocare.visto." + m, "1"); } catch (e) { } };
+function PrimeraVez({ modulo }) {
+  const [, rep] = useState(0);
+  const g = GUIAS[modulo];
+  if (!g || visto(modulo)) return null;
+  const listo = () => { marcarVisto(modulo); rep(x => x + 1); };
+  return html`<div class="primera-vez"><${Icono} n="circle-help" /><div><b>¿Primera vez en ${g.t}?</b> ${g.para}
+    <div class="btns" style="margin-top:8px"><${Boton} chico tipo="primario" onClick=${() => { listo(); abrirGuia(modulo); }}>Ver cómo se usa<//><${Boton} chico tipo="fantasma" onClick=${listo}>Ya entendí<//></div></div></div>`;
+}
+function BannerPractica() {
+  if (!D.enPractica()) return null;
+  return html`<a class="banner-practica" href="#/datos"><${Icono} n="flask-conical" t=${16} /><span><b>Modo práctica</b> · lo que crees se borra junto después</span><span class="ir">Mis datos ›</span></a>`;
+}
+function Barra({ titulo, abrirPaleta, modulo }) {
   const [borde, setBorde] = useState(false);
   useEffect(() => { const f = () => setBorde(window.scrollY > 4); window.addEventListener("scroll", f, { passive: true }); return () => window.removeEventListener("scroll", f); }, []);
   return html`<header class=${clases("barra", borde && "con-borde")}>
     <span class="barra-titulo">${titulo}</span>
     <button class="barra-buscar" onClick=${abrirPaleta}><${Icono} n="search" t=${17} /><span>Buscar cliente, placa, orden…</span><kbd>${/Mac/.test(navigator.platform) ? "⌘K" : "Ctrl K"}</kbd></button>
     <${EstadoSync} />
+    <${Boton} tipo="fantasma" icono="circle-help" titulo="¿Cómo se usa esta pantalla?" onClick=${() => abrirGuia(modulo)} />
     <${Boton} tipo="primario" icono="plus" onClick=${menuCrear}>Nuevo<//>
   </header>`;
 }
-function BarraMovil({ titulo, abrirPaleta }) {
+function BarraMovil({ titulo, abrirPaleta, modulo }) {
   return html`<header class="barra-movil">
     <${Logo} />
     <span class="titulo">${titulo}</span>
     <${EstadoSync} chico />
+    <${Boton} tipo="fantasma" icono="circle-help" titulo="¿Cómo se usa esta pantalla?" onClick=${() => abrirGuia(modulo)} />
     <${Boton} tipo="fantasma" icono="search" titulo="Buscar" onClick=${abrirPaleta} />
   </header>`;
 }
@@ -226,9 +260,11 @@ export function App() {
   return html`<div class="app">
     <${Lateral} ruta=${ruta} />
     <div class="principal">
-      <${Barra} titulo=${titulo || (item ? item.n : "")} abrirPaleta=${() => setPaleta(true)} />
-      <${BarraMovil} titulo=${titulo || (item ? item.n : "AUTOCARE")} abrirPaleta=${() => setPaleta(true)} />
+      <${Barra} titulo=${titulo || (item ? item.n : "")} abrirPaleta=${() => setPaleta(true)} modulo=${ruta.modulo} />
+      <${BarraMovil} titulo=${titulo || (item ? item.n : "AUTOCARE")} abrirPaleta=${() => setPaleta(true)} modulo=${ruta.modulo} />
+      <${BannerPractica} />
       <main class="contenido" id="contenido">
+        ${permitido && !ruta.partes.length && html`<${PrimeraVez} key=${ruta.modulo} modulo=${ruta.modulo} />`}
         ${!permitido ? html`<div class="vacio"><h3>No tienes acceso a esta sección</h3><p>Pídele al administrador que te dé permiso en Configuración → Usuarios.</p></div>`
           : Vista ? html`<${Vista} key=${ruta.modulo} ruta=${ruta} />` : null}
       </main>

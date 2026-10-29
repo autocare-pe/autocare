@@ -8,14 +8,14 @@ export const ENT = {
   servicios: { n: "Servicios", uno: "servicio", mod: ["config"], base: true },
   planes: { n: "Planes", uno: "plan", mod: ["config"], base: true },
   membresias: { n: "Membresías", uno: "membresía", mod: ["clientes", "finanzas"] },
-  leads: { n: "Prospectos", uno: "prospecto", mod: ["comercial"] },
+  leads: { n: "Consultas (prospectos)", uno: "consulta", mod: ["comercial"] },
   cotizaciones: { n: "Cotizaciones", uno: "cotización", mod: ["comercial"] },
   citas: { n: "Agenda", uno: "cita", mod: ["agenda", "ordenes"] },
   ordenes: { n: "Órdenes", uno: "orden", mod: ["ordenes"] },
   pagos: { n: "Cobros", uno: "cobro", mod: ["finanzas", "ordenes"] },
   gastos: { n: "Gastos", uno: "gasto", mod: ["finanzas", "inventario", "activos"], ver: ["finanzas"] },
   productos: { n: "Inventario", uno: "producto", mod: ["inventario", "ordenes"] },
-  movimientos: { n: "Kardex", uno: "movimiento", mod: ["inventario", "ordenes"] },
+  movimientos: { n: "Movimientos de inventario", uno: "movimiento", mod: ["inventario", "ordenes"] },
   compras: { n: "Compras", uno: "compra", mod: ["inventario"] },
   porComprar: { n: "Por comprar", uno: "pendiente de compra", mod: ["inventario"] },
   proveedores: { n: "Proveedores", uno: "proveedor", mod: ["inventario", "finanzas"] },
@@ -35,7 +35,18 @@ export const ENT = {
   mejoras: { n: "Mejoras", uno: "mejora", mod: ["direccion", "ordenes"] },
   costosFijos: { n: "Costos fijos", uno: "costo fijo", mod: ["finanzas"] }
 };
-export const AJUSTES_MOD = { plan: "direccion", metasKpi: "direccion", distribucion: "finanzas", galeria: "marketing", contenidoMetas: "marketing" };
+// Áreas de trabajo de cada persona (deciden su Inicio y sus avisos). Gerber (The E-Myth): el técnico, el gerente
+// y el emprendedor son trabajos distintos; con una socia, cada uno tiene dueño claro (Wickman, Traction).
+export const AREAS = [
+  { v: "campo", n: "Servicio en campo", d: "Agenda del día, órdenes, recepción y calidad", i: "car" },
+  { v: "ventas", n: "WhatsApp y ventas", d: "Consultas, cotizaciones, confirmar citas y seguimientos", i: "message-circle" },
+  { v: "pagos", n: "Cobros y finanzas", d: "Adelantos, verificar pagos, caja y reparto", i: "wallet" },
+  { v: "logistica", n: "Logística", d: "Ruta de mañana, compras, stock y equipos", i: "truck" },
+  { v: "marketing", n: "Marketing", d: "Contenido, campañas, reseñas y clientes que les toca volver", i: "megaphone" }];
+// Modo práctica: lo nuevo de estas listas se marca como prueba y se borra junto (la configuración no)
+export const ENT_PRACTICA = ["clientes", "vehiculos", "membresias", "leads", "cotizaciones", "citas", "ordenes", "pagos", "gastos", "movimientos", "compras",
+  "porComprar", "mantenimientos", "contenido", "metricas", "campanas", "tareas", "resenas", "reclamos", "cierres", "transferencias", "objetivos", "revisiones", "mejoras"];
+export const AJUSTES_MOD = { plan: "direccion", metasKpi: "direccion", distribucion: "finanzas", socios: "finanzas", galeria: "marketing", contenidoMetas: "marketing" };
 
 export const MODULOS = {
   direccion: "Dirección", agenda: "Agenda", ordenes: "Órdenes", clientes: "Clientes", comercial: "Ventas y campañas",

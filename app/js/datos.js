@@ -4,14 +4,14 @@
 
 import { useState, useEffect } from "../vendor/preact-htm.js";
 import { api, token, fijarToken } from "./api.js";
-import { ENT, AJUSTES_MOD } from "./esquema.js";
+import { ENT, AJUSTES_MOD, AREAS, ENT_PRACTICA } from "./esquema.js";
 import { nuevoId, llave } from "./util.js";
 
 const DB_NOMBRE = "autocare", DB_VERSION = 1;
 let db = null;
 const L = {};            // lista → Map(id → registro)
 const ARR = {};          // lista → arreglo (caché)
-let AJ = {}, YO = null, SRV = null, REV = 0;
+let AJ = {}, YO = null, SRV = null, REV = 0, EQ = [], EQ_T = 0;
 let COLA = [], SEQ = 0;
 const EN_VUELO = new Set();
 const FOTOS = new Map(); // fotos tomadas que aún no suben: lid → {lid, data, tipo, nombre}
@@ -107,7 +107,7 @@ export async function iniciar() {
     try {
       const [regs, kv, fotos] = await Promise.all([leerTodo("reg"), leerKv(), leerTodo("fotos")]);
       regs.forEach(x => { if (x && x.r && x.r.id) mapa(x.e).set(x.r.id, x.r); });
-      AJ = kv.ajustes || {}; YO = kv.yo || null; SRV = kv.servidor || null; REV = kv.rev || 0;
+      AJ = kv.ajustes || {}; YO = kv.yo || null; SRV = kv.servidor || null; REV = kv.rev || 0; EQ = kv.equipo || [];
       COLA = kv.cola || []; REAL = kv.real || {};
       SEQ = COLA.reduce((m, o) => Math.max(m, o.n || 0), 0);
       fotos.forEach(f => FOTOS.set(f.lid, f));
@@ -149,13 +149,13 @@ export async function cargarTodo() {
   pend.forEach((r, k) => { const e = k.split("/")[0]; mapa(e).set(r.id, r); });
   AJ = j.ajustes || {};
   COLA.forEach(o => { if (o.e === "ajustes") AJ[o.k] = o.v; });
-  YO = j.yo; SRV = j.servidor; REV = j.rev;
+  YO = j.yo; SRV = j.servidor; REV = j.rev; EQ = j.equipo || EQ; EQ_T = Date.now();
   if (db) {
     try {
       const t = db.transaction(["reg", "kv"], "readwrite"), sr = t.objectStore("reg"), sk = t.objectStore("kv");
       sr.clear();
       Object.keys(L).forEach(e => L[e].forEach(r => sr.put({ k: e + "/" + r.id, e, r })));
-      sk.put(AJ, "ajustes"); sk.put(YO, "yo"); sk.put(SRV, "servidor"); sk.put(REV, "rev"); sk.put(COLA, "cola");
+      sk.put(AJ, "ajustes"); sk.put(YO, "yo"); sk.put(SRV, "servidor"); sk.put(REV, "rev"); sk.put(COLA, "cola"); sk.put(EQ, "equipo");
       await hecho(t);
     } catch (e) { console.warn(e); }
   }
@@ -167,6 +167,7 @@ export async function traerCambios() {
   if (!REV) { await cargarTodo(); return true; }
   const j = await api("cambios", { desde: REV });
   estado.ultima = Date.now();
+  if (j.reiniciar) { await cargarTodo(); return true; }   // hubo una limpieza grande: recargamos todo
   if (j.sinCambios) { if (estado.sync === "sinred") fijarSync("ok"); return false; }
   const pend = clavesPendientes();
   (j.borrados || []).forEach(b => {
@@ -187,8 +188,30 @@ export async function traerCambios() {
   }
   REV = j.rev; ponerKv("rev", REV);
   notificar();
+  if (Date.now() - EQ_T > 10 * 60000) refrescarEquipo();
   return true;
 }
+// ---------------------------------------------------------------- equipo y áreas (socios)
+export async function refrescarEquipo() {
+  EQ_T = Date.now();
+  try {
+    const r = await api("equipo"); EQ = r.equipo || []; ponerKv("equipo", EQ);
+    const yo = YO && EQ.find(x => x.id === YO.id);
+    if (yo && JSON.stringify(yo.areas) !== JSON.stringify(YO.areas)) { YO = Object.assign({}, YO, { areas: yo.areas }); ponerKv("yo", YO); }
+    notificar();
+  } catch (e) { }
+}
+export const enPractica = () => !!(AJ.practica && AJ.practica.activo);
+export const equipo = () => EQ;
+export const somosVarios = () => EQ.length > 1;
+export function misAreas() { const a = (YO && YO.areas) || []; return a.length ? a : AREAS.map(x => x.v); }
+export const tengoArea = a => misAreas().includes(a);
+/** Quién se encarga de un área: prefiere a quien no está en el campo */
+export function responsable(area) {
+  const l = EQ.filter(x => (x.areas || []).includes(area)), sin = l.filter(x => !(x.areas || []).includes("campo"));
+  return (sin[0] || l[0] || {}).id || "";
+}
+export function nombreUsuario(id) { const x = EQ.find(y => y.id === id); return x ? x.nombre : ""; }
 
 // ---------------------------------------------------------------- lectura
 export function lista(e) { return ARR[e] || (ARR[e] = Array.from(mapa(e).values())); }
@@ -235,6 +258,11 @@ export function guardar(e, r) {
   rec.creado = (prev && prev.creado) || rec.creado || Date.now();
   rec.act = Date.now();
   rec.por = (YO && YO.nombre) || rec.por || "";
+  if (!prev && rec.prueba === undefined && enPractica() && ENT_PRACTICA.includes(e)) rec.prueba = true;
+  if (e === "pagos" && !prev && YO) {
+    rec.cobradoPor = rec.cobradoPor || YO.nombre; rec.cobradoPorId = rec.cobradoPorId || YO.id;
+    if (rec.verificado === undefined) rec.verificado = !EQ.some(x => x.id !== YO.id && (x.areas || []).includes("pagos")) || misAreas().includes("pagos");
+  }
   if (prev && prev.numero && !rec.numero) rec.numero = prev.numero;
   rec = conFotosReales(rec);
   mapa(e).set(rec.id, rec); ponerReg(e, rec); delete ARR[e];

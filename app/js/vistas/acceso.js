@@ -55,6 +55,7 @@ function PasosNfc({ url }) {
 /** Hoja «La tarjeta de Carla»: se abre desde la ficha del cliente y al entregar una orden */
 export function AccesoCliente({ id, cerrar }) {
   D.useDatos();
+  try { localStorage.setItem("autocare.hizo.tarjeta", "1"); } catch (e) { }
   const c = D.uno("clientes", id);
   const [pieza, setPieza] = useState(null), [nfc, setNfc] = useState(false), [haciendo, setHaciendo] = useState("");
   const conLlave = c ? N.asegurarPortal(c) || c : null;

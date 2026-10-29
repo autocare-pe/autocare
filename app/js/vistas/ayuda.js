@@ -5,6 +5,7 @@ import * as N from "../negocio.js";
 import { usarTitulo } from "../app.js";
 import { Boton, Icono, Bloque, AvisoLinea, Fila, Buscador, Dinero, Numero, aviso, confirmar } from "../ui.js";
 import { coincide, copiar } from "../util.js";
+import { GLOSARIO } from "../guias.js";
 
 const S = (t, ...p) => ({ t, p });
 const C = (t, comp) => ({ t, p: [], comp });
@@ -24,6 +25,15 @@ function Fans() {
     <p class="nota" style="margin-top:6px">No necesitas miles de seguidores: necesitas que esos clientes vuelvan. Para eso están la tarjeta, los recordatorios y el plan mensual.</p></div>`;
 }
 const TEMAS = [
+  { id: "practica", t: "Practicar, corregir y borrar datos", i: "flask-conical", c: [
+    S("Practica sin miedo", "Mis datos → activa «Practicar». Todo lo nuevo (clientes, citas, órdenes, cobros…) queda marcado como práctica, en tu celular y en el de tu socia. Con «Cargar datos de ejemplo» tienes clientes, citas y órdenes falsas para explorar."),
+    S("Aprende haciendo", "Con la práctica activa, en Inicio aparece «Aprende practicando»: 8 pasos de un servicio completo que se marcan solos cuando los haces."),
+    S("Corregir algo mal cargado", "Mis datos → toca la lista (por ejemplo Cobros) → toca el dato → cambia lo que necesites → Guardar. También directo: en Finanzas → Movimientos toca un cobro o gasto; en la ficha del cliente, ⋯ → Editar datos; en una orden, ⋯ → Editar servicios y precio; en Seguimientos, ⋯ → Editar."),
+    S("Eliminar", "Mis datos → toca el dato → Eliminar. Un cliente se borra con todo su historial (citas, órdenes, cobros); una orden, con sus cobros, y lo que gastó vuelve al inventario. Siempre te pregunta antes."),
+    S("Borrar toda la práctica", "Mis datos → «Borrar práctica»: se borra todo lo marcado, en los dos celulares. Tu configuración no se toca. Luego apaga «Practicar»."),
+    S("Empezar de cero", "Mis datos → «Empezar de cero»: borra lo del día a día (eliges qué) y deja servicios, precios, productos, equipos y usuarios. Antes, se guarda una copia completa en tu Drive (carpeta Respaldos). La numeración vuelve a OT-0001."),
+    S("¿No entiendes una pantalla?", "Toca el botón ? de arriba: te dice para qué sirve, cómo se usa y qué significa cada dato. Debajo de los campos difíciles hay una ayuda corta con ejemplos.")] },
+  { id: "glosario", t: "Qué significa cada palabra", i: "book-open", c: GLOSARIO.map(([t, d]) => S(t, d)) },
   { id: "dia", t: "Tu día a día, paso a paso", i: "sun", c: [
     S("1. Llega una consulta", "Si llega por la web, te avisa Telegram y aparece en Ventas → Embudo. Si llega por WhatsApp o Instagram, anótala con «+ → Nueva consulta». Respóndela en menos de una hora con una respuesta rápida (Ventas → la consulta → Responder)."),
     S("2. Agenda la cita", "Desde la consulta toca «Agendar cita», o usa «+ → Nueva cita». La app te muestra las horas libres y calcula precio, duración y adelanto. Al guardar, avísale por WhatsApp con un toque."),
@@ -77,6 +87,21 @@ const TEMAS = [
     S("Si perdió su tarjeta o la compartió", "En su ficha → «Darle su tarjeta» → «Cambiar su enlace». El anterior deja de funcionar; dale el nuevo."),
     S("Ícono en su celular", "Cuando abre su tarjeta, queda recordada en ese celular. En iPhone: Compartir → «Agregar a pantalla de inicio» y tiene el ícono de AUTOCARE."),
     S("QR de tu negocio", "Configuración → Mi web → «Crear QR de mi negocio»: uno para la ventana de tu auto, uno para volantes (con oferta y fecha) y uno para pedir reseñas en Google. Cada uno lleva su origen y lo ves en Resultados → De dónde vienen.")] },
+  { id: "socios", t: "Trabajar con tu socia (co-gerente)", i: "handshake", c: [
+    S("1. Dale acceso", "Configuración → Usuarios → Nuevo usuario. Rol: Co-gerente (acceso total). Marca sus áreas: WhatsApp y ventas, Cobros y finanzas, Logística y Marketing. Al guardar sale una clave temporal: pásasela por WhatsApp junto con la dirección de la app (…/autocare/app/). Ella la instala en su celular (Compartir → Agregar a pantalla de inicio) y cambia su clave en Mi cuenta."),
+    S("2. Deja tus áreas", "En Usuarios, edita tu usuario y deja solo «Servicio en campo». Desde ahí, tu Inicio muestra tu agenda y tus órdenes, y el de ella su centro de control: responder, cobrar, preparar mañana y marketing."),
+    S("3. Que conecte su Telegram", "Desde su celular: Configuración → Avisos y redes → «Abrir @tubot y tocar Iniciar» → vuelve y toca «Ya toqué Iniciar». A ella le llegan consultas, reservas, cobros por verificar y marketing; a ti, el aviso antes de cada cita, las firmas y la agenda. Los resúmenes les llegan a los dos."),
+    S("4. WhatsApp Business en su celular", "WhatsApp Business permite usar el mismo número en hasta 4 dispositivos vinculados. En el celular de ella instala WhatsApp Business y elige «Vincular a una cuenta existente»: aparece un código QR. En tu celular: WhatsApp Business → Configuración → Dispositivos vinculados → Vincular un dispositivo, y escanéalo. Los dos responden desde el número del negocio; abre tu WhatsApp de vez en cuando para que no se desvincule."),
+    S("5. Cobros: tú cobras, ella verifica", "Cuando registras un cobro en la orden, a ella le llega un aviso y le aparece en Finanzas → Por verificar. Ella revisa el Yape o la cuenta y toca «Llegó». Es control interno básico (separación de funciones): no es desconfianza, protege a los dos."),
+    S("6. Seguimientos entre ustedes", "En Ventas → Seguimientos, elige «Para quién». Si le dejas una tarea, le llega por Telegram. Cada uno ve «Míos» y «Del equipo»."),
+    S("7. Reunión de socios cada semana", "Plan y revisión → Revisión semanal: 30 minutos, el mismo día y hora. Los acuerdos tienen responsable y fecha, y quedan como seguimientos para la semana."),
+    S("8. Reparto entre socios", "Finanzas → Reparto → «Reparto entre socios»: el sueldo se reparte por el trabajo de cada uno y la ganancia por lo que cada uno es dueño. Propuesta inicial 50/50; ajústenla a lo que acuerden."),
+    S("Michael Gerber — The E-Myth Revisited", "Idea: todo negocio necesita tres trabajos: el técnico (hace el servicio), el gerente (ordena) y el emprendedor (piensa en el futuro).", "En AUTOCARE: tú eres el técnico y gerente de la operación; tu socia, la gerente de clientes, dinero y marketing. Reserven un rato a la semana para el trabajo de emprendedor: hacia dónde va el negocio."),
+    S("Gino Wickman y Mark Winters — Rocket Fuel", "Idea: las empresas que despegan suelen tener un «visionario» (ideas, relación con clientes, calidad) y un «integrador» (ordena, cumple, coordina). Se necesitan los dos y cada uno respeta el terreno del otro.", "En AUTOCARE: decidan quién tiene la última palabra en cada tema (calidad del servicio, precios, gastos, marketing) y escríbanlo."),
+    S("Gino Wickman — Traction (EOS)", "Idea: cada «asiento» de la empresa tiene un solo dueño; prioridades de 90 días con responsable; una reunión semanal con números, problemas y acuerdos.", "En AUTOCARE: las áreas de cada usuario, las prioridades del trimestre con responsable y la reunión de socios."),
+    S("David Gage — The Partnership Charter", "Idea: los socios que escriben sus acuerdos antes de que haya problemas tienen muchas menos peleas.", "En AUTOCARE: escriban en una hoja quién hace qué, quién decide qué (solo o juntos, por ejemplo gastos mayores a S/ 300), cuánto puso cada uno (dinero, equipos, tiempo), cómo se reparten sueldo y ganancia, qué pasa si uno quiere salir y cómo resuelven un desacuerdo. Revísenlo cada 6 meses."),
+    S("Noam Wasserman — The Founder's Dilemmas (Harvard)", "Idea: según su estudio de 10,000 fundadores, 65% de las startups de alto potencial fracasan por conflictos entre los socios, más que por falta de clientes.", "En AUTOCARE: hablen de plata, roles y poder al inicio, cuando todavía están de buenas."),
+    S("Patrick Lencioni — Las cinco disfunciones de un equipo", "Idea: sin confianza no hay conflicto sano; sin conflicto sano no hay compromiso, nadie rinde cuentas y no llegan los resultados.", "En AUTOCARE: en la reunión semanal discutan las ideas, no a las personas, y salgan siempre con un acuerdo y un responsable.")] },
   { id: "expertos", t: "Consejos de expertos para hacer crecer AUTOCARE", i: "graduation-cap", c: [
     S("Cómo usar esta sección", "Está ordenada como el «plan de marketing de una página» de Allan Dib (The 1-Page Marketing Plan): ANTES (que te encuentren), DURANTE (que te elijan) y DESPUÉS (que vuelvan y te recomienden). La mayor ganancia de un negocio de servicio está en el DESPUÉS. Aplica una idea por semana."),
     S("ANTES · Seth Godin — This Is Marketing", "Idea: elige el «mercado mínimo viable», a quién sirves y a quién no.", "En AUTOCARE: profesionales de Cayma, Yanahuara y Cerro Colorado, con auto nuevo o SUV, que valoran su tiempo; y condominios. Escribe cada post pensando en esa persona."),
@@ -121,7 +146,7 @@ const TEMAS = [
 export default function Ayuda() {
   D.useDatos();
   usarTitulo("Ayuda");
-  const [q, setQ] = useState(""), [abierto, setAbierto] = useState("inicio");
+  const [q, setQ] = useState(""), [abierto, setAbierto] = useState("practica");
   const sem = D.ajuste("semillaCargada");
   const cargar = async () => {
     if (!(await confirmar({ titulo: "Cargar configuración inicial", texto: "Se agregan tus paquetes, adicionales, planes, productos, equipos y reglas de sellos. No borra nada de lo que ya tienes.", si: "Cargar" }))) return;

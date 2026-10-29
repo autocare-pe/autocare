@@ -125,28 +125,42 @@ export function FormLead({ cerrar, inicial }) {
 
 // ---------------------------------------------------------------- seguimientos
 function Seguimientos({ nueva }) {
-  const H = hoy(), [ver, setVer] = useState("pendientes");
-  const todas = D.lista("tareas").slice().sort((a, c) => String(a.fecha || "9").localeCompare(String(c.fecha || "9")) || String(a.hora || "").localeCompare(String(c.hora || "")));
+  const H = hoy(), [ver, setVer] = useState("pendientes"), yo = (D.yo() || {}).id, varios = D.somosVarios();
+  const [quien, setQuien] = useState(varios ? "mios" : "todos"), [ed, setEd] = useState(null);
+  const todas = D.lista("tareas").filter(t => quien === "todos" || (quien === "mios" ? !t.asignadoId || t.asignadoId === yo : t.asignadoId && t.asignadoId !== yo)).sort((a, c) => String(a.fecha || "9").localeCompare(String(c.fecha || "9")) || String(a.hora || "").localeCompare(String(c.hora || "")));
   const l = ver === "pendientes" ? todas.filter(t => !t.hecho) : todas.filter(t => t.hecho).reverse().slice(0, 50);
   const grupos = ver === "pendientes" ? [["Atrasados", l.filter(t => t.fecha && t.fecha < H)], ["Hoy", l.filter(t => t.fecha === H)], ["Próximos", l.filter(t => !t.fecha || t.fecha > H)]] : [["Hechos", l]];
   const marcar = (t, v) => D.cambiar("tareas", t.id, { hecho: v, hechoEn: v ? Date.now() : null });
-  return html`<div style="margin-bottom:14px"><${Chips} valor=${ver} cambiar=${v => setVer(v || "pendientes")} opciones=${[{ v: "pendientes", n: "Pendientes" }, { v: "hechos", n: "Hechos" }]} /></div>
+  return html`<div style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap"><${Chips} valor=${ver} cambiar=${v => setVer(v || "pendientes")} opciones=${[{ v: "pendientes", n: "Pendientes" }, { v: "hechos", n: "Hechos" }]} />
+      ${varios && html`<${Chips} valor=${quien} cambiar=${v => setQuien(v || "mios")} opciones=${[{ v: "mios", n: "Míos" }, { v: "otros", n: "Del equipo" }, { v: "todos", n: "Todos" }]} />`}</div>
     ${!l.length ? html`<${Vacio} icono="list-checks" titulo=${ver === "pendientes" ? "Nada pendiente" : "Aún no completas seguimientos"} texto="Anota a quién llamar o escribir y cuándo. Lo que no se agenda, se olvida."><${Boton} tipo="primario" onClick=${nueva}>Nuevo seguimiento<//><//>`
       : grupos.filter(g => g[1].length).map(([n, ts]) => html`<section class="bloque"><div class="bloque-cab"><h2>${n}</h2><p>${ts.length}</p></div><div class="grupo">${ts.map(t => {
         const c = D.uno("clientes", t.clienteId);
         return html`<div class=${clases("fila", t.hecho && "hecha")}><${Check} si=${t.hecho} cambiar=${v => marcar(t, v)} />
-          <span class="cuerpo"><span class="t">${t.titulo}</span><span class="s">${[t.fecha ? relativa(t.fecha) + (t.hora ? " " + t.hora : "") : "Sin fecha", c ? nombreDe(c) : "", t.prioridad === "alta" ? "prioridad alta" : ""].filter(Boolean).join(" · ")}</span></span>
-          ${c && c.tel && html`<span class="der"><${Boton} chico icono="message-circle" titulo="WhatsApp" onClick=${() => enviarWa(c.tel, "")} /></span>`}</div>`;
-      })}</div></section>`)}`;
+          <span class="cuerpo"><span class="t">${t.titulo}</span><span class="s">${[t.fecha ? relativa(t.fecha) + (t.hora ? " " + t.hora : "") : "Sin fecha", c ? nombreDe(c) : "", t.prioridad === "alta" ? "prioridad alta" : "", varios && t.asignadoId ? "para " + (t.asignadoId === yo ? "ti" : D.nombreUsuario(t.asignadoId) || "otro") : ""].filter(Boolean).join(" · ")}</span></span>
+          <span class="der">${c && c.tel && html`<${Boton} chico icono="message-circle" titulo="WhatsApp" onClick=${() => enviarWa(c.tel, "")} />`}
+            <${Boton} chico tipo="fantasma" icono="ellipsis" titulo="Editar o eliminar" onClick=${() => menu(t.titulo, [
+              { n: "Editar", icono: "pencil", f: () => setEd(t) },
+              { n: "Eliminar", icono: "trash-2", peligro: true, f: async () => { if (await confirmar({ titulo: "Eliminar seguimiento", texto: t.titulo, si: "Eliminar", peligro: true })) { D.borrar("tareas", t.id); aviso("Eliminado."); } } }])} /></span></div>`;
+      })}</div></section>`)}
+    ${ed && html`<${FormTarea} inicial=${ed} cerrar=${() => setEd(null)} />`}`;
 }
 export function FormTarea({ cerrar, inicial }) {
-  const [f, set] = useFicha(Object.assign({ fecha: hoy(), hora: "", titulo: "", tipo: "whatsapp", prioridad: "media", hecho: false, clienteId: "" }, inicial || {}));
+  const [f, set] = useFicha(Object.assign({ fecha: hoy(), hora: "", titulo: "", tipo: "whatsapp", prioridad: "media", hecho: false, clienteId: "", asignadoId: (D.yo() || {}).id || "" }, inicial || {}));
   const clientes = D.lista("clientes").slice().sort((a, c) => nombreDe(a).localeCompare(nombreDe(c)));
-  const guardar = () => { if (!String(f.titulo).trim()) return aviso("Escribe qué hay que hacer.", { error: true }); D.guardar("tareas", f); aviso("Seguimiento guardado."); cerrar(); };
-  return html`<${Hoja} centro titulo="Nuevo seguimiento" cerrar=${cerrar} pie=${html`<${Boton} tipo="fantasma" onClick=${cerrar}>Cancelar<//><${Boton} tipo="primario" onClick=${guardar}>Guardar<//>`}>
+  const guardar = () => {
+    if (!String(f.titulo).trim()) return aviso("Escribe qué hay que hacer.", { error: true });
+    D.guardar("tareas", f); aviso("Seguimiento guardado."); cerrar();
+    const yo = D.yo() || {};
+    if (f.asignadoId && f.asignadoId !== yo.id) import("../api.js").then(m => m.api("avisar", { para: f.asignadoId,
+      texto: "📝 " + (yo.nombre || "Tu socio") + " te dejó un seguimiento:\n" + String(f.titulo).replace(/[<>&]/g, "") + (f.fecha ? "\nPara: " + fechaCorta(f.fecha) + (f.hora ? " " + f.hora : "") : ""),
+      botones: [{ text: "Ver mis seguimientos", url: location.origin + location.pathname + "#/ventas/seguimientos" }] })).catch(() => { });
+  };
+  return html`<${Hoja} centro titulo=${inicial && inicial.id ? "Editar seguimiento" : "Nuevo seguimiento"} cerrar=${cerrar} pie=${html`<${Boton} tipo="fantasma" onClick=${cerrar}>Cancelar<//><${Boton} tipo="primario" onClick=${guardar}>Guardar<//>`}>
     <div class="form"><${Entrada} etiqueta="Qué hay que hacer" ...${b(f, set, "titulo")} placeholder="Escribirle a Carla para su mantenimiento" />
       <div class="rejilla dos-movil"><${Entrada} etiqueta="Fecha" tipo="date" ...${b(f, set, "fecha")} /><${Entrada} etiqueta="Hora" tipo="time" ...${b(f, set, "hora")} /></div>
       <${Selector} etiqueta="Cliente (opcional)" vacio="Ninguno" opciones=${clientes.map(c => ({ v: c.id, n: nombreDe(c) }))} ...${b(f, set, "clienteId")} />
+      ${D.somosVarios() && html`<${Selector} etiqueta="Para quién" opciones=${D.equipo().map(x => ({ v: x.id, n: x.id === (D.yo() || {}).id ? x.nombre + " (yo)" : x.nombre }))} ...${b(f, set, "asignadoId")} />`}
       <${Chips} valor=${f.prioridad} cambiar=${v => set("prioridad", v || "media")} opciones=${[{ v: "alta", n: "Alta" }, { v: "media", n: "Media" }, { v: "baja", n: "Baja" }]} /></div><//>`;
 }
 
@@ -177,7 +191,7 @@ function EditorCotizacion({ c, cerrar }) {
     const r = guardar({ estado: "enviada", fecha: f.estado === "borrador" ? hoy() : f.fecha }); if (!r) return;
     const cli = N.asegurarPortal(D.uno("clientes", r.clienteId));
     enviarWa(cli.tel, N.mensaje("cotizacion", { nombre: cli.nombre, total: soles(r.total), portal: N.urlPortal(cli) }));
-    D.guardar("tareas", { fecha: sumarDias(hoy(), 2), titulo: "Seguimiento a la cotización de " + cli.nombre, tipo: "whatsapp", prioridad: "media", clienteId: cli.id });
+    D.guardar("tareas", { fecha: sumarDias(hoy(), 2), titulo: "Seguimiento a la cotización de " + cli.nombre, tipo: "whatsapp", prioridad: "media", clienteId: cli.id, asignadoId: D.responsable("ventas") });
     aviso("Enviada. Te dejé un seguimiento en 2 días."); cerrar();
   };
   const agendar = () => {

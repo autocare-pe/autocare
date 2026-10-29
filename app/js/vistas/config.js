@@ -5,9 +5,9 @@ import * as N from "../negocio.js";
 import { api } from "../api.js";
 import { ir, usarTitulo } from "../app.js";
 import { aplicarTema } from "../main.js";
-import { Boton, BotonAccion, Hoja, Entrada, Numero, Dinero, Area, Selector, Interruptor, Segmentos, Pestanas, Insignia, Vacio, Fila, Bloque, AvisoLinea, Tabla, aviso, confirmar, useFicha, b } from "../ui.js";
+import { Boton, BotonAccion, Hoja, Entrada, Numero, Dinero, Area, Selector, Interruptor, Segmentos, Pestanas, Insignia, Vacio, Fila, Bloque, AvisoLinea, Tabla, Icono, aviso, confirmar, useFicha, b } from "../ui.js";
 import { soles, duracion, hoy, descargar, copiar, fechaHora, DIAS } from "../util.js";
-import { CATEGORIAS_SERVICIO, MODULOS, estadoDe } from "../esquema.js";
+import { CATEGORIAS_SERVICIO, MODULOS, AREAS, estadoDe } from "../esquema.js";
 import { CampoFotos } from "../piezas.js";
 
 export default function Config({ ruta }) {
@@ -181,27 +181,47 @@ function Usuarios() {
     const r = await api("usuarioClave", { id: u.id });
     await confirmar({ titulo: "Clave temporal", texto: `Usuario: ${u.usuario} · Clave: ${r.clave}. Pásasela por WhatsApp; puede cambiarla en Mi cuenta.`, si: "Listo", no: "Cerrar" });
   };
-  return html`<${Bloque} titulo="Personas con acceso" sub="Cuando contrates ayuda, crea un usuario Técnico: ve su agenda y órdenes, no tus finanzas." der=${html`<${Boton} tipo="primario" icono="user-plus" onClick=${() => setEd({})}>Nuevo usuario<//>`}>
-    <div class="grupo">${d.usuarios.map(u => html`<${Fila} avatar=${u.nombre} titulo=${u.nombre + (u.dueno ? " (dueño)" : "")} sub=${"@" + u.usuario + " · " + (d.roles[u.rol] || {}).nombre + (u.ultimoAcceso ? " · entró " + fechaHora(u.ultimoAcceso) : "")}
-      der=${html`${!u.activo && html`<${Insignia}>Desactivado<//>`}${!u.dueno && html`<${Boton} chico tipo="fantasma" onClick=${() => clave(u)}>Clave<//><${Boton} chico onClick=${() => setEd(u)}>Editar<//>`}`} />`)}</div>
-    ${ed && html`<${FormUsuario} u=${ed} roles=${d.roles} cerrar=${() => setEd(null)} listo=${r => { setD(Object.assign({}, d, { usuarios: r.usuarios })); setEd(null); }} />`}<//>`;
+  const nombreArea = a => (AREAS.find(x => x.v === a) || {}).n || a;
+  const areasTxt = u => (u.areas || []).length >= AREAS.length ? "todas las áreas" : (u.areas || []).map(nombreArea).join(", ");
+  return html`${d.usuarios.length < 2 && html`<div style="margin-bottom:16px"><${AvisoLinea} c="oro" icono="handshake"><b>¿Tienes socia o socio?</b> Crea su usuario como <b>Co-gerente</b> y marca sus áreas (por ejemplo WhatsApp y ventas, cobros, logística y marketing). Luego edita el tuyo y deja solo <b>Servicio en campo</b>: así cada uno ve primero lo suyo y recibe solo sus avisos.<//></div>`}
+    <${Bloque} titulo="Personas con acceso" sub="Co-gerente: acceso total. Técnico: ve su agenda y órdenes, no las finanzas." der=${html`<${Boton} tipo="primario" icono="user-plus" onClick=${() => setEd({ rol: "admin" })}>Nuevo usuario<//>`}>
+    <div class="grupo">${d.usuarios.map(u => html`<${Fila} avatar=${u.nombre} titulo=${u.nombre + (u.dueno ? " (dueño)" : "")} sub=${"@" + u.usuario + " · " + (u.rol === "admin" ? (u.dueno ? "Gerente" : "Co-gerente") : (d.roles[u.rol] || {}).nombre) + " · " + areasTxt(u) + (u.ultimoAcceso ? " · entró " + fechaHora(u.ultimoAcceso) : "")}
+      der=${html`${!u.activo && html`<${Insignia}>Desactivado<//>`}${!u.dueno && html`<${Boton} chico tipo="fantasma" onClick=${() => clave(u)}>Clave<//>`}<${Boton} chico onClick=${() => setEd(u)}>Editar<//>`} />`)}</div>
+    ${ed && html`<${FormUsuario} u=${ed} roles=${d.roles} cerrar=${() => setEd(null)} listo=${r => { setD(Object.assign({}, d, { usuarios: r.usuarios })); setEd(null); D.refrescarEquipo(); }} />`}<//>`;
 }
 function FormUsuario({ u, roles, cerrar, listo }) {
   const [f, set] = useFicha(Object.assign({ nombre: "", usuario: "", rol: "tecnico", activo: true }, u));
-  const [perm, setPerm] = useState(u.permisos || roles[f.rol].permisos);
+  const [perm, setPerm] = useState(u.permisos || (roles[f.rol] || roles.tecnico).permisos);
+  const [areas, setAreas] = useState(u.areas && u.areas.length ? u.areas : f.rol === "tecnico" ? ["campo"] : AREAS.map(x => x.v));
   const guardar = async () => {
-    const r = await api("usuarioGuardar", { id: u.id, nombre: f.nombre, usuario: f.usuario, rol: f.rol, activo: f.activo, permisos: perm });
+    if (!areas.length) throw new Error("Marca al menos un área.");
+    const r = await api("usuarioGuardar", { id: u.id, nombre: f.nombre, usuario: f.usuario, rol: u.dueno ? "admin" : f.rol, activo: f.activo, permisos: f.rol === "admin" ? null : perm, areas });
     if (r.clave) await confirmar({ titulo: "Usuario creado", texto: `Usuario: ${r.usuarios.find(x => x.nombre === f.nombre || x.usuario === f.usuario)?.usuario || f.usuario} · Clave temporal: ${r.clave}. Pásasela; la cambia en Mi cuenta.`, si: "Listo", no: "Cerrar" });
     listo(r);
   };
   return html`<${Hoja} titulo=${u.id ? "Editar usuario" : "Nuevo usuario"} cerrar=${cerrar} pie=${html`<${Boton} tipo="fantasma" onClick=${cerrar}>Cancelar<//><${BotonAccion} tipo="primario" accion=${guardar}>Guardar<//>`}>
     <div class="form">
       <div class="rejilla"><${Entrada} etiqueta="Nombre" ...${b(f, set, "nombre")} /><${Entrada} etiqueta="Usuario para entrar" autocapitalize="off" ...${b(f, set, "usuario")} /></div>
-      <${Segmentos} etiqueta="Rol" valor=${f.rol} cambiar=${v => { set("rol", v); setPerm(roles[v].permisos); }} opciones=${Object.keys(roles).filter(k => k !== "admin").map(k => ({ v: k, n: roles[k].nombre }))} />
-      <div class="grupo">${Object.keys(MODULOS).map(m => html`<div class="fila compacta"><span class="cuerpo"><span class="t">${MODULOS[m]}</span></span>
-        <span class="der"><${Segmentos} valor=${Number(perm[m] || 0)} cambiar=${v => setPerm(Object.assign({}, perm, { [m]: v }))} opciones=${[{ v: 0, n: "No" }, { v: 1, n: "Ver" }, { v: 2, n: "Cambiar" }]} /></span></div>`)}</div>
-      ${u.id && html`<${Interruptor} etiqueta="Acceso activo" ...${b(f, set, "activo")} />`}
+      ${!u.dueno && html`<${Segmentos} etiqueta="Rol" valor=${f.rol} cambiar=${v => { set("rol", v); setPerm(roles[v].permisos); }} opciones=${[{ v: "admin", n: "Co-gerente" }, ...Object.keys(roles).filter(k => k !== "admin").map(k => ({ v: k, n: roles[k].nombre }))]} />`}
+      ${f.rol === "admin" || u.dueno ? html`<${AvisoLinea} c="verde" icono="shield-check">Acceso total: ve y cambia todo, igual que tú.<//>`
+        : html`<div class="grupo">${Object.keys(MODULOS).map(m => html`<div class="fila compacta"><span class="cuerpo"><span class="t">${MODULOS[m]}</span></span>
+        <span class="der"><${Segmentos} valor=${Number(perm[m] || 0)} cambiar=${v => setPerm(Object.assign({}, perm, { [m]: v }))} opciones=${[{ v: 0, n: "No" }, { v: 1, n: "Ver" }, { v: 2, n: "Cambiar" }]} /></span></div>`)}</div>`}
+      <div><p class="etq" style="font-size:13px;font-weight:600;color:var(--texto-2);margin-bottom:8px">Sus áreas: lo que ve primero en Inicio y los avisos que le llegan</p>
+        <div class="grupo">${AREAS.map(a => html`<label class="fila compacta" style="cursor:pointer"><span class="ico"><${Icono} n=${a.i} /></span><span class="cuerpo"><span class="t">${a.n}</span><span class="s">${a.d}</span></span>
+          <span class="der"><input type="checkbox" checked=${areas.includes(a.v)} onChange=${e => setAreas(e.target.checked ? [...areas, a.v] : areas.filter(x => x !== a.v))} style="width:22px;height:22px;accent-color:var(--oro)" /></span></label>`)}</div></div>
+      ${u.id && !u.dueno && html`<${Interruptor} etiqueta="Acceso activo" ...${b(f, set, "activo")} />`}
     </div><//>`;
+}
+
+// Cada persona conecta su propio Telegram con un enlace que lleva su código (t.me/bot?start=código)
+function MiTelegram({ listo }) {
+  const [v, setV] = useState(null), [err, setErr] = useState("");
+  useEffect(() => { api("telegramVincular").then(setV).catch(e => setErr(e.message)); }, []);
+  if (err) return html`<${AvisoLinea} c="rojo" icono="triangle-alert">${err}<//>`;
+  if (!v) return html`<p class="nota">Preparando tu enlace…</p>`;
+  return html`<p>Conecta <b>tu</b> Telegram para recibir los avisos de tus áreas. Cada persona del equipo lo hace desde su propio celular.</p>
+    <a class="btn primario" href=${v.enlace} target="_blank" rel="noopener"><${Icono} n="send" />1. Abrir @${v.bot} y tocar Iniciar</a>
+    <${BotonAccion} accion=${async () => listo(await api("telegramConectar", { codigo: v.codigo }))}>2. Ya toqué Iniciar, conectar<//>`;
 }
 
 // ---------------------------------------------------------------- avisos (Telegram) y redes
@@ -218,15 +238,15 @@ function Integraciones() {
         <p class="tenue">1. En Telegram busca <b>@BotFather</b>, escribe <b>/newbot</b> y ponle un nombre (por ejemplo AUTOCARE Avisos). 2. Te da un código largo: cópialo y pégalo aquí.</p>
         <${Entrada} etiqueta="Código del bot" valor=${tk} cambiar=${setTk} autocapitalize="off" placeholder="7012345678:AAH…" />
         <${BotonAccion} tipo="primario" accion=${async () => { setI(await api("telegramGuardar", { token: tk })); setTk(""); }}>Guardar código<//>`
-      : !t.chat ? html`<p>Bot <b>@${t.bot}</b> guardado. Ahora ábrelo en Telegram, toca <b>Iniciar</b> y vuelve aquí.</p>
-        <${BotonAccion} tipo="primario" accion=${async () => setI(await api("telegramConectar"))}>Ya le escribí, conectar<//>`
-      : html`<${AvisoLinea} c="verde" icono="circle-check">Conectado con @${t.bot}.<//>
-        <div class="btns"><${BotonAccion} accion=${async () => { await api("telegramPrueba"); aviso("Revisa tu Telegram."); }}>Enviar prueba<//><${Boton} tipo="fantasma" onClick=${() => setI(Object.assign({}, i, { telegram: { conectado: false } }))}>Cambiar bot<//></div>
-        <div class="separador"></div><h3>Tareas automáticas</h3>
+      : html`${t.mio ? html`<${AvisoLinea} c="verde" icono="circle-check">Tu Telegram está conectado con @${t.bot}. Te llegan los avisos de tus áreas.<//>
+          <div class="btns"><${BotonAccion} accion=${async () => { await api("telegramPrueba"); aviso("Revisa tu Telegram."); }}>Enviar prueba<//><${BotonAccion} tipo="fantasma" accion=${async () => setI(await api("telegramSalir"))}>Desconectar el mío<//><${Boton} tipo="fantasma" onClick=${() => setI(Object.assign({}, i, { telegram: { conectado: false } }))}>Cambiar bot<//></div>`
+        : html`<${MiTelegram} listo=${setI} />`}
+        ${(t.personas || []).length > 0 && html`<p class="nota">Reciben avisos: <b>${t.personas.join(", ")}</b>. A cada uno le llega lo de sus áreas; los resúmenes, a todos.</p>`}
+        ${t.chat && html`<div class="separador"></div><h3>Tareas automáticas</h3>
         <${Interruptor} etiqueta=${"Agenda de mañana (" + ta.horaNoche + ":00)"} valor=${ta.noche} cambiar=${v => tareas({ noche: v })} />
         <${Interruptor} etiqueta="Resumen y respaldo cada lunes" valor=${ta.semanal} cambiar=${v => tareas({ semanal: v })} />
         <${Interruptor} etiqueta="Aviso antes de cada cita y publicaciones programadas" valor=${ta.frecuente} cambiar=${v => tareas({ frecuente: v })} />
-        <${Interruptor} etiqueta="Traer seguidores de Instagram y Facebook cada día" valor=${ta.redes} cambiar=${v => tareas({ redes: v })} />`}
+        <${Interruptor} etiqueta="Traer seguidores de Instagram y Facebook cada día" valor=${ta.redes} cambiar=${v => tareas({ redes: v })} />`}`}
     </div>
     <div class="panel form"><h3>Instagram y Facebook</h3>
       <p class="nota">Primero crea tu Instagram profesional y tu página de Facebook. El código (token) se saca del panel de Meta para desarrolladores; te guío paso a paso cuando llegues aquí.</p>

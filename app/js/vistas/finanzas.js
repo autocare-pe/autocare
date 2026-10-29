@@ -3,6 +3,7 @@ import { html, useState } from "../../vendor/preact-htm.js";
 import * as D from "../datos.js";
 import * as N from "../negocio.js";
 import { ir, usarTitulo } from "../app.js";
+import { menu } from "../ui.js";
 import { Boton, Hoja, Entrada, Numero, Dinero, Area, Selector, Chips, Pestanas, Insignia, Vacio, Fila, Bloque, Resumen, Barras, BarrasH, Tabla, Par, AvisoLinea, Progreso, aviso, confirmar, useFicha, b } from "../ui.js";
 import { ElegirCliente } from "../piezas.js";
 import { hoy, sumarDias, sumarMeses, mesDe, mesLargo, inicioMes, finMes, fechaCorta, fechaLarga, relativa, soles, pct, duracion, suma, nombreDe, n0, MESES_CORTOS, num } from "../util.js";
@@ -13,12 +14,12 @@ export default function Finanzas({ ruta }) {
   usarTitulo("Finanzas");
   const t = ruta.partes[0] || "resumen";
   const [cobro, setCobro] = useState(false), [gasto, setGasto] = useState(false);
-  const pend = N.porCobrar().length;
+  const pend = N.porCobrar().length, ver = N.pagosPorVerificar().length;
   return html`<header class="pagina-cab"><div><h1>Finanzas</h1><p>Lo que entra, lo que sale y cuánto te queda por cada hora de trabajo.</p></div>
       <div class="acciones"><${Boton} icono="receipt" onClick=${() => setGasto(true)}>Gasto<//><${Boton} tipo="primario" icono="banknote" onClick=${() => setCobro(true)}>Cobro<//></div></header>
-    <${Pestanas} valor=${t} cambiar=${v => ir("finanzas/" + v, true)} opciones=${[{ v: "resumen", n: "Resumen" }, { v: "caja", n: "Caja del día" }, { v: "cobrar", n: "Por cobrar", cuenta: pend },
-      { v: "movimientos", n: "Movimientos" }, { v: "reparto", n: "Reparto" }, { v: "rentabilidad", n: "Rentabilidad" }]} />
-    ${t === "resumen" && html`<${ResumenMes} />`}${t === "caja" && html`<${Caja} />`}${t === "cobrar" && html`<${PorCobrar} />`}
+    <${Pestanas} valor=${t} cambiar=${v => ir("finanzas/" + v, true)} opciones=${[{ v: "resumen", n: "Resumen" }, { v: "caja", n: "Caja del día" }, (ver || D.somosVarios()) && { v: "verificar", n: "Por verificar", cuenta: ver }, { v: "cobrar", n: "Por cobrar", cuenta: pend },
+      { v: "movimientos", n: "Movimientos" }, { v: "reparto", n: "Reparto" }, { v: "rentabilidad", n: "Rentabilidad" }].filter(Boolean)} />
+    ${t === "resumen" && html`<${ResumenMes} />`}${t === "caja" && html`<${Caja} />`}${t === "verificar" && html`<${PorVerificar} />`}${t === "cobrar" && html`<${PorCobrar} />`}
     ${t === "movimientos" && html`<${Movimientos} />`}${t === "reparto" && html`<${Reparto} />`}${t === "rentabilidad" && html`<${Rentabilidad} />`}
     ${cobro && html`<${FormCobro} cerrar=${() => setCobro(false)} />`}${gasto && html`<${FormGasto} cerrar=${() => setGasto(false)} />`}`;
 }
@@ -51,9 +52,27 @@ function ResumenMes() {
     </div>`;
 }
 
+// ---------------------------------------------------------------- cobros por verificar
+// Separación de funciones (control interno, COSO): quien cobra en el campo no es quien confirma que el dinero llegó.
+// No es desconfianza: protege a los dos socios y evita discusiones por plata.
+function PorVerificar() {
+  const l = N.pagosPorVerificar(), puede = D.puedeEditar("pagos");
+  const opciones = p => menu(soles(p.monto) + " · " + (p._cliente || p.concepto || "Cobro"), [
+    { n: p.metodo === "efectivo" ? "Me entregó el efectivo" : "Llegó a la cuenta", icono: "check", f: () => { N.verificarPago(p); aviso("Cobro verificado."); } },
+    { n: "No aparece en la cuenta", icono: "triangle-alert", peligro: true, f: () => { N.verificarPago(p, false); aviso("Marcado. Coordínalo con " + (p.cobradoPor || "quien cobró") + "."); } },
+    p.ordenId && { n: "Ver la orden", icono: "clipboard-list", f: () => ir("ordenes/" + p.ordenId) }]);
+  return html`<${AvisoLinea} c="oro" icono="shield-check">Quien cobra en el servicio no es quien confirma que el dinero llegó. Revisa tu Yape o tu cuenta y marca cada cobro: así los dos socios están tranquilos y nada se pierde.<//>
+    ${l.length ? html`<div style="margin:16px 0 8px"><${Resumen} items=${[{ n: "Por verificar", v: soles(suma(l, "monto")), c: "oro" }, { n: "Cobros", v: l.length }, { n: "Con problema", v: l.filter(p => p.problema).length, c: l.some(p => p.problema) ? "rojo" : "" }]} /></div>
+      <div class="grupo">${l.map(p => html`<${Fila} icono=${p.metodo === "efectivo" ? "banknote" : "wallet"} colorIcono=${p.problema ? "rojo" : "ambar"} titulo=${soles(p.monto) + " · " + (p._cliente || p.concepto || "Cobro")}
+        sub=${[METODOS[p.metodo] || p.metodo, p.referencia ? "Op. " + p.referencia : "", "cobró " + (p.cobradoPor || p.por || "—"), fechaCorta(p.fecha), p.problema ? "⚠ " + p.problema : ""].filter(Boolean).join(" · ")}
+        der=${puede && html`<${Boton} chico tipo="primario" icono="check" onClick=${e => { e.stopPropagation(); N.verificarPago(p); aviso("Cobro verificado."); }}>${p.metodo === "efectivo" ? "Recibido" : "Llegó"}<//>`}
+        onClick=${() => puede && opciones(p)} />`)}</div>`
+    : html`<div style="margin-top:16px"><${Vacio} icono="shield-check" titulo="Todo verificado" texto="Cuando alguien registre un cobro en el servicio, aparece aquí para que confirmes que llegó." /></div>`}`;
+}
+
 // ---------------------------------------------------------------- caja del día y cierre
 function Caja() {
-  const [f, setF] = useState(hoy()), [cierre, setCierre] = useState(false);
+  const [f, setF] = useState(hoy()), [cierre, setCierre] = useState(false), [edC, setEdC] = useState(null), [edG, setEdG] = useState(null);
   const pagos = D.lista("pagos").filter(p => p.fecha === f), gastos = D.lista("gastos").filter(g => g.fecha === f);
   const efe = suma(pagos.filter(p => (p.metodo || "efectivo") === "efectivo"), "monto") - suma(gastos.filter(g => (g.metodo || "efectivo") === "efectivo"), "monto");
   const hecho = D.lista("cierres").find(c => c.fecha === f);
@@ -61,11 +80,12 @@ function Caja() {
     <${Resumen} items=${[{ n: "Entró", v: soles(suma(pagos, "monto")) }, { n: "Salió", v: soles(suma(gastos, "monto")) }, { n: "Efectivo que debes tener", v: soles(efe), c: "oro" },
       { n: "Cierre", v: hecho ? (hecho.diferencia ? "Diferencia " + soles(hecho.diferencia) : "Cuadró") : "Pendiente", c: hecho ? (hecho.diferencia ? "rojo" : "verde") : "" }]} />
     <div class="columnas mitad" style="margin-top:22px">
-      <${Bloque} titulo="Cobros">${pagos.length ? html`<div class="grupo">${pagos.map(p => html`<${Fila} icono="banknote" colorIcono="verde" titulo=${p._cliente || p.concepto || "Cobro"} sub=${(METODOS[p.metodo] || "") + (p.concepto ? " · " + p.concepto : "")} der=${html`<b class="cifra">${soles(p.monto)}</b>`} onClick=${() => p.ordenId && ir("ordenes/" + p.ordenId)} />`)}</div>` : html`<p class="nota">Sin cobros este día.</p>`}<//>
-      <${Bloque} titulo="Gastos">${gastos.length ? html`<div class="grupo">${gastos.map(g => html`<${Fila} icono="receipt" colorIcono="rojo" titulo=${g.descripcion || CATEGORIAS_GASTO[g.categoria] || "Gasto"} sub=${(CATEGORIAS_GASTO[g.categoria] || "") + " · " + (METODOS[g.metodo] || "")} der=${html`<b class="cifra">${soles(g.monto)}</b>`} />`)}</div>` : html`<p class="nota">Sin gastos este día.</p>`}<//>
+      <${Bloque} titulo="Cobros">${pagos.length ? html`<div class="grupo">${pagos.map(p => html`<${Fila} icono="banknote" colorIcono="verde" titulo=${p._cliente || p.concepto || "Cobro"} sub=${(METODOS[p.metodo] || "") + (p.concepto ? " · " + p.concepto : "")} der=${html`<b class="cifra">${soles(p.monto)}</b>`} onClick=${() => setEdC(p)} />`)}</div>` : html`<p class="nota">Sin cobros este día.</p>`}<//>
+      <${Bloque} titulo="Gastos">${gastos.length ? html`<div class="grupo">${gastos.map(g => html`<${Fila} icono="receipt" colorIcono="rojo" titulo=${g.descripcion || CATEGORIAS_GASTO[g.categoria] || "Gasto"} sub=${(CATEGORIAS_GASTO[g.categoria] || "") + " · " + (METODOS[g.metodo] || "")} der=${html`<b class="cifra">${soles(g.monto)}</b>`} onClick=${() => setEdG(g)} />`)}</div>` : html`<p class="nota">Sin gastos este día.</p>`}<//>
     </div>
     ${!hecho && html`<${Boton} tipo="primario" icono="calculator" onClick=${() => setCierre(true)}>Cerrar caja del día<//>`}
-    ${cierre && html`<${FormCierre} fecha=${f} esperado=${efe} pagos=${pagos} gastos=${gastos} cerrar=${() => setCierre(false)} />`}`;
+    ${cierre && html`<${FormCierre} fecha=${f} esperado=${efe} pagos=${pagos} gastos=${gastos} cerrar=${() => setCierre(false)} />`}
+    ${edC && html`<${FormCobro} inicial=${edC} cerrar=${() => setEdC(null)} />`}${edG && html`<${FormGasto} inicial=${edG} cerrar=${() => setEdG(null)} />`}`;
 }
 function FormCierre({ fecha, esperado, pagos, gastos, cerrar }) {
   const [contado, setContado] = useState(null), [nota, setNota] = useState("");
@@ -92,18 +112,20 @@ function PorCobrar() {
 // ---------------------------------------------------------------- movimientos del mes
 function Movimientos() {
   const [mes, setMes] = useState(mesDe(hoy())), [tipo, setTipo] = useState("");
-  const filas = [...D.lista("pagos").filter(p => mesDe(p.fecha) === mes).map(p => ({ id: p.id, fecha: p.fecha, t: "cobro", det: p._cliente || p.concepto || "Cobro", cat: p.concepto || "", met: p.metodo, monto: n0(p.monto) })),
+  const filas = [...D.lista("pagos").filter(p => mesDe(p.fecha) === mes).map(p => ({ id: p.id, fecha: p.fecha, t: "cobro", det: p._cliente || p.concepto || "Cobro", cat: p.concepto || "", met: p.metodo, monto: n0(p.monto), p })),
     ...D.lista("gastos").filter(g => mesDe(g.fecha) === mes).map(g => ({ id: g.id, fecha: g.fecha, t: "gasto", det: g.descripcion || "", cat: CATEGORIAS_GASTO[g.categoria] || "", met: g.metodo, monto: -n0(g.monto), g }))]
     .filter(x => !tipo || x.t === tipo).sort((a, c) => String(c.fecha).localeCompare(String(a.fecha)));
-  const [ed, setEd] = useState(null);
+  const [ed, setEd] = useState(null), [edC, setEdC] = useState(null);
+  const abrirFila = x => (x.g ? setEd(x.g) : x.p && setEdC(x.p));
   return html`<${SelMes} mes=${mes} setMes=${setMes} />
+    <p class="nota" style="margin-bottom:10px">Toca un cobro o un gasto para corregirlo o eliminarlo.</p>
     <div style="margin-bottom:14px"><${Chips} valor=${tipo} cambiar=${setTipo} opciones=${[{ v: "", n: "Todo", fijo: true }, { v: "cobro", n: "Cobros" }, { v: "gasto", n: "Gastos" }]} /></div>
-    <${Tabla} filas=${filas} onFila=${x => x.g && setEd(x.g)} vacio=${html`<${Vacio} icono="wallet" titulo="Sin movimientos este mes" />`}
-      movil=${x => html`<${Fila} icono=${x.t === "cobro" ? "banknote" : "receipt"} colorIcono=${x.t === "cobro" ? "verde" : "rojo"} titulo=${x.det || x.cat} sub=${fechaCorta(x.fecha) + " · " + (METODOS[x.met] || "")} der=${html`<b class="cifra">${soles(x.monto)}</b>`} onClick=${() => x.g && setEd(x.g)} />`}
+    <${Tabla} filas=${filas} onFila=${abrirFila} vacio=${html`<${Vacio} icono="wallet" titulo="Sin movimientos este mes" />`}
+      movil=${x => html`<${Fila} icono=${x.t === "cobro" ? "banknote" : "receipt"} colorIcono=${x.t === "cobro" ? "verde" : "rojo"} titulo=${x.det || x.cat} sub=${fechaCorta(x.fecha) + " · " + (METODOS[x.met] || "")} der=${html`<b class="cifra">${soles(x.monto)}</b>`} onClick=${() => abrirFila(x)} />`}
       cols=${[{ k: "fecha", n: "Fecha", f: x => fechaCorta(x.fecha) }, { k: "det", n: "Detalle", clase: "prin" }, { k: "cat", n: "Categoría", clase: "tenue" }, { k: "met", n: "Método", f: x => METODOS[x.met] || "" },
         { k: "monto", n: "Monto", num: true, f: x => html`<span style=${{ color: x.monto < 0 ? "var(--rojo)" : "var(--verde)" }}>${soles(x.monto)}</span>` }]}
       pie=${["", "Total", "", "", soles(suma(filas, "monto"))]} />
-    ${ed && html`<${FormGasto} inicial=${ed} cerrar=${() => setEd(null)} />`}`;
+    ${ed && html`<${FormGasto} inicial=${ed} cerrar=${() => setEd(null)} />`}${edC && html`<${FormCobro} inicial=${edC} cerrar=${() => setEdC(null)} />`}`;
 }
 
 // ---------------------------------------------------------------- reparto de cada cobro (Profit First)
@@ -118,10 +140,39 @@ function Reparto() {
       <div style="margin-top:8px"><${Progreso} v=${c.hecho} max=${c.debe || 1} c=${c.falta < 1 ? "verde" : ""} /></div><span class="s">Separado ${soles(c.hecho)} de ${soles(Math.round(c.debe))} · saldo acumulado ${soles(c.saldo)}</span></span>
       <span class="der"><${Boton} chico onClick=${() => setTr({ cuenta: c.id, monto: Math.round(c.falta) })}>${c.falta >= 1 ? "Separar " + soles(Math.round(c.falta)) : "Mover"}<//></span></div>`)}</div>
     <div class="btns" style="margin-top:14px"><${Boton} tipo="fantasma" icono="sliders-horizontal" onClick=${() => setPcts(Object.fromEntries(r.cuentas.map(c => [c.id, c.pct])))}>Cambiar porcentajes<//>${total !== 100 && html`<${Insignia} c="rojo">Los % suman ${total}<//>`}</div>
+    <${Socios} r=${r} />
     ${tr && html`<${FormTransferencia} inicial=${tr} cuentas=${r.cuentas} cerrar=${() => setTr(null)} />`}
     ${pcts && html`<${Hoja} centro titulo="Porcentajes del reparto" cerrar=${() => setPcts(null)} pie=${html`<${Boton} tipo="primario" onClick=${() => { D.fijarAjuste("distribucion", Object.assign({}, D.ajuste("distribucion", {}), { pcts })); setPcts(null); aviso("Porcentajes guardados."); }}>Guardar<//>`}>
       <div class="form">${r.cuentas.map(c => html`<${Numero} etiqueta=${c.n} sufijo="%" decimales=${0} valor=${pcts[c.id]} cambiar=${v => setPcts(Object.assign({}, pcts, { [c.id]: v || 0 }))} />`)}
         <${Par} total n="Suma" v=${Object.values(pcts).reduce((a, x) => a + n0(x), 0) + "%"} /></div><//>`}`;
+}
+// Socios: el sueldo se reparte por el trabajo de cada uno y la ganancia por lo que cada uno es dueño
+// (Michalowicz, Profit First). Escríbanlo y fírmenlo antes de que haya plata de por medio (Gage, The Partnership Charter).
+function Socios({ r }) {
+  const guardados = D.ajuste("socios", []) || [], [ed, setEd] = useState(null);
+  const eq = D.equipo().filter(x => x.rol === "admin");
+  const base = guardados.length ? guardados : eq.length > 1 ? eq.map(x => ({ id: x.id, nombre: x.nombre, sueldo: Math.round(100 / eq.length), ganancia: Math.round(100 / eq.length) })) : [];
+  const cS = r.cuentas.find(c => c.id === "sueldo") || { debe: 0 }, cG = r.cuentas.find(c => c.id === "ganancia") || { debe: 0 };
+  const editar = () => setEd((base.length ? base : [{ nombre: (D.yo() || {}).nombre || "", sueldo: 50, ganancia: 50 }, { nombre: "", sueldo: 50, ganancia: 50 }]).map(x => Object.assign({}, x)));
+  return html`<${Bloque} titulo="Reparto entre socios" sub="El sueldo, por el trabajo de cada uno; la ganancia, por lo que cada uno es dueño" der=${D.puedeAjuste("socios") && html`<${Boton} chico tipo="fantasma" icono="pencil" onClick=${editar}>${base.length ? "Cambiar" : "Agregar socios"}<//>`}>
+    ${base.length ? html`<div class="grupo">${base.map(x => html`<${Fila} avatar=${x.nombre} titulo=${x.nombre || "Socio"} sub=${"Sueldo " + n0(x.sueldo) + "% · Ganancia " + n0(x.ganancia) + "%"}
+        der=${html`<div style="text-align:right"><b class="cifra">${soles(Math.round(cS.debe * n0(x.sueldo) / 100 + cG.debe * n0(x.ganancia) / 100))}</b><div class="s">${soles(Math.round(cS.debe * n0(x.sueldo) / 100))} sueldo + ${soles(Math.round(cG.debe * n0(x.ganancia) / 100))} ganancia</div></div>`} />`)}</div>
+      ${!guardados.length && html`<p class="nota" style="margin-top:8px">Propuesta 50/50. Tócala para ajustarla a lo que acuerden.</p>`}`
+      : html`<div class="panel"><p class="tenue">Si tienes socios, agrega cuánto le toca a cada uno del sueldo y de la ganancia.</p></div>`}
+    ${ed && html`<${Hoja} centro titulo="Socios y porcentajes" cerrar=${() => setEd(null)} pie=${html`<${Boton} tipo="fantasma" onClick=${() => setEd(null)}>Cancelar<//><${Boton} tipo="primario" onClick=${() => {
+        const l = ed.filter(x => String(x.nombre || "").trim());
+        const sS = l.reduce((a, x) => a + n0(x.sueldo), 0), sG = l.reduce((a, x) => a + n0(x.ganancia), 0);
+        if (l.length && (sS !== 100 || sG !== 100)) return aviso("Cada columna debe sumar 100%. Sueldo: " + sS + "%, ganancia: " + sG + "%.", { error: true });
+        D.fijarAjuste("socios", l); setEd(null); aviso("Socios guardados.");
+      }}>Guardar<//>`}>
+      <div class="form"><p class="nota">Ejemplo: si tú haces el servicio y tu socia la gestión, el sueldo puede repartirse por horas trabajadas y la ganancia por lo que cada uno puso al negocio.</p>
+        ${ed.map((x, i) => html`<div class="panel"><${Entrada} etiqueta="Nombre" valor=${x.nombre} cambiar=${v => setEd(ed.map((y, j) => (j === i ? Object.assign({}, y, { nombre: v }) : y)))} />
+          <div class="rejilla dos-movil" style="margin-top:8px"><${Numero} etiqueta="% del sueldo" sufijo="%" decimales=${0} valor=${x.sueldo} cambiar=${v => setEd(ed.map((y, j) => (j === i ? Object.assign({}, y, { sueldo: v || 0 }) : y)))} />
+          <${Numero} etiqueta="% de la ganancia" sufijo="%" decimales=${0} valor=${x.ganancia} cambiar=${v => setEd(ed.map((y, j) => (j === i ? Object.assign({}, y, { ganancia: v || 0 }) : y)))} /></div>
+          ${ed.length > 1 && html`<div class="btns fin" style="margin-top:6px"><${Boton} chico tipo="fantasma peligro" icono="trash-2" onClick=${() => setEd(ed.filter((y, j) => j !== i))}>Quitar<//></div>`}</div>`)}
+        ${ed.length < 4 && html`<${Boton} chico icono="plus" onClick=${() => setEd([...ed, { nombre: "", sueldo: 0, ganancia: 0 }])}>Otro socio<//>`}
+        <${Par} n="Suma sueldo" v=${ed.reduce((a, x) => a + n0(x.sueldo), 0) + "%"} /><${Par} n="Suma ganancia" v=${ed.reduce((a, x) => a + n0(x.ganancia), 0) + "%"} /></div><//>`}
+  <//>`;
 }
 function FormTransferencia({ inicial, cuentas, cerrar }) {
   const [f, set] = useFicha(Object.assign({ fecha: hoy(), monto: 0, nota: "", sentido: "entra" }, inicial));
@@ -165,10 +216,12 @@ export function FormCobro({ cerrar, inicial }) {
   const guardar = () => {
     if (!(n0(f.monto) > 0)) return aviso("Escribe el monto.", { error: true });
     const c = D.uno("clientes", f.clienteId), o = D.uno("ordenes", f.ordenId);
-    D.guardar("pagos", Object.assign({}, f, { monto: n0(f.monto), _cliente: c ? nombreDe(c) : "", concepto: f.concepto || (o ? "Orden " + (o.numero || "") : "Cobro"), citaId: o ? o.citaId || "" : "" }));
-    aviso("Cobro registrado."); cerrar();
+    N.avisarCobro(D.guardar("pagos", Object.assign({}, f, { monto: n0(f.monto), _cliente: c ? nombreDe(c) : "", concepto: f.concepto || (o ? "Orden " + (o.numero || "") : "Cobro"), citaId: o ? o.citaId || "" : "" })));
+    aviso(inicial && inicial.id ? "Cobro actualizado." : "Cobro registrado."); cerrar();
   };
-  return html`<${Hoja} titulo="Registrar cobro" cerrar=${cerrar} pie=${html`<${Boton} tipo="fantasma" onClick=${cerrar}>Cancelar<//><${Boton} tipo="primario" onClick=${guardar}>Guardar cobro<//>`}>
+  const borrar = async () => { if (await confirmar({ titulo: "Eliminar cobro", texto: `Se borra el cobro de ${soles(n0(inicial.monto))}${inicial._cliente ? " de " + inicial._cliente : ""}. Si era de una orden, la orden vuelve a quedar por cobrar.`, si: "Eliminar", peligro: true })) { D.borrar("pagos", inicial.id); aviso("Cobro eliminado."); cerrar(); } };
+  const editar = !!(inicial && inicial.id && D.uno("pagos", inicial.id));
+  return html`<${Hoja} titulo=${editar ? "Editar cobro" : "Registrar cobro"} cerrar=${cerrar} pie=${html`${editar && html`<${Boton} tipo="fantasma peligro" icono="trash-2" titulo="Eliminar" onClick=${borrar} />`}<${Boton} tipo="fantasma" onClick=${cerrar}>Cancelar<//><${Boton} tipo="primario" onClick=${guardar}>Guardar cobro<//>`}>
     <div class="form"><${ElegirCliente} valor=${f.clienteId} cambiar=${id => set({ clienteId: id, ordenId: "" })} etiqueta="Cliente (opcional)" crear=${false} />
       ${ots.length > 0 && html`<${Selector} etiqueta="¿De qué orden?" vacio="Ninguna" opciones=${ots.map(o => ({ v: o.id, n: (o.numero || "Orden") + " · debe " + soles(N.saldoOrden(o).saldo) }))} valor=${f.ordenId} cambiar=${v => { const o = D.uno("ordenes", v); set({ ordenId: v, monto: o ? N.saldoOrden(o).saldo : f.monto }); }} />`}
       <div class="rejilla"><${Dinero} etiqueta="Monto" ...${b(f, set, "monto")} /><${Entrada} etiqueta="Fecha" tipo="date" ...${b(f, set, "fecha")} /></div>

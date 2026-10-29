@@ -692,3 +692,17 @@ button.kpi:hover { border-color: var(--linea-2); }
 .pieza-vista { margin-top: 16px; }
 .pieza-vista img { width: 100%; display: block; border-radius: 14px; border: 1px solid var(--linea); background: #000; }
 .pasos-nfc { padding-left: 20px; display: grid; gap: 6px; margin: 2px 0 12px; }
+
+/* ---------- guías de uso, primera vez y modo práctica ---------- */
+.guia h3 { font-size: 15px; margin: 18px 0 8px; }
+.guia-para { font-size: 16px; line-height: 1.5; }
+.guia ol { padding-left: 20px; display: grid; gap: 8px; line-height: 1.5; }
+.guia dl { display: grid; gap: 4px; }
+.guia dt { font-weight: 650; margin-top: 6px; }
+.guia dd { color: var(--texto-2); margin: 0; line-height: 1.5; }
+.guia-consejo { display: flex; gap: 10px; align-items: flex-start; margin-top: 18px; padding: 12px 14px; border-radius: 14px; background: var(--oro-suave); color: var(--texto); line-height: 1.5; }
+.guia-consejo .ico, .guia-consejo svg { flex: none; color: var(--oro-texto); margin-top: 2px; }
+.primera-vez { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--oro); background: var(--oro-suave); margin-bottom: 20px; line-height: 1.5; }
+.primera-vez > svg { flex: none; color: var(--oro-texto); margin-top: 2px; }
+.banner-practica { display: flex; align-items: center; gap: 8px; padding: 9px 16px; margin: 0 0 4px; background: var(--oro); color: #000; font-size: 13.5px; text-decoration: none; }
+.banner-practica .ir { margin-left: auto; font-weight: 700; white-space: nowrap; }

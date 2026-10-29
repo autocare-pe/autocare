@@ -130,7 +130,7 @@ export function DetalleCita({ id, cerrar }) {
   const adelanto = () => {
     if (!D.puedeEditar("pagos")) return aviso("No tienes permiso para registrar cobros.", { error: true });
     menu("¿Cómo pagó el adelanto de " + soles(c.adelanto) + "?", Object.keys(METODOS).map(m => ({ n: METODOS[m], icono: "banknote", f: () => {
-      D.guardar("pagos", { fecha: hoy(), _cliente: c._cliente, concepto: "Adelanto de cita", monto: c.adelanto, metodo: m, citaId: c.id, clienteId: c.clienteId });
+      N.avisarCobro(D.guardar("pagos", { fecha: hoy(), _cliente: c._cliente, concepto: "Adelanto de cita", monto: c.adelanto, metodo: m, citaId: c.id, clienteId: c.clienteId }));
       D.cambiar("citas", c.id, { adelantoEstado: "recibido", estado: c.estado === "solicitada" ? "confirmada" : c.estado });
       aviso("Adelanto registrado.");
     } })));

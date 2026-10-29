@@ -2,7 +2,7 @@
 import { html, useState, useMemo } from "../vendor/preact-htm.js";
 import * as D from "./datos.js";
 import * as N from "./negocio.js";
-import { Icono, Boton, Entrada, Selector, Campo, Insignia, aviso, verFoto, useFicha, b } from "./ui.js";
+import { Icono, Boton, Entrada, Selector, Campo, Insignia, aviso, confirmar, verFoto, useFicha, b } from "./ui.js";
 import { coincide, nombreDe, telBonito, telNorm, wa, abrir, comprimir, soles, duracion, clases, hoy } from "./util.js";
 import { CATEGORIAS_SERVICIO, CANALES, estadoDe } from "./esquema.js";
 
@@ -76,7 +76,10 @@ export function FormVehiculoRapido({ clienteId, cancelar, listo, inicial }) {
     <div class="rejilla dos-movil"><${Entrada} etiqueta="Placa" ...${b(f, set, "placa")} style="text-transform:uppercase" placeholder="ABC123" /><${Selector} etiqueta="Tamaño" opciones=${N.tamanos().map(t => ({ v: t.id, n: t.n }))} ...${b(f, set, "tamano")} /></div>
     <div class="rejilla dos-movil"><${Entrada} etiqueta="Marca" ...${b(f, set, "marca")} placeholder="Toyota" /><${Entrada} etiqueta="Modelo" ...${b(f, set, "modelo")} placeholder="Yaris" /></div>
     <div class="rejilla dos-movil"><${Entrada} etiqueta="Color" ...${b(f, set, "color")} /><${Entrada} etiqueta="Año" inputmode="numeric" ...${b(f, set, "anio")} /></div>
-    <div class="btns fin">${cancelar && html`<${Boton} tipo="fantasma" onClick=${cancelar}>Cancelar<//>`}<${Boton} tipo="primario" onClick=${guardar}>Guardar vehículo<//></div>
+    <div class="btns fin">${inicial && inicial.id && D.puedeEditar("vehiculos") && html`<${Boton} tipo="fantasma peligro" icono="trash-2" titulo="Eliminar vehículo" onClick=${async () => {
+        const usos = D.lista("ordenes").filter(o => o.vehiculoId === inicial.id).length + D.lista("citas").filter(c => c.vehiculoId === inicial.id).length;
+        if (await confirmar({ titulo: "Eliminar vehículo", texto: (inicial.placa || inicial.marca || "Este vehículo") + " se borra." + (usos ? ` Aparece en ${usos} citas u órdenes: esas se quedan, pero sin vehículo.` : ""), si: "Eliminar", peligro: true })) { D.borrar("vehiculos", inicial.id); listo(null); }
+      }} />`}${cancelar && html`<${Boton} tipo="fantasma" onClick=${cancelar}>Cancelar<//>`}<${Boton} tipo="primario" onClick=${guardar}>Guardar vehículo<//></div>
   </div>`;
 }
 
