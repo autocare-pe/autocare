@@ -7,7 +7,7 @@ import { ir, usarTitulo } from "../app.js";
 import { Boton, BotonAccion, Icono, Hoja, Entrada, Numero, Dinero, Area, Selector, Segmentos, Chips, Pestanas, Insignia, Vacio, Fila, Par, Check, AvisoLinea, Tabla, Firma, Bloque, Sellos, aviso, confirmar, preguntar, menu, useFicha, b } from "../ui.js";
 import { ElegirCliente, ElegirVehiculo, ElegirServicios, CampoFotos, enviarWa, EstadoBadge } from "../piezas.js";
 import { hoy, fechaCorta, relativa, duracion, soles, nombreDe, clases, n0, suma, hace, fechaHora, esMovil } from "../util.js";
-import { estadoDe, ESTADOS, PASOS_ORDEN, ZONAS, DANOS, CALIDAD, COBROS, METODOS } from "../esquema.js";
+import { estadoDe, ESTADOS, PASOS_ORDEN, ZONAS, DANOS, PARTES, COBROS, METODOS } from "../esquema.js";
 
 const EN_CURSO = ["recepcion", "proceso", "calidad", "listo"];
 
@@ -129,43 +129,75 @@ function Detalle({ id }) {
     ${(ver === "listo" || ver === "entregado" || ver === "anulado") && html`<${Cierre} o=${o} g=${g} cli=${cli} puede=${puede} />`}`;
 }
 
-// 1) Recepción: revisión del auto con fotos y firma del cliente
+// 1) Recepción: revisión del auto con fotos. La conformidad del cliente NO es obligatoria (Dixon, The Effortless
+// Experience: menos esfuerzo para el cliente = más lealtad; Thaler y Sunstein, Nudge: lo normal pasa solo).
+// · En persona: marca un recuadro en tu celular (la firma es opcional).
+// · Por WhatsApp: le llega el enlace; tú ves si lo abrió y qué respondió.
+// · Si no responde, al entregar queda «sin observaciones hasta la entrega», con la hora. Tu respaldo son las fotos.
+// Todo se puede cambiar hasta que entregas; después queda cerrado.
+export function respuestaCliente(o) {
+  const rec = (o && o.recepcion) || {};
+  if (rec.cliente && rec.cliente.estado !== "pendiente") return rec.cliente;
+  if (rec.firmadoEn) return { estado: "conforme", en: rec.firmadoEn, via: "firma", nombre: rec.firmaNombre };
+  return null;
+}
+const VIA = { "en persona": "en persona", "su celular": "desde su celular", firma: "con firma", "hasta la entrega": "al entregar" };
 function Recepcion({ o, g, cli, puede }) {
   const rec = o.recepcion || {}, items = rec.items || [];
+  const cerrada = ["entregado", "anulado"].includes(o.estado), edita = puede && !cerrada;
   const [firmando, setFirmando] = useState(false);
+  const cl = respuestaCliente(o), desact = cl && rec.editado && rec.editado > cl.en && cl.via !== "hasta la entrega";
   const estadoZona = z => (items.find(i => i.zona === z) || {}).estado || "ok";
+  const setRec = p => g({ recepcion: Object.assign({}, rec, p, { editado: Date.now() }) });
+  const setCliente = c => g({ recepcion: Object.assign({}, rec, { cliente: c }) });
   const marcar = z => menu(z, Object.keys(DANOS).map(k => ({ n: DANOS[k], icono: k === "ok" ? "circle-check" : "circle-alert", f: async () => {
     let nota = "";
     if (k !== "ok") { nota = await preguntar({ titulo: z + ": " + DANOS[k], etiqueta: "Detalle (opcional)", si: "Anotar" }); if (nota === null) return; }
     const resto = items.filter(i => i.zona !== z);
-    g({ recepcion: Object.assign({}, rec, { items: k === "ok" ? resto : [...resto, { zona: z, estado: k, nota }] }) });
+    setRec({ items: k === "ok" ? resto : [...resto, { zona: z, estado: k, nota }] });
   } })));
-  const setRec = p => g({ recepcion: Object.assign({}, rec, p) });
-  const enviar = () => { if (!cli) return; setRec({ enviada: Date.now() }); enviarWa(cli.tel, N.mensaje("recepcion", N.varsOrden(o))); };
-  const firmar = async data => { setFirmando(false); const ref = await D.agregarFoto(data, "comprobante", "firma recepcion " + (o.numero || "")); setRec({ firmaLocal: ref, firmadoEn: Date.now(), firmaNombre: nombreDe(cli) }); aviso("Firma guardada."); };
+  const enviar = () => { if (!cli) return; g({ recepcion: Object.assign({}, rec, { enviada: Date.now(), visto: null }) }); enviarWa(cli.tel, N.mensaje("recepcion", N.varsOrden(o))); };
+  const enPersona = v => setCliente(v ? { estado: "conforme", en: Date.now(), via: "en persona", nombre: nombreDe(cli) } : { estado: "pendiente", en: Date.now() });
+  const firmar = async data => { setFirmando(false); const ref = await D.agregarFoto(data, "comprobante", "firma recepcion " + (o.numero || "")); setCliente({ estado: "conforme", en: Date.now(), via: "firma", nombre: nombreDe(cli), firmaLocal: ref }); aviso("Firma guardada. Puedes rehacerla hasta entregar."); };
   const empezar = () => { g({ estado: "proceso", inicio: o.inicio || Date.now(), reloj: { desde: Date.now(), acum: 0 } }); };
   return html`<div class="columnas">
     <div>
-      <${Bloque} titulo="Estado del auto al llegar" sub="Toca una zona si tiene algún detalle. Protege tu trabajo ante reclamos.">
-        <div class="zonas">${ZONAS.map(z => { const e = estadoZona(z), it = items.find(i => i.zona === z); return html`<button class=${clases("zona", e !== "ok" && "mal")} onClick=${() => puede && marcar(z)}><b>${z}</b><span class=${e === "ok" ? "mas-tenue chico" : "chico"}>${DANOS[e]}${it && it.nota ? ": " + it.nota : ""}</span></button>`; })}</div>
+      ${cerrada && html`<div style="margin-bottom:14px"><${AvisoLinea} icono="lock">Revisión cerrada al entregar${o.entregado ? " el " + fechaHora(o.entregado) : ""}. Ya no se puede cambiar.<//></div>`}
+      <${Bloque} titulo="Estado del auto al llegar" sub=${cerrada ? "" : "Toca una zona si tiene algún detalle. Protege tu trabajo ante reclamos."}>
+        <div class="zonas">${ZONAS.map(z => { const e = estadoZona(z), it = items.find(i => i.zona === z); return html`<button class=${clases("zona", e !== "ok" && "mal")} disabled=${!edita} onClick=${() => edita && marcar(z)}><b>${z}</b><span class=${e === "ok" ? "mas-tenue chico" : "chico"}>${DANOS[e]}${it && it.nota ? ": " + it.nota : ""}</span></button>`; })}</div>
       <//>
-      <${Bloque} titulo="Fotos de llegada"><${CampoFotos} valor=${o.fotosAntes || []} cambiar=${v => g({ fotosAntes: v, recepcion: Object.assign({}, rec, { fotos: v }) })} tipo="orden" nombre=${"antes " + (o.numero || "")} soloLeer=${!puede} ayuda="4 esquinas, interior y cualquier daño. Luego te sirven para el antes y después." /><//>
+      <${Bloque} titulo="Fotos de llegada"><${CampoFotos} valor=${o.fotosAntes || []} cambiar=${v => g({ fotosAntes: v, recepcion: Object.assign({}, rec, { fotos: v, editado: Date.now() }) })} tipo="orden" nombre=${"antes " + (o.numero || "")} soloLeer=${!edita} ayuda="4 esquinas, interior y cualquier daño. Son tu respaldo y luego tu antes y después." /><//>
     </div>
     <div>
       <div class="panel form">
-        <${Entrada} etiqueta="Objetos de valor en el auto" valor=${rec.objetos} cambiar=${v => setRec({ objetos: v })} placeholder="Lentes, cargador, monedas…" />
-        <${Area} etiqueta="Observaciones" valor=${rec.obs} cambiar=${v => setRec({ obs: v })} placeholder="Pedidos del cliente, manchas difíciles…" />
+        <${Entrada} etiqueta="Objetos de valor en el auto" valor=${rec.objetos} cambiar=${v => setRec({ objetos: v })} placeholder="Lentes, cargador, monedas…" disabled=${!edita} />
+        <${Area} etiqueta="Observaciones" valor=${rec.obs} cambiar=${v => setRec({ obs: v })} placeholder="Pedidos del cliente, manchas difíciles…" disabled=${!edita} />
         <div class="separador"></div>
-        <h3>Conformidad del cliente</h3>
-        ${rec.firmadoEn ? html`<${AvisoLinea} c="verde" icono="signature">Firmó ${rec.firmaNombre || ""} el ${fechaHora(rec.firmadoEn)}.<//>`
-          : firmando ? html`<${Firma} cambiar=${d => d && firmar(d)} />`
-          : html`<div class="btns"><${Boton} icono="signature" onClick=${() => setFirmando(true)}>Firmar aquí<//>${cli && html`<${Boton} icono="send" onClick=${enviar}>${rec.enviada ? "Reenviar" : "Enviar"} para firmar<//>`}</div>
-            ${rec.enviada && html`<p class="nota">Enviado ${hace(rec.enviada)}. Cuando firme desde su celular, aparece aquí.</p>`}`}
+        <div class="titulo-seccion"><h3>Conformidad del cliente</h3><p>Opcional. Si no responde, al entregar queda registrado «sin observaciones hasta la entrega».</p></div>
+        <${EstadoConformidad} rec=${rec} cl=${cl} desact=${desact} cerrada=${cerrada} />
+        ${edita && !firmando && html`
+          <label class=${clases("conforme-check", cl && cl.estado === "conforme" && "si")}><input type="checkbox" checked=${!!(cl && cl.estado === "conforme")} onChange=${e => enPersona(e.currentTarget.checked)} />
+            <span><b>El cliente revisó y está conforme</b><small>Muéstrale las fotos en tu celular y que marque aquí. Se puede desmarcar hasta entregar.</small></span></label>
+          <div class="btns">${cli && html`<${Boton} icono="send" onClick=${enviar}>${rec.enviada ? "Reenviar por WhatsApp" : "Enviar por WhatsApp"}<//>`}<${Boton} tipo="fantasma" icono="signature" onClick=${() => setFirmando(true)}>${cl && cl.via === "firma" ? "Rehacer firma" : "Prefiere firmar"}<//></div>`}
+        ${edita && firmando && html`<${Firma} cambiar=${d => d && firmar(d)} /><${Boton} tipo="fantasma" chico onClick=${() => setFirmando(false)}>Cancelar<//>`}
       </div>
-      ${puede && html`<div style="margin-top:14px"><${Boton} tipo="primario" grande bloque icono="play" onClick=${empezar}>Empezar el trabajo<//></div>`}
+      ${puede && o.estado === "recepcion" && html`<div style="margin-top:14px"><${Boton} tipo="primario" grande bloque icono="play" onClick=${empezar}>Empezar el trabajo<//><p class="nota" style="margin-top:6px">No necesitas esperar la respuesta del cliente para empezar.</p></div>`}
     </div></div>`;
 }
-
+function EstadoConformidad({ rec, cl, desact, cerrada }) {
+  const pasos = [];
+  if (rec.enviada) {
+    pasos.push(html`<li class="hecho"><${Icono} n="send" /><span>Enviado por WhatsApp · ${fechaHora(rec.enviada)}</span></li>`);
+    pasos.push(rec.visto ? html`<li class="hecho"><${Icono} n="eye" /><span>Lo abrió · ${fechaHora(rec.visto)}</span></li>`
+      : html`<li><${Icono} n="eye-off" /><span>Aún no abre el enlace</span></li>`);
+  }
+  if (cl) pasos.push(cl.estado === "observacion"
+    ? html`<li class="alerta"><${Icono} n="circle-alert" /><span><b>Tiene una observación</b> · ${fechaHora(cl.en)}<br />«${cl.texto}»<br /><small>Revísalo con él y anótalo arriba si corresponde.</small></span></li>`
+    : html`<li class="ok"><${Icono} n="circle-check" /><span><b>${cl.estado === "sin observaciones" ? "Sin observaciones hasta la entrega" : "Conforme"}</b> ${VIA[cl.via] || ""} · ${fechaHora(cl.en)}${cl.nombre ? " · " + cl.nombre : ""}${cl.firmaLocal || cl.firmaId ? " · firmó" : ""}</span></li>`);
+  else if (!cerrada) pasos.push(html`<li><${Icono} n="hourglass" /><span>Sin respuesta todavía. No es obligatoria.</span></li>`);
+  return html`<ul class="linea-estado">${pasos}</ul>
+    ${desact && html`<${AvisoLinea} c="ambar" icono="triangle-alert">Cambiaste la revisión después de su respuesta. Si el cambio es importante, muéstraselo o reenvíaselo.<//>`}`;
+}
 // 2) Proceso: cronómetro, pasos e insumos
 function Cronometro({ o, g, puede }) {
   const r = o.reloj || { desde: null, acum: 0 };
@@ -203,22 +235,23 @@ function Proceso({ o, g, puede }) {
     </div></div>`;
 }
 
-// 3) Control de calidad: no sale ningún auto sin revisar
+// 3) Control de calidad: solo lo que aplica a lo que hiciste (Gawande: corta, por partes, con lo que no puede fallar)
 function Calidad({ o, g, puede }) {
-  const lista = (D.ajuste("calidad") || CALIDAD);
+  const lista = N.calidadDeOrden(o), partes = N.partesOrden(o);
   const marcas = o.calidad || [];
   const ok = t => (marcas.find(m => m.t === t) || {}).ok;
   const marcar = (t, v) => g({ calidad: [...marcas.filter(m => m.t !== t), { t, ok: v }] });
-  const todo = lista.every(ok);
-  const aprobar = () => {
+  const hechos = lista.filter(x => ok(x.t)).length, todo = hechos === lista.length;
+  const aprobar = async () => {
     if (!todo) return aviso("Revisa todos los puntos antes de aprobar.", { error: true });
-    if (!(o.fotosDespues || []).length && !confirm("No hay fotos de después. ¿Aprobar igual?")) return;
+    if (!(o.fotosDespues || []).length && !(await confirmar({ titulo: "No hay fotos de después", texto: "Son tu antes y después y tu respaldo. ¿Aprobar igual?", si: "Aprobar igual" }))) return;
     g({ estado: "listo", fin: Date.now(), minutosReales: minutosReloj(o) || N.minutosEstandar(o), calidadOk: !(o.reintentos > 0) });
   };
   const corregir = () => { g({ estado: "proceso", reintentos: n0(o.reintentos) + 1, reloj: Object.assign({}, o.reloj, { desde: Date.now() }) }); aviso("Vuelve a proceso. Cuenta como reproceso en tus indicadores."); };
   return html`<div class="columnas">
-    <div><${Bloque} titulo="Revisión final" sub="Hazlo bien a la primera: cada reproceso te cuesta tiempo (Crosby, La calidad no cuesta).">
-      <div class="grupo">${lista.map(t => html`<div class=${clases("fila compacta", ok(t) && "hecha")}><${Check} si=${ok(t)} cambiar=${v => puede && marcar(t, v)} /><span class="cuerpo"><span class="t" style="white-space:normal">${t}</span></span></div>`)}</div><//></div>
+    <div><${Bloque} titulo="Revisión final" sub=${`Según lo que hiciste: ${partes.map(p => PARTES[p] || p).join(" · ")} · ${hechos} de ${lista.length}`}>
+      <div class="grupo">${lista.map(x => html`<div class=${clases("fila compacta", ok(x.t) && "hecha")}><${Check} si=${ok(x.t)} cambiar=${v => puede && marcar(x.t, v)} /><span class="cuerpo"><span class="t" style="white-space:normal">${x.t}</span>${x.a === "siempre" ? html`<span class="s">Siempre</span>` : null}</span></div>`)}</div>
+      <p class="nota" style="margin-top:8px">La lista se arma con las partes que trabaja cada servicio. Cámbiala en Configuración → Servicios → Revisión final.</p><//></div>
     <div>
       <${Bloque} titulo="Fotos de después"><${CampoFotos} valor=${o.fotosDespues || []} cambiar=${v => g({ fotosDespues: v })} tipo="orden" nombre=${"despues " + (o.numero || "")} soloLeer=${!puede} ayuda="Mismos ángulos que las de llegada. Son tu mejor publicidad." /><//>
       ${puede && html`<div class="btns"><${Boton} tipo="primario" grande icono="circle-check" onClick=${aprobar} disabled=${!todo}>Aprobar: auto listo<//><${Boton} grande onClick=${corregir}>Falta corregir<//></div>`}
@@ -234,9 +267,19 @@ function Cierre({ o, g, cli, puede }) {
   const entregar = () => {
     if (s.saldo > 0 && !confirm(`Falta cobrar ${soles(s.saldo)}. ¿Entregar igual? Quedará en Por cobrar.`)) return;
     (o.consumo || []).forEach(c => { if (n0(c.usos) > 0) { const p = D.uno("productos", c.productoId); if (p) N.moverInventario({ productoId: p.id, tipo: "salida", cantidad: n0(p.rinde) > 0 ? n0(c.usos) / n0(p.rinde) : n0(c.usos), motivo: "Orden " + (o.numero || ""), ordenId: o.id }); } });
-    g({ estado: "entregado", entregado: Date.now(), costoInsumos: suma(o.consumo || [], "costo"), minutosReales: o.minutosReales || minutosReloj(o) || N.minutosEstandar(o), fin: o.fin || Date.now() });
+    // Si el cliente no respondió la revisión de llegada, queda «sin observaciones hasta la entrega» con la hora.
+    const rec = o.recepcion || {}, tacita = !respuestaCliente(o);
+    const recepcion = Object.assign({}, rec, tacita ? { cliente: { estado: "sin observaciones", en: Date.now(), via: "hasta la entrega" } } : {}, { cerrada: Date.now() });
+    const fin = g({ estado: "entregado", entregado: Date.now(), recepcion, costoInsumos: suma(o.consumo || [], "costo"), minutosReales: o.minutosReales || minutosReloj(o) || N.minutosEstandar(o), fin: o.fin || Date.now() }) || o;
     if (o.citaId) D.cambiar("citas", o.citaId, { estado: "completada" });
-    aviso("Entregado. Ahora pide la reseña: es el mejor momento.", cli ? { accion: { n: "Pedir reseña", f: () => enviarWa(cli.tel, N.mensaje("resena", N.varsOrden(o))) } } : {});
+    // La reseña NO se pide aquí (Google: sin presión en el lugar). Queda un seguimiento para más tarde, a quien lleva el WhatsApp.
+    if (cli && cli.tel && !D.lista("tareas").some(t => t.ordenId === o.id && t.tipo === "opinion")) {
+      const h = Math.min(20, Math.max(new Date().getHours() + 3, 9));
+      D.guardar("tareas", { fecha: hoy(), hora: String(h).padStart(2, "0") + ":00", titulo: "Agradecer y pedir su opinión a " + (o._cliente || nombreDe(cli)), tipo: "opinion", prioridad: "media", hecho: false,
+        clienteId: cli.id, ordenId: o.id, mensaje: N.mensaje("resena", N.varsOrden(fin)), asignadoId: D.responsable("ventas") || (D.yo() || {}).id || "" });
+    }
+    aviso("Entregado. Mándale sus fotos ahora; la opinión se la pide " + (D.somosVarios() ? "quien lleva el WhatsApp" : "tú") + " más tarde (quedó en Seguimientos).",
+      cli ? { accion: { n: "Enviar fotos", f: () => enviarWa(cli.tel, N.mensaje("listo", N.varsOrden(fin))) } } : {});
   };
   return html`<div class="columnas">
     <div>
@@ -249,6 +292,7 @@ function Cierre({ o, g, cli, puede }) {
           ${s.cobra && html`<${Par} total n="Falta cobrar" v=${html`<span style=${{ color: s.saldo ? "var(--ambar)" : "var(--verde)" }}>${soles(s.saldo)}</span>`} />`}
         </div>
       <//>
+      <${RuletaOrden} o=${o} g=${g} cli=${cli} puede=${puede} />
       ${fid && fid.activo && html`<${Bloque} titulo="Tarjeta de sellos"><div class="panel">
         <${Sellos} actuales=${fid.actuales} cada=${fid.cada} />
         <p style="margin:12px 0">${fid.disponibles ? html`<b>¡Tiene ${fid.disponibles} premio disponible!</b> ${fid.premio}. Para usarlo, pon el tipo de cobro en «Premio de fidelidad» y toca Canjear.` : fid.sellos ? `${fid.sellos} de ${fid.cada} sellos. Le faltan ${fid.cada - fid.sellos} para su regalo: ${N.premioCorto(fid.premio)}.` : `Aún no tiene sellos. Al sumar el primero recibe ${fid.regalo} de regalo: se siente más cerca del premio y vuelve antes.`}</p>
@@ -262,8 +306,8 @@ function Cierre({ o, g, cli, puede }) {
       ${o.estado === "entregado" ? html`<div class="panel">
           <h3>Entregado ${o.entregado ? fechaHora(o.entregado) : ""}</h3>
           <p class="tenue">${o.minutosReales ? "Tiempo real " + duracion(o.minutosReales) + " · estándar " + duracion(N.minutosEstandar(o)) : ""}</p>
-          ${o.calificacion ? html`<p style="margin-top:10px">Calificación: <b>${o.calificacion} de 5</b>${o.nps !== undefined ? " · recomendaría " + o.nps + "/10" : ""}${o.comentario ? html`<br /><span class="tenue">«${o.comentario}»</span>` : ""}</p>` : html`<p class="nota" style="margin-top:10px">Aún no califica. Le llega la opción en su enlace personal.</p>`}
-          ${cli && html`<div class="btns" style="margin-top:12px"><${Boton} icono="star" onClick=${() => enviarWa(cli.tel, N.mensaje("resena", N.varsOrden(o)))}>Pedir reseña<//><${Boton} icono="message-circle" onClick=${() => enviarWa(cli.tel, N.mensaje("listo", N.varsOrden(o)))}>Enviar fotos<//></div>`}
+          ${o.calificacion ? html`<p style="margin-top:10px">Calificación: <b>${o.calificacion} de 5</b>${o.nps !== undefined && o.nps !== null && o.nps !== "" ? " · recomendaría " + o.nps + "/10" : ""}${o.comentario ? html`<br /><span class="tenue">«${o.comentario}»</span>` : ""}</p>` : html`<p class="nota" style="margin-top:10px">Aún no califica. Lo hace con un toque en su enlace personal.</p>`}
+          ${cli && html`<div class="btns" style="margin-top:12px"><${Boton} icono="message-circle" onClick=${() => enviarWa(cli.tel, N.mensaje("listo", N.varsOrden(o)))}>Enviar fotos${N.varsOrden(o).regalo ? " y su giro" : ""}<//><${Boton} icono="star" onClick=${() => enviarWa(cli.tel, N.mensaje("resena", N.varsOrden(o)))}>Pedir opinión<//></div>`}
         </div>` : html`<div class="panel form">
           ${s.cobra && s.saldo > 0 && puede && D.puedeEditar("pagos") && html`<${Boton} tipo="primario" grande bloque icono="banknote" onClick=${() => setCobro(true)}>Cobrar ${soles(s.saldo)}<//>`}
           ${cli && html`<${Boton} grande bloque icono="message-circle" onClick=${() => enviarWa(cli.tel, N.mensaje("listo", N.varsOrden(o)))}>Avisar que está listo<//>`}
@@ -300,3 +344,24 @@ function EditarItems({ o, g, cerrar }) {
       <${Par} total n="Total" v=${soles(N.totalItems(items, desc))} />
     </div><//>`;
 }
+
+// Ruleta: su giro de esta orden y los premios que tiene para usar (se aplican aquí con un toque)
+function RuletaOrden({ o, g, cli, puede }) {
+  const R = N.ruleta();
+  const mios = cli ? N.premiosRuletaDe(cli.id).filter(p => p.ordenId !== o.id) : [];
+  const elegible = R.activo && (!o.cobro || o.cobro === "normal") && n0(o.total) >= n0(R.minimo);
+  if (!o.ruleta && !mios.length && !(elegible && o.estado === "entregado")) return null;
+  const aplicar = async p => {
+    if (!(await confirmar({ titulo: "Usar su premio", texto: p.n + (p.tipo === "regalo" ? ". Entrégaselo y queda marcado como usado." : ". Se agrega a esta orden."), si: "Usar ahora" }))) return;
+    N.canjearRuleta(p, o.estado === "entregado" ? null : o); aviso("Premio aplicado.");
+  };
+  const diasGiro = o.entregado ? sumarDiasMs(o.entregado, n0(R.dias) || 7) : "";
+  return html`<${Bloque} titulo="Ruleta de premios"><div class="panel">
+    ${o.ruleta ? html`<p>Ganó <b>${o.ruleta.n}</b>${o.ruleta.tipo === "sello" ? " (ya está en su tarjeta)." : o.ruleta.estado === "canjeado" ? " · ya lo usó." : ` · lo usa hasta el ${fechaCorta(o.ruleta.vence)}.`}</p>`
+      : elegible && o.estado === "entregado" ? html`<p>Tiene un giro esperándolo en su enlace${diasGiro ? " hasta el " + fechaCorta(diasGiro) : ""}. Se lo mandas con sus fotos.</p>` : null}
+    ${mios.length > 0 && html`<p class="nota" style="margin:${o.ruleta || elegible ? "10px" : "0"} 0 8px">Premios que tiene para usar:</p>
+      <div class="grupo">${mios.map(p => html`<div class="fila compacta"><span class="ico oro"><${Icono} n="gift" /></span><span class="cuerpo"><span class="t" style="white-space:normal">${p.n}</span><span class="s">Vence ${relativa(p.vence)}</span></span>
+        ${puede && html`<span class="der"><${Boton} chico tipo="primario" onClick=${() => aplicar(p)}>Usar<//></span>`}</div>`)}</div>`}
+  </div><//>`;
+}
+const sumarDiasMs = (ms, d) => new Date(ms + d * 86400000 - 5 * 3600000).toISOString().slice(0, 10);

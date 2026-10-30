@@ -94,6 +94,7 @@ function Ficha({ id }) {
           ${vehs.length ? html`<div class="grupo">${vehs.map(v => html`<${Fila} icono="car" titulo=${[v.marca, v.modelo].filter(Boolean).join(" ") || "Vehículo"} sub=${[v.placa, v.color, N.tamanoDe(v.tamano).n].filter(Boolean).join(" · ")} onClick=${() => puede && setVeh(v)} />`)}</div>` : html`<p class="nota">Sin vehículos registrados.</p>`}
           ${veh && html`<div style="margin-top:10px"><${FormVehiculoRapido} clienteId=${c.id} inicial=${veh.id ? veh : null} cancelar=${() => setVeh(null)} listo=${() => setVeh(null)} /></div>`}
         <//>
+        ${N.premiosRuletaDe(c.id).length > 0 && html`<${Bloque} titulo="Premios de la ruleta" sub="Se aplican con un toque al cerrar su próxima orden"><div class="grupo">${N.premiosRuletaDe(c.id).map(p => html`<${Fila} icono="gift" colorIcono="oro" titulo=${p.n} sub=${"Vence " + fechaCorta(p.vence)} />`)}</div><//>`}
         ${fid.activo && html`<${Bloque} titulo="Tarjeta de sellos"><div class="panel">
           <${Sellos} actuales=${fid.actuales} cada=${fid.cada} />
           <p style="margin-top:12px">${fid.disponibles ? html`<b>Tiene ${fid.disponibles} premio para canjear:</b> ${fid.premio}.` : fid.sellos ? `${fid.sellos} de ${fid.cada}. Le faltan ${fid.cada - fid.sellos} para su regalo: ${N.premioCorto(fid.premio)}.` : `Sin sellos todavía. El primero llega con ${fid.regalo} de regalo.`}</p>

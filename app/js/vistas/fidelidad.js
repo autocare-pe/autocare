@@ -7,15 +7,16 @@ import { ir, usarTitulo } from "../app.js";
 import { Boton, Hoja, Entrada, Numero, Dinero, Area, Selector, Interruptor, Pestanas, Insignia, Vacio, Fila, Bloque, Resumen, Sellos, AvisoLinea, aviso, confirmar, useFicha, b } from "../ui.js";
 import { ElegirCliente, enviarWa } from "../piezas.js";
 import { hoy, sumarDias, fechaCorta, relativa, soles, suma, n0, nombreDe } from "../util.js";
-import { METODOS, estadoDe } from "../esquema.js";
+import { METODOS, estadoDe, TIPOS_PREMIO, RULETA_BASE } from "../esquema.js";
+import { ruletaSvg } from "../../../assets/ruleta.js";
 
 export default function Fidelidad({ ruta }) {
   D.useDatos();
   usarTitulo("Fidelidad y planes");
   const t = ruta.partes[0] || "sellos";
   return html`<header class="pagina-cab"><div><h1>Fidelidad y planes</h1><p>Que vuelvan solos: sellos con regalo, recomendaciones y planes mensuales.</p></div></header>
-    <${Pestanas} valor=${t} cambiar=${v => ir("fidelidad/" + v, true)} opciones=${[{ v: "sellos", n: "Sellos y referidos" }, { v: "planes", n: "Planes" }, { v: "membresias", n: "Membresías", cuenta: D.lista("membresias").filter(m => m.estado === "activa").length }]} />
-    ${t === "sellos" && html`<${SellosVista} />`}${t === "planes" && html`<${Planes} />`}${t === "membresias" && html`<${Membresias} />`}`;
+    <${Pestanas} valor=${t} cambiar=${v => ir("fidelidad/" + v, true)} opciones=${[{ v: "sellos", n: "Sellos y referidos" }, { v: "ruleta", n: "Ruleta" }, { v: "planes", n: "Planes" }, { v: "membresias", n: "Membresías", cuenta: D.lista("membresias").filter(m => m.estado === "activa").length }]} />
+    ${t === "sellos" && html`<${SellosVista} />`}${t === "ruleta" && html`<${Ruleta} />`}${t === "planes" && html`<${Planes} />`}${t === "membresias" && html`<${Membresias} />`}`;
 }
 
 function SellosVista() {
@@ -94,4 +95,71 @@ function FormMembresia({ cerrar }) {
       <${Entrada} etiqueta="Empieza" tipo="date" ...${b(f, set, "inicio")} />
       <${Interruptor} etiqueta="Registrar el cobro ahora" ...${b(f, set, "cobrar")} />
       ${f.cobrar && html`<${Selector} etiqueta="Método" opciones=${Object.keys(METODOS).map(k => ({ v: k, n: METODOS[k] }))} ...${b(f, set, "metodo")} />`}</div><//>`;
+}
+
+// ---------------------------------------------------------------- ruleta de premios
+// Cómo no perder plata (y que sí traiga clientes de vuelta):
+// · Premios para la PRÓXIMA visita y con vencimiento: es un motivo para volver, no un descuento de hoy.
+// · Casi todos cuestan poco y valen mucho para el cliente; el grande es poco probable y tiene tope por mes
+//   (Kahneman y Tversky: sobrevaloramos las probabilidades chicas: emociona igual).
+// · Siempre gana algo: nadie se va con la sensación de perder (aversión a la pérdida).
+// · Hermann Simon (Confessions of the Pricing Man): mejor regalar valor que bajar el precio.
+// · Bases y probabilidades a la vista (Indecopi) y nunca a cambio de una reseña (Google).
+function Ruleta() {
+  const R0 = N.ruleta();
+  const [R, setR] = useState(R0), [cambio, setCambio] = useState(false);
+  const poner = (k, v) => { setR(Object.assign({}, R, { [k]: v })); setCambio(true); };
+  const premio = (i, k, v) => { setR(Object.assign({}, R, { premios: R.premios.map((p, j) => (j === i ? Object.assign({}, p, { [k]: v }) : p)) })); setCambio(true); };
+  const quitar = i => { setR(Object.assign({}, R, { premios: R.premios.filter((p, j) => j !== i) })); setCambio(true); };
+  const agregar = () => { setR(Object.assign({}, R, { premios: [...R.premios, { id: "p" + Date.now().toString(36).slice(-5), n: "Nuevo premio", corto: "Premio", tipo: "regalo", valor: 0, peso: 5, costo: 0 }] })); setCambio(true); };
+  const guardar = () => {
+    if (!N.premiosActivos(R).length) return aviso("Deja al menos un premio activo.", { error: true });
+    D.fijarAjuste("ruleta", R); setCambio(false); aviso(R.activo ? "Ruleta guardada y activa." : "Ruleta guardada (apagada).");
+  };
+  const num = N.numerosRuleta(R), act = N.premiosActivos(R);
+  const mes = hoy().slice(0, 7), ots = D.lista("ordenes").filter(o => o.ruleta);
+  const delMes = ots.filter(o => String(o.ruleta.fecha || "").slice(0, 7) === mes), pend = ots.filter(o => o.ruleta.estado === "pendiente" && o.ruleta.vence >= hoy());
+  const usados = ots.filter(o => o.ruleta.estado === "canjeado"), volvieron = usados.length;
+  const costoMes = delMes.reduce((a, o) => a + n0(o.ruleta.costo), 0);
+  const alto = num.pct > 6;
+  return html`<${Resumen} items=${[{ n: "Giros este mes", v: delMes.length }, { n: "Premios por usar", v: pend.length }, { n: "Volvieron a usarlo", v: volvieron, d: ots.length ? Math.round((volvieron / ots.length) * 100) + "% de los que ganaron" : "" }, { n: "Costo del mes", v: soles(costoMes) }]} />
+    <div class="columnas" style="margin-top:20px">
+      <div>
+        <${Bloque} titulo="Cómo funciona"><div class="panel form">
+          <${Interruptor} etiqueta="Ruleta activa" valor=${!!R.activo} cambiar=${v => poner("activo", v)} ayuda="Al activarla, cada cliente ve su giro en su enlace después de que entregas su auto. Puedes apagarla cuando quieras." />
+          <div class="rejilla" style="--col:3"><${Dinero} etiqueta="Servicio mínimo para girar" decimales=${0} valor=${R.minimo} cambiar=${v => poner("minimo", v || 0)} />
+            <${Numero} etiqueta="Días para girar" decimales=${0} sufijo="días" valor=${R.dias} cambiar=${v => poner("dias", v || 7)} />
+            <${Numero} etiqueta="Días para usar el premio" decimales=${0} sufijo="días" valor=${R.vence} cambiar=${v => poner("vence", v || 45)} /></div>
+          <p class="nota">Un giro por servicio pagado (no planes ni premios). El premio se usa en su próxima visita, uno por visita, y vence. Siempre gana algo.</p>
+        <//></div>
+        <${Bloque} titulo="Premios" sub="La probabilidad sale del peso de cada uno. El costo es lo que a ti te cuesta (producto y tiempo), no el precio."
+          der=${html`<${Boton} chico icono="plus" onClick=${agregar}>Premio<//>`}>
+          <div class="grupo">${R.premios.map((p, i) => html`<div class="fila" style="flex-direction:column;align-items:stretch;gap:10px">
+            <div class="rejilla"><${Entrada} etiqueta="Premio (como lo lee el cliente)" valor=${p.n} cambiar=${v => premio(i, "n", v)} /><${Entrada} etiqueta="En la ruleta (corto)" valor=${p.corto} cambiar=${v => premio(i, "corto", v.slice(0, 12))} maxlength="12" /></div>
+            <div class="rejilla" style="--col:4"><${Selector} etiqueta="Tipo" valor=${p.tipo} cambiar=${v => premio(i, "tipo", v)} opciones=${Object.keys(TIPOS_PREMIO).map(k => ({ v: k, n: TIPOS_PREMIO[k] }))} />
+              <${Numero} etiqueta="Peso" decimales=${0} valor=${p.peso} cambiar=${v => premio(i, "peso", v || 0)} sufijo=${(num.prob[p.id] || 0) + "%"} />
+              <${Dinero} etiqueta="Te cuesta" valor=${p.costo} cambiar=${v => premio(i, "costo", v || 0)} />
+              <${Numero} etiqueta="Tope al mes" decimales=${0} valor=${p.max || null} cambiar=${v => premio(i, "max", v || 0)} placeholder="Sin tope" /></div>
+            ${["descuento", "adicional", "servicio"].includes(p.tipo) && html`<${Dinero} etiqueta=${p.tipo === "descuento" ? "Descuento" : "Precio normal (para mostrar el ahorro)"} valor=${p.valor} cambiar=${v => premio(i, "valor", v || 0)} />`}
+            <div class="btns"><${Interruptor} etiqueta="Activo" valor=${p.activo !== false} cambiar=${v => premio(i, "activo", v)} /><${Boton} chico tipo="fantasma" icono="trash-2" onClick=${() => quitar(i)}>Quitar<//></div>
+          </div>`)}</div><//>
+        <div class="btns" style="margin-top:6px"><${Boton} tipo="primario" grande icono="check" onClick=${guardar} disabled=${!cambio}>Guardar ruleta<//>
+          <${Boton} tipo="fantasma" icono="rotate-ccw" onClick=${async () => { if (await confirmar({ titulo: "Premios sugeridos", texto: "Se reemplazan tus premios por los sugeridos. Luego toca Guardar.", si: "Usar sugeridos" })) { setR(Object.assign({}, R, { premios: RULETA_BASE.premios.map(p => Object.assign({}, p)) })); setCambio(true); } }}>Premios sugeridos<//></div>
+      </div>
+      <div>
+        <div class="panel" style="text-align:center"><div class="ruleta-vista" dangerouslySetInnerHTML=${{ __html: ruletaSvg(act.map(p => ({ id: p.id, corto: p.corto, prob: num.prob[p.id] })), { marca: "../assets/marca-chica-clara.svg" }) }}></div>
+          <p class="nota" style="margin-top:8px">Así la ve el cliente. Cada tajada mide lo que vale su probabilidad.</p></div>
+        <${Bloque} titulo="¿Te conviene?"><div class="panel">
+          <p style="font-size:17px">Cada giro te cuesta en promedio <b style="color:var(--oro-texto)">${soles(num.costo)}</b>, el <b>${num.pct.toFixed(1)}%</b> de tu ticket promedio (${soles(num.ticket)}).</p>
+          <p class="nota" style="margin-top:8px">Y solo lo pagas si el cliente vuelve: si vuelve, ganas un servicio completo. ${alto ? "Está alto: baja el peso de los premios caros, ponles tope o sube el servicio mínimo para girar. Lo sano es menos de 5 a 6%." : "Está en un rango sano (menos de 5 a 6%)."}</p>
+        </div><//>
+        <${Bloque} titulo="Bases (las ve el cliente)"><div class="panel"><p class="nota" style="white-space:pre-line">${basesRuleta(R, num)}</p></div><//>
+      </div>
+    </div>`;
+}
+export function basesRuleta(R, num = N.numerosRuleta(R)) {
+  const act = N.premiosActivos(R);
+  return `Organiza: ${N.nombreNegocio()}. Participa quien recibe un servicio pagado de ${soles(R.minimo)} o más (no aplica a planes ni premios). Un giro por servicio, desde su enlace personal, hasta ${R.dias} días después de la entrega.\n` +
+    `Premios y probabilidad: ${act.map(p => `${p.n} (${num.prob[p.id] || 0}%${n0(p.max) ? `, máximo ${p.max} al mes` : ""})`).join("; ")}. Si un premio con tope se agota en el mes, ese giro se reparte entre los demás.\n` +
+    `Los premios se usan en la siguiente visita, uno por visita, dentro de ${R.vence} días; son personales, no se cambian por dinero ni se acumulan con otras promociones. Los sellos se suman solos a la tarjeta.`;
 }

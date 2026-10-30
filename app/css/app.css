@@ -731,3 +731,36 @@ button.kpi:hover { border-color: var(--linea-2); }
 .servicio-rapido .cuerpo { flex: 1 1 150px; min-width: 0; }
 .servicio-rapido .campos { display: flex; gap: 8px; }
 .servicio-rapido .campos > * { width: 112px; }
+
+/* Conformidad del cliente: un recuadro grande y una línea de estado (enviado → lo abrió → respondió) */
+.conforme-check { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border: 1px solid var(--linea-2); border-radius: 14px; background: var(--capa); cursor: pointer; }
+.conforme-check input { width: 24px; height: 24px; margin: 1px 0 0; accent-color: var(--oro); flex: none; }
+.conforme-check span { display: flex; flex-direction: column; gap: 3px; }
+.conforme-check small { color: var(--texto-2); font-size: 13px; line-height: 1.4; }
+.conforme-check.si { border-color: var(--verde); background: var(--verde-s); }
+.linea-estado { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.linea-estado li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--texto-2); line-height: 1.4; }
+.linea-estado li .i { width: 18px; height: 18px; flex: none; margin-top: 1px; }
+.linea-estado li.hecho { color: var(--texto); }
+.linea-estado li.ok { color: var(--verde); }
+.linea-estado li.ok b, .linea-estado li.alerta b { color: var(--texto); }
+.linea-estado li.alerta { color: var(--ambar); }
+.linea-estado small { color: var(--texto-2); }
+.zona:disabled { cursor: default; opacity: .85; }
+.campo-t { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--texto-2); }
+.ruleta-vista { width: min(300px, 100%); margin: 0 auto; }
+.ruleta-vista svg { width: 100%; height: auto; display: block; }
+
+/* Merchandising */
+.merch-grilla { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.merch-tarjeta { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; border: 1px solid var(--linea); border-radius: 18px; background: var(--capa); overflow: hidden; }
+.merch-tarjeta:hover { border-color: var(--linea-2); }
+.merch-tarjeta:focus-visible { outline: 2px solid var(--oro); outline-offset: 2px; }
+.merch-foto { aspect-ratio: 4 / 5; background: #0E0E0E; display: grid; place-items: center; color: var(--texto-2); overflow: hidden; }
+.merch-foto img, .merch-foto canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
+.merch-foto .i { width: 40px; height: 40px; }
+.merch-cuerpo { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px 14px; }
+.merch-pie { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; color: var(--texto-2); }
+.merch-pie .i { vertical-align: -2px; }
+.merch-arte { display: grid; place-items: center; }
+.merch-arte canvas.arte { width: min(300px, 100%); height: auto; border-radius: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }

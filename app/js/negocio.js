@@ -1,7 +1,7 @@
 // AUTOCARE · reglas del negocio (precios, agenda, cobros, clientes, inventario, finanzas)
 // Si cambias una regla aquí, cambia también en el servidor (Publico.gs) las que usa tu web.
 import * as D from "./datos.js";
-import { TAMANOS, PLANTILLAS, CUENTAS, METODOS } from "./esquema.js";
+import { TAMANOS, PLANTILLAS, CUENTAS, METODOS, CALIDAD, CALIDAD_ANTERIOR, RULETA_BASE, DANOS } from "./esquema.js";
 import { hoy, sumarDias, diasEntre, minutos, hhmm, diaSemana, msDe, n0, suma, porId, nombreDe, primerNombre, rellenar, fechaLarga, horaDe, soles, llave, mesDe, inicioMes, finMes, isoDe } from "./util.js";
 
 // ---------------------------------------------------------------- negocio y catálogo
@@ -169,7 +169,7 @@ export const premioCorto = p => String(p || "un servicio gratis").replace(/^\s*t
 export function reglasFidelidad() { return Object.assign({ activo: true, cada: 8, regalo: 2, premio: "Lavado completo", bono: 1, manual: true }, D.ajuste("fidelidad", {})); }
 export function fidelidad(cli) {
   const F = reglasFidelidad(), cada = Math.max(2, Math.round(n0(F.cada) || 8));
-  const s = Math.max(0, Math.round(n0(cli && cli.sellos))), disp = Math.floor(s / cada);
+  const s = Math.max(0, Math.round(n0(cli && cli.sellos) + n0(cli && cli.sellosRuleta))), disp = Math.floor(s / cada);
   const refs = D.lista("clientes").filter(c => c.referidoPor === (cli && cli.id)).length;
   return { activo: F.activo !== false, cada, sellos: s, actuales: disp ? cada : s, disponibles: disp, usados: n0(cli && cli.canjes), referidos: refs, premio: F.premio, regalo: n0(F.regalo), bono: n0(F.bono) };
 }
@@ -183,7 +183,7 @@ export function sumarSello(cli, ordenId) {
 export function quitarSello(cli) { return D.cambiar("clientes", cli.id, { sellos: Math.max(0, n0(cli.sellos) - 1) }); }
 export function canjearPremio(cli) {
   const cada = Math.max(2, Math.round(n0(reglasFidelidad().cada) || 8));
-  return D.cambiar("clientes", cli.id, { sellos: Math.max(0, n0(cli.sellos) - cada), canjes: n0(cli.canjes) + 1 });
+  return D.cambiar("clientes", cli.id, { sellos: n0(cli.sellos) - cada, canjes: n0(cli.canjes) + 1 });   // los de la ruleta (sellosRuleta) los suma el servidor
 }
 export function vehiculosDe(clienteId) { return D.lista("vehiculos").filter(v => v.clienteId === clienteId); }
 export const nombreVehiculo = v => (v ? [v.marca, v.modelo, v.placa && "(" + v.placa + ")"].filter(Boolean).join(" ") : "");
@@ -284,7 +284,76 @@ export function varsCita(c) {
 }
 export function varsOrden(o) {
   const cli = D.uno("clientes", o.clienteId), veh = D.uno("vehiculos", o.vehiculoId);
-  return { nombre: primerNombre(cli) || primerNombre({ nombre: o._cliente }), total: soles(o.total), servicio: nombresItems(o.items), placa: veh ? veh.placa : "", portal: cli ? urlPortal(cli) : "", codigo: cli ? cli.codigo : "" };
+  const items = ((o.recepcion || {}).items || []).filter(i => i.estado && i.estado !== "ok");
+  const hallazgos = !items.length ? "sin detalles a la vista" : items.length === 1 ? "1 detalle: " + detalleRecepcion(items[0])
+    : items.length + " detalles: " + items.slice(0, 3).map(detalleRecepcion).join(", ") + (items.length > 3 ? " y más" : "");
+  const R = ruleta(), gira = R.activo && (!o.cobro || o.cobro === "normal") && n0(o.total) >= n0(R.minimo) && !o.ruleta;
+  return { nombre: primerNombre(cli) || primerNombre({ nombre: o._cliente }), total: soles(o.total), servicio: nombresItems(o.items), placa: veh ? veh.placa : "", portal: cli ? urlPortal(cli) : "", codigo: cli ? cli.codigo : "",
+    vehiculo: veh ? [veh.marca, veh.modelo].filter(Boolean).join(" ") || "auto" : (o._vehiculo || "auto"), tecnico: primerNombre({ nombre: o.tecnico || (D.yo() || {}).nombre || "" }) || "el equipo",
+    resena: negocio().google || (cli ? urlPortal(cli) : ""), hallazgos, regalo: gira ? "\n🎁 En ese mismo enlace te espera un giro de nuestra ruleta de premios." : "" };
+}
+const detalleRecepcion = i => (DANOS[i.estado] || i.estado).toLowerCase() + " en " + String(i.zona || "").toLowerCase() + (i.nota ? " (" + i.nota + ")" : "");
+
+// ---------------------------------------------------------------- revisión final según lo que se hizo
+/** Qué partes del auto trabaja un servicio: lo que elegiste en Configuración → Servicios, o se deduce de su nombre y pasos */
+export function partesServicio(s) {
+  if (!s) return ["exterior", "interior"];
+  if (Array.isArray(s.partes) && s.partes.length) return s.partes;
+  const t = [s.nombre, s.descripcion, s.incluye, ...((s.pasos || []).map(p => p.t || p))].join(" ").toLowerCase(), out = new Set();
+  if (/lavado a mano|carrocer|exterior|secado|pintura|aros|llanta|faro|sensor|c[aá]mara|espejo/.test(t)) out.add("exterior");
+  if (/aspirad|interior|asiento|tapiz|alfombra|tablero|mascota|olor|techo interior|consola/.test(t)) out.add("interior");
+  if (/motor/.test(t)) out.add("motor");
+  if (/cera|encerad|sellad|cer[aá]mic|protecci/.test(t)) { out.add("proteccion"); out.add("exterior"); }
+  if (/todo lo del/.test(t)) { out.add("exterior"); out.add("interior"); }
+  if (!out.size) ({ lavado: ["exterior", "interior"], interior: ["interior"], exterior: ["exterior"], proteccion: ["exterior", "proteccion"], motor: ["motor"] }[s.categoria] || ["exterior", "interior"]).forEach(x => out.add(x));
+  return [...out];
+}
+export function partesOrden(o) {
+  const cat = D.lista("servicios"), out = new Set();
+  (o.items || []).forEach(i => partesServicio(cat.find(x => x.id === i.servicioId) || { nombre: i.nombre }).forEach(p => out.add(p)));
+  return out.size ? [...out] : ["exterior", "interior"];
+}
+/** La lista de revisión final: tu lista (o la de fábrica), solo con lo que aplica a esta orden */
+export function listaCalidad() {
+  const aj = D.ajuste("calidad");
+  if (!Array.isArray(aj) || !aj.length || (aj.every(x => typeof x === "string") && aj.join("|") === CALIDAD_ANTERIOR.join("|"))) return CALIDAD;
+  return aj.map(x => (typeof x === "string" ? { t: x, a: "siempre" } : x)).filter(x => x && x.t);
+}
+export function calidadDeOrden(o) { const p = new Set(partesOrden(o)); return listaCalidad().filter(x => !x.a || x.a === "siempre" || p.has(x.a)); }
+
+// ---------------------------------------------------------------- ruleta de premios (misma regla que el servidor)
+export function ruleta() {
+  const aj = D.ajuste("ruleta", null) || {};
+  const r = Object.assign({}, RULETA_BASE, aj);
+  r.premios = (aj.premios && aj.premios.length ? aj.premios : RULETA_BASE.premios).map(p => Object.assign({}, p));
+  return r;
+}
+export function premiosActivos(R = ruleta()) { return R.premios.filter(p => p.activo !== false && n0(p.peso) > 0); }
+/** Probabilidad de cada premio y costo promedio por giro (lo que te cuesta en promedio cada servicio con giro) */
+export function numerosRuleta(R = ruleta()) {
+  const act = premiosActivos(R), tot = act.reduce((a, p) => a + n0(p.peso), 0) || 1;
+  const costo = act.reduce((a, p) => a + (n0(p.peso) / tot) * n0(p.costo), 0);
+  const ots = D.lista("ordenes").filter(o => o.estado === "entregado" && n0(o.total) > 0 && (!o.cobro || o.cobro === "normal"));
+  const ticket = ots.length ? ots.reduce((a, o) => a + n0(o.total), 0) / ots.length : 79;
+  return { prob: Object.fromEntries(act.map(p => [p.id, Math.round((n0(p.peso) / tot) * 1000) / 10])), costo, ticket, pct: ticket ? (costo / ticket) * 100 : 0 };
+}
+/** Premios de ruleta que el cliente aún puede usar */
+export function premiosRuletaDe(clienteId) {
+  const h = hoy();
+  return D.lista("ordenes").filter(o => o.clienteId === clienteId && o.ruleta && o.ruleta.estado === "pendiente" && o.ruleta.vence >= h)
+    .map(o => Object.assign({ ordenId: o.id }, o.ruleta)).sort((a, b) => String(a.vence).localeCompare(String(b.vence)));
+}
+/** Usa el premio en una orden nueva: descuento, adicional o servicio a S/ 0, o regalo entregado */
+export function canjearRuleta(premio, destino) {
+  const origen = D.uno("ordenes", premio.ordenId);
+  if (!origen || !origen.ruleta) return null;
+  D.cambiar("ordenes", origen.id, { ruleta: Object.assign({}, origen.ruleta, { estado: "canjeado", canjeOrden: destino ? destino.id : "", canjeEn: Date.now(), act: Date.now() }) });
+  if (!destino) return origen;
+  const p = premio, items = (destino.items || []).slice();
+  let desc = n0(destino.descuento);
+  if (p.tipo === "descuento") desc += n0(p.valor);
+  else if (p.tipo === "adicional" || p.tipo === "servicio") items.push({ nombre: "🎁 " + p.n.replace(/ (gratis )?en tu próxima visita$/i, "").replace(/^Tu próximo /, ""), precio: 0, cant: 1, minutos: 0, premio: true });
+  return D.cambiar("ordenes", destino.id, { items, descuento: desc, total: totalItems(items, desc), premioRuleta: p.n });
 }
 export function varsCliente(c) {
   const p = perfil(c.id), veh = vehiculosDe(c.id)[0];

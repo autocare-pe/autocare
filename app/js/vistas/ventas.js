@@ -138,7 +138,7 @@ function Seguimientos({ nueva }) {
         const c = D.uno("clientes", t.clienteId);
         return html`<div class=${clases("fila", t.hecho && "hecha")}><${Check} si=${t.hecho} cambiar=${v => marcar(t, v)} />
           <span class="cuerpo"><span class="t">${t.titulo}</span><span class="s">${[t.fecha ? relativa(t.fecha) + (t.hora ? " " + t.hora : "") : "Sin fecha", c ? nombreDe(c) : "", t.prioridad === "alta" ? "prioridad alta" : "", varios && t.asignadoId ? "para " + (t.asignadoId === yo ? "ti" : D.nombreUsuario(t.asignadoId) || "otro") : ""].filter(Boolean).join(" · ")}</span></span>
-          <span class="der">${c && c.tel && html`<${Boton} chico icono="message-circle" titulo="WhatsApp" onClick=${() => enviarWa(c.tel, "")} />`}
+          <span class="der">${c && c.tel && html`<${Boton} chico icono="message-circle" titulo=${t.mensaje ? "Enviar el mensaje por WhatsApp" : "WhatsApp"} onClick=${() => { enviarWa(c.tel, t.mensaje || ""); if (t.mensaje && !t.hecho) marcar(t, true); }}>${t.mensaje ? "Enviar" : null}<//>`}
             <${Boton} chico tipo="fantasma" icono="ellipsis" titulo="Editar o eliminar" onClick=${() => menu(t.titulo, [
               { n: "Editar", icono: "pencil", f: () => setEd(t) },
               { n: "Eliminar", icono: "trash-2", peligro: true, f: async () => { if (await confirmar({ titulo: "Eliminar seguimiento", texto: t.titulo, si: "Eliminar", peligro: true })) { D.borrar("tareas", t.id); aviso("Eliminado."); } } }])} /></span></div>`;

@@ -61,20 +61,51 @@ function pintar() {
     <nav class="atajos"><a href="#sellos">Mis sellos</a>${D.historial.length ? `<a href="#mi-auto">Mi auto</a>` : ""}<a href="#recomendar">Recomendar</a><a href="#precios">Precios</a></nav></div>
     <div id="alerta" class="aviso rojo oculto" style="margin-bottom:14px"></div>`;
   // 1) lo que necesita tu respuesta
-  D.recepciones.forEach(r => out += caja("Revisa y firma la llegada de tu auto", `<p class="nota">${h(r.numero || "")} · ${h(r.vehiculo)} · ${fechaLarga(r.fecha)}</p>
-    ${r.items.length ? r.items.map(i => `<div class="par"><span>${h(i.zona)}</span><b>${h(({ rayon: "Rayón", abolladura: "Abolladura", mancha: "Mancha", rotura: "Rotura o falta pieza", otro: "Otro" })[i.estado] || i.estado)}${i.nota ? ": " + h(i.nota) : ""}</b></div>`).join("") : `<p style="margin:10px 0">Sin observaciones: tu auto llegó en buen estado.</p>`}
+  // La revisión de llegada: verla basta. Responder es opcional y se puede cambiar hasta la entrega.
+  D.recepciones.forEach(r => {
+    const resp = r.respuesta, DAN = { rayon: "Rayón", abolladura: "Abolladura", mancha: "Mancha", rotura: "Rotura o falta pieza", otro: "Otro" };
+    out += caja(resp ? "Cómo recibimos tu auto" : "Mira cómo recibimos tu auto", `<p class="nota">${h(r.numero || "")} · ${h(r.vehiculo)} · ${fechaLarga(r.fecha)}</p>
+    <p style="margin:10px 0">Antes de empezar lo revisamos y lo registramos con fotos. Así lo cuidamos y los dos tenemos la misma información.</p>
+    ${r.items.length ? r.items.map(i => `<div class="par"><span>${h(i.zona)}</span><b>${h(DAN[i.estado] || i.estado)}${i.nota ? ": " + h(i.nota) : ""}</b></div>`).join("") : `<p style="margin:10px 0">Sin detalles a la vista: tu auto llegó en buen estado.</p>`}
     ${r.objetos ? `<div class="par"><span>Objetos en el auto</span><b>${h(r.objetos)}</b></div>` : ""}${r.obs ? `<p style="margin:8px 0">${h(r.obs)}</p>` : ""}
     ${r.fotos.length ? `<div class="fotos">${r.fotos.map(x => `<img src="${h(x)}" alt="Foto de llegada" loading="lazy">`).join("")}</div>` : ""}
-    ${firmaForm("rec-" + r.id, "Firmo que revisé el estado de mi auto", "Firmar")}`));
+    ${resp ? `<div class="aviso ${resp.estado === "observacion" ? "" : "verde"}" style="margin-top:14px">${resp.estado === "observacion" ? `Nos dejaste una observación: «${h(resp.texto)}». Ya la estamos viendo.` : "✓ Nos dijiste que todo está bien. ¡Gracias!"}</div>
+      <button class="btn chico" style="margin-top:10px" data-rec-cambiar="${r.id}">Cambiar mi respuesta</button>` : ""}
+    <div id="rec-acc-${r.id}" class="${resp ? "oculto" : ""}" style="margin-top:14px">
+      <p class="nota" style="margin-bottom:10px">Si todo está bien, no necesitas hacer nada. Si quieres, confírmalo con un toque:</p>
+      <div class="dos-btn"><button class="btn oro" data-rec-ok="${r.id}">✓ Todo bien</button><button class="btn" data-rec-obs="${r.id}">Tengo una observación</button></div>
+      <div id="rec-obs-${r.id}" class="oculto" style="margin-top:10px"><textarea class="entrada" id="rec-txt-${r.id}" placeholder="¿Qué viste distinto? Ej.: ese rayón no estaba."></textarea>
+        <button class="btn oro bloque" style="margin-top:8px" data-rec-enviar="${r.id}">Enviar mi observación</button></div>
+      <details class="opcional"><summary>Prefiero firmar (opcional)</summary>${firmaForm("rec-" + r.id, "Revisé el estado de mi auto", "Firmar y confirmar")}</details>
+    </div>`);
+  });
   D.cotizaciones.filter(x => x.estado === "enviada").forEach(q => out += caja("Tu cotización " + h(q.numero || ""), `${q.items.map(i => `<div class="par"><span>${h(i.nombre)}${i.cant > 1 ? " ×" + i.cant : ""}</span><b>${soles(i.precio * (i.cant || 1))}</b></div>`).join("")}
     ${q.descuento ? `<div class="par"><span>Descuento</span><b>−${soles(q.descuento)}</b></div>` : ""}<div class="par total"><span>Total</span><b>${soles(q.total)}</b></div>
     ${q.nota ? `<p style="margin:8px 0">${h(q.nota)}</p>` : ""}<p class="nota">Válida hasta el ${fechaLarga(q.vence)}.</p>
     ${firmaForm("cot-" + q.id, "Acepto esta cotización", "Aceptar y separar mi trabajo")}<button class="btn chico" style="margin-top:8px" data-rechazar="${q.id}">No me interesa por ahora</button>`));
-  D.calificar.forEach(o => out += caja("¿Cómo quedó tu auto?", `<p class="nota">${h(o.servicios)} · ${fechaLarga(o.fecha)}</p>
-    <div class="estrellas" data-orden="${o.id}" style="margin:12px 0">${[1, 2, 3, 4, 5].map(i => `<button data-e="${i}" aria-label="${i} estrellas">★</button>`).join("")}</div>
-    <p style="margin:12px 0 8px">Del 0 al 10, ¿qué tan probable es que nos recomiendes a un amigo?</p><div class="nps" data-orden="${o.id}">${Array.from({ length: 11 }, (_, i) => `<button data-n="${i}">${i}</button>`).join("")}</div>
-    <textarea class="entrada" id="com-${o.id}" placeholder="¿Algo que quieras contarnos?" style="margin-top:12px"></textarea>
-    <button class="btn oro bloque" style="margin-top:12px" data-calificar="${o.id}">Enviar mi opinión</button>`));
+  // Calificar: un toque en las estrellas ya cuenta (Reichheld: una sola pregunta). El comentario es opcional.
+  // El enlace de Google se muestra a todos por igual, sin importar la nota (regla de Google).
+  D.calificar.forEach(o => {
+    const g = D.negocio.google, e = o.estrellas || 0;
+    out += caja(e ? "¡Gracias por tu opinión!" : "¿Cómo quedó tu auto?", `<p class="nota">${h(o.servicios)} · ${fechaLarga(o.fecha)}</p>
+    <div class="estrellas" style="margin:12px 0">${[1, 2, 3, 4, 5].map(i => `<button data-cal="${o.id}" data-est="${i}" aria-label="${i} ${i === 1 ? "estrella" : "estrellas"}" class="${i <= e ? "si" : ""}">★</button>`).join("")}</div>
+    ${!e ? `<p class="nota">Un toque basta.</p>` : `${o.comentario ? `<p class="nota">✓ Recibimos tu comentario.</p>` : `<textarea class="entrada" id="com-${o.id}" placeholder="${e >= 4 ? "¿Qué fue lo que más te gustó? (opcional)" : "¿Qué podemos hacer mejor? Lo leemos todos. (opcional)"}"></textarea>
+      <button class="btn chico" style="margin-top:8px" data-comentar="${o.id}" data-est="${e}">Enviar comentario</button>`}
+      ${g ? `<p class="nota" style="margin:14px 0 8px">Si tienes un minuto, contarlo en Google ayuda a otras personas de Arequipa a elegir. Bueno o malo, nos sirve.</p><a class="btn oro" href="${h(g)}" target="_blank" rel="noopener">Contarlo en Google</a>` : ""}`}`);
+  });
+  // Ruleta de premios: el cierre que se recuerda (Kahneman, pico y final). Siempre gana algo; el premio es para su próxima visita.
+  if (D.ruleta && D.ruleta.girar.length) {
+    const x = D.ruleta.girar[0], R = D.ruleta;
+    out += `<section class="caja tarjeta ruleta-caja" id="ruleta"><h2>Tienes un giro de premios 🎁</h2><p class="nota">Por tu servicio del ${fechaLarga(x.fecha)}. Siempre ganas algo, para usar en tu próxima visita.</p>
+      <div class="ruleta-wrap">${RUL ? RUL.ruletaSvg(R.premios, { marca: "assets/marca-chica-clara.svg" }) : ""}</div>
+      <div id="ruleta-res" class="oculto" aria-live="polite"></div>
+      <button class="btn oro bloque" data-girar="${x.id}">Girar la ruleta</button>
+      <details class="opcional"><summary>Bases y probabilidades</summary><p class="nota" style="margin-top:8px">Organiza ${h(D.negocio.nombre)}. Un giro por cada servicio pagado de ${soles(R.minimo)} o más, hasta ${R.dias} días después de la entrega.
+        Premios: ${R.premios.map(p => `${h(p.n)} (${p.prob}%${p.max ? `, máximo ${p.max} al mes` : ""})`).join("; ")}. Si un premio con tope se agota en el mes, ese giro se reparte entre los demás.
+        Se usa en tu siguiente visita, uno por visita, dentro de ${R.vence} días. Es personal y no se cambia por dinero ni se suma a otras promociones.</p></details></section>`;
+  }
+  if (D.premios && D.premios.length) out += caja("Tus premios para la próxima visita", `${D.premios.map(p => `<div class="par"><span>🎁 ${h(p.n)}</span><b>hasta el ${fechaLarga(p.vence)}</b></div>`).join("")}
+    <p class="nota" style="margin:10px 0">Avísanos al reservar y lo aplicamos ese día.</p><a class="btn oro bloque" href="${reservar}">Separar mi próxima hora</a>`, "premios");
   // 2) tu próxima cita, o cuándo te toca
   if (D.citas.length) out += caja("Tu próxima cita", D.citas.map(x => `<div class="cita-p"><b>${fechaLarga(x.fecha)}, ${h(x.hora)}</b><p class="nota">${h(x.servicios)}${x.direccion ? " · " + h(x.direccion) : ""}</p>
     ${x.estado === "solicitada" ? `<p class="nota">Por confirmar: te escribimos por WhatsApp.</p>` : ""}${x.adelanto && x.adelantoEstado !== "recibido" ? `<p class="nota">Adelanto pendiente: ${soles(x.adelanto)}${n.yape && n.yape.numero ? " por Yape al " + h(n.yape.numero) : ""}.</p>` : ""}
@@ -149,6 +180,13 @@ function conectar() {
     } else if (ds.rechazar) { const m = prompt("¿Nos cuentas por qué? (opcional)") ; if (m !== null) accion("rechazarCotizacion", { id: ds.rechazar, motivo: m }); }
     else if (ds.confirmar) accion("confirmarCita", { id: ds.confirmar });
     else if (ds.cancelar) { const m = prompt("¿Por qué cancelas? (opcional)"); if (m !== null) accion("cancelarCita", { id: ds.cancelar, motivo: m }); }
+    else if (ds.recOk) { b.disabled = true; await accion("recepcion", { id: ds.recOk, estado: "conforme" }); }
+    else if (ds.recObs) { $("#rec-obs-" + ds.recObs).classList.toggle("oculto"); const tx = $("#rec-txt-" + ds.recObs); if (tx) tx.focus(); }
+    else if (ds.recEnviar) { const tx = $("#rec-txt-" + ds.recEnviar).value.trim(); if (!tx) return alerta("Cuéntanos qué viste."); b.disabled = true; await accion("recepcion", { id: ds.recEnviar, estado: "observacion", texto: tx }); }
+    else if (ds.recCambiar) { $("#rec-acc-" + ds.recCambiar).classList.remove("oculto"); b.remove(); }
+    else if (ds.cal) { b.parentElement.querySelectorAll("button").forEach(x => x.classList.toggle("si", Number(x.dataset.est) <= Number(ds.est))); await accion("calificar", { id: ds.cal, estrellas: Number(ds.est) }); }
+    else if (ds.comentar) { const tx = $("#com-" + ds.comentar).value.trim(); if (!tx) return alerta("Escribe tu comentario o déjalo así: ya contamos tu nota."); b.disabled = true; await accion("calificar", { id: ds.comentar, estrellas: Number(ds.est), comentario: tx }); }
+    else if (ds.girar) girar(b, ds.girar);
     else if (ds.e) { const p = b.parentElement; sel["e" + p.dataset.orden] = Number(ds.e); p.querySelectorAll("button").forEach(x => x.classList.toggle("si", Number(x.dataset.e) <= Number(ds.e))); }
     else if (ds.n !== undefined) { const p = b.parentElement; sel["n" + p.dataset.orden] = Number(ds.n); p.querySelectorAll("button").forEach(x => x.classList.toggle("si", x === b)); }
     else if (ds.calificar) {
@@ -198,8 +236,24 @@ function entrada(error) {
     } catch (err) { const p = $("#p-error"); p.textContent = err.message; p.classList.remove("oculto"); b.disabled = false; b.textContent = "Recibir mi enlace por WhatsApp"; }
   });
 }
+let RUL = null;
+async function girar(b, id) {
+  b.disabled = true; b.textContent = "Girando…";
+  const sv = $("#ruleta .rueda"), res = $("#ruleta-res");
+  try {
+    const r = await api("portalAccion", { t, accion: "girar", id }), p = r.premio, R = D.ruleta;
+    const lento = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (sv && RUL) { sv.style.transition = `transform ${lento ? 4.6 : 0.6}s cubic-bezier(.12,.72,.14,1)`; sv.style.transform = `rotate(${RUL.anguloPara(R.premios, p.id, lento ? 6 : 1)}deg)`; }
+    await new Promise(ok => setTimeout(ok, lento ? 4800 : 700));
+    res.innerHTML = `<div class="premio-ganado"><small>¡Ganaste!</small><b>${h(String(p.n).replace(/ (gratis )?en tu próxima visita$/i, (m, g) => g ? " gratis" : ""))}</b><span>${p.tipo === "sello" ? "Ya está en tu tarjeta de sellos." : "Úsalo en tu próxima visita, hasta el " + fechaLarga(p.vence) + "."}</span></div>
+      <a class="btn oro bloque" href="./?src=ruleta#paquetes">Separar mi próxima hora</a><button class="btn chico bloque" style="margin-top:8px" onclick="location.reload()">Ver mi tarjeta</button>`;
+    res.classList.remove("oculto"); b.remove();
+    if (navigator.vibrate) try { navigator.vibrate([30, 40, 60]); } catch (e) { }
+  } catch (e) { alerta(e.message); b.disabled = false; b.textContent = "Girar la ruleta"; }
+}
 async function cargar() {
   if (!t) return entrada();
+  try { RUL = RUL || await import("./assets/ruleta.js"); } catch (e) { }
   try {
     [D, PUB] = await Promise.all([api("portal", { t }), api("publico").catch(() => null)]);
     recordar(t);

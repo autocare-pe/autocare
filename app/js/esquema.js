@@ -120,10 +120,50 @@ export const UNIDADES = ["unidad", "litro", "galón", "ml", "kg", "frasco", "paq
 export const ZONAS = ["Parachoques delantero", "Capó", "Techo", "Lado izquierdo", "Lado derecho", "Maletera", "Parachoques trasero",
   "Faros y micas", "Vidrios y espejos", "Aros y llantas", "Asientos y tapiz", "Tablero y consola", "Alfombras y piso", "Techo interior"];
 export const DANOS = { ok: "Bien", rayon: "Rayón", abolladura: "Abolladura", mancha: "Mancha", rotura: "Rotura o falta pieza", otro: "Otro" };
+// Revisión final por partes del auto (Gawande, El efecto checklist): corta, solo lo que aplica a lo que hiciste,
+// y con los «puntos que no pueden fallar» siempre. Cada servicio dice qué partes trabaja (Configuración → Servicios).
+export const PARTES = { exterior: "Exterior", interior: "Interior", motor: "Motor", proteccion: "Cera o protección" };
 export const CALIDAD = [
+  { t: "Carrocería sin restos de shampoo ni marcas de agua", a: "exterior" },
+  { t: "Aros limpios y llantas con acondicionador", a: "exterior" },
+  { t: "Vidrios y espejos por fuera, sin vetas", a: "exterior" },
+  { t: "Marcos de puertas, bisagras y tapa de combustible limpios", a: "exterior" },
+  { t: "Asientos, alfombras y maletera aspirados", a: "interior" },
+  { t: "Tablero, consola y puertas sin polvo", a: "interior" },
+  { t: "Vidrios por dentro sin vetas", a: "interior" },
+  { t: "Sin olor a humedad; aroma solo si el cliente quiere", a: "interior" },
+  { t: "Motor sin agua en bornes ni conectores; tapas en su lugar", a: "motor" },
+  { t: "Sin residuos blancos de cera en plásticos, gomas ni bordes", a: "proteccion" },
+  { t: "Objetos del cliente en su lugar y nada nuestro olvidado en el auto", a: "siempre" },
+  { t: "Fotos de después con los mismos ángulos que las de llegada", a: "siempre" }
+];
+// Lo que se usaba antes (lista fija). Si tu ajuste es exactamente esta lista, se usa la nueva por partes.
+export const CALIDAD_ANTERIOR = [
   "Carrocería sin restos de shampoo ni marcas de agua", "Vidrios por dentro y por fuera, sin vetas", "Aros y llantas limpios; llantas con acondicionador",
   "Asientos, alfombras y maletera aspirados", "Tablero, consola y puertas sin polvo", "Marcos de puertas y bisagras limpios",
   "Sin olor a humedad; aroma solo si el cliente quiere", "Fotos de después tomadas con buena luz"
+];
+
+// Ruleta de premios (la misma regla que el servidor). Se activa y se ajusta en Fidelidad → Ruleta.
+export const TIPOS_PREMIO = { sello: "Sello extra", regalo: "Regalo", adicional: "Adicional gratis", descuento: "Descuento", servicio: "Servicio gratis" };
+export const RULETA_BASE = { activo: false, minimo: 40, dias: 7, vence: 45, premios: [
+  { id: "sello", n: "1 sello extra en tu tarjeta", corto: "+1 sello", tipo: "sello", valor: 1, peso: 40, costo: 3 },
+  { id: "aroma", n: "Aroma premium de regalo en tu próxima visita", corto: "Aroma", tipo: "regalo", valor: 0, peso: 30, costo: 2 },
+  { id: "sensores", n: "Limpieza de sensores y cámaras gratis en tu próxima visita", corto: "Sensores", tipo: "adicional", valor: 15, peso: 18, costo: 3 },
+  { id: "s10", n: "S/ 10 de descuento en tu próxima visita", corto: "S/ 10", tipo: "descuento", valor: 10, peso: 6, costo: 10 },
+  { id: "motor", n: "Limpieza de motor gratis en tu próxima visita", corto: "Motor", tipo: "adicional", valor: 35, peso: 4, costo: 8, max: 4 },
+  { id: "gratis", n: "Tu próximo Esencial gratis", corto: "¡Gratis!", tipo: "servicio", valor: 45, peso: 2, costo: 20, max: 1 }] };
+
+// Merchandising: cada pieza con su QR, su frase gancho y lo que responde la página al escanear.
+export const TIPOS_MERCH = { polo: "Polo", gorra: "Gorra", casaca: "Casaca o polera", sticker: "Sticker", tarjeta: "Tarjeta", volante: "Volante", auto: "Rotulado del auto", otro: "Otro" };
+export const ESTADOS_MERCH = { idea: "Idea", diseno: "En diseño", cotizando: "Cotizando", produccion: "En producción", uso: "En uso", agotado: "Se acabó" };
+// Ganchos: curiosidad (Loewenstein: la brecha de información), psicología inversa (Brehm: reactancia) y humor.
+// La página que abre el QR cierra la curiosidad con la misma gracia y lleva a precios y fotos (Heath, Made to Stick).
+export const GANCHOS = [
+  { frase: "NO ESCANEES ESTO", sub: "si te gusta tu auto sucio", titulo: "Sabíamos que no ibas a resistir.", texto: "Ya que estás aquí: dejamos tu auto como nuevo sin que te muevas de casa. Mira cómo quedan y cuánto cuesta." },
+  { frase: "TU AUTO TE ESTÁ JUZGANDO", sub: "escanea y descubre por qué", titulo: "Tranquilo, tiene solución.", texto: "Lo dejamos como nuevo donde estés, por dentro y por fuera. Mira el antes y después." },
+  { frase: "¿QUÉ VIVE EN TUS ASIENTOS?", sub: "escanea, si te atreves", titulo: "Mejor no lo pienses.", texto: "Aspiramos, limpiamos a fondo y te mandamos el antes y después. Sin moverte de casa." },
+  { frase: "ESCANEA Y MIRA EL ANTES Y DESPUÉS", sub: "nadie nos cree a la primera", titulo: "Compruébalo tú mismo.", texto: "Autos reales de Arequipa, lavados a domicilio. Desliza para comparar y separa tu hora en un minuto." }
 ];
 
 // Reparto de cada cobro (Profit First, Mike Michalowicz). Puedes cambiar los % en Finanzas → Reparto.
@@ -147,15 +187,21 @@ export const REDES = { instagram: "Instagram", facebook: "Facebook", tiktok: "Ti
 
 // Mensajes de WhatsApp. Puedes cambiar cualquiera en Campañas → Plantillas.
 // Variables: {nombre} {negocio} {fecha} {hora} {servicio} {total} {portal} {resena} {codigo} {direccion} {adelanto} {yape} {placa}
+// En órdenes también: {vehiculo} {tecnico} {hallazgos} {regalo}
 export const PLANTILLAS = [
   { clave: "confirmar", nombre: "Confirmar cita", categoria: "agenda", texto: "Hola {nombre}, te escribe {negocio}. Te confirmo tu cita el {fecha} a las {hora} para {servicio}. Dirección: {direccion}. Cualquier cambio me avisas por aquí. ¡Gracias!" },
   { clave: "adelanto", nombre: "Pedir adelanto", categoria: "agenda", texto: "Hola {nombre}, para separar tu cita del {fecha} a las {hora} te pido un adelanto de {adelanto} por Yape al {yape}. Me envías la captura por aquí y queda confirmada." },
   { clave: "recordatorio", nombre: "Recordatorio un día antes", categoria: "agenda", texto: "Hola {nombre}, te recuerdo que mañana {fecha} a las {hora} paso a atender tu auto ({servicio}). Si necesitas cambiar la hora, avísame. Mira tu cita aquí: {portal}" },
   { clave: "camino", nombre: "Voy en camino", categoria: "agenda", texto: "Hola {nombre}, ya voy en camino. Llego en unos 20 minutos. 🚗" },
-  { clave: "recepcion", nombre: "Revisión de llegada para firmar", categoria: "ordenes", texto: "Hola {nombre}, ya revisé tu auto antes de empezar. Aquí ves las fotos y lo que encontré; fírmalo desde tu celular, por favor: {portal}" },
-  { clave: "listo", nombre: "Tu auto está listo", categoria: "ordenes", texto: "¡Listo, {nombre}! Tu auto quedó impecable. Total: {total}. Mira las fotos de antes y después aquí: {portal}" },
+  // Danny Meyer (Setting the Table): primero el cuidado, luego el trámite. Langer (el «porque»): una razón aumenta la aceptación.
+  // Thaler y Sunstein (Nudge): si todo está bien, no tiene que hacer nada (lo normal pasa solo).
+  { clave: "recepcion", nombre: "Revisión de llegada", categoria: "ordenes", texto: "Hola {nombre}, soy {tecnico} de {negocio}. Antes de empezar revisé tu {vehiculo} y lo registré con fotos ({hallazgos}). Lo hago con todos los autos para cuidar el tuyo y que los dos tengamos la misma información.\n\nPuedes verlo aquí: {portal}\nSi todo está bien, no necesitas hacer nada 👍 Si ves algo distinto, respóndeme por aquí antes de que termine." },
+  // Kahneman (pico y final): el cierre es lo que más recuerda. Heath (The Power of Moments): un detalle inesperado.
+  { clave: "listo", nombre: "Tu auto está listo", categoria: "ordenes", texto: "¡Listo, {nombre}! Tu {vehiculo} quedó como nuevo ✨ Mira el antes y después aquí: {portal}{regalo}\nTotal: {total}. ¡Gracias por confiar en nosotros!" },
   { clave: "tarjeta", nombre: "Entregar su tarjeta digital", categoria: "ordenes", texto: "¡Gracias por confiar en {negocio}, {nombre}! Esta es tu tarjeta: ahí ves tus sellos, las fotos de antes y después de tu auto y separas tu próxima hora en 1 minuto. Guarda este enlace: {portal}" },
-  { clave: "resena", nombre: "Pedir reseña", categoria: "ordenes", texto: "Gracias por confiar en {negocio}, {nombre}. Si te gustó el trabajo, ¿me ayudas con una reseña en Google? Me toma 1 minuto de tu tiempo y me ayuda muchísimo: {resena}" },
+  // Reseña (Google: sin premios a cambio, sin presión en el lugar, a todos por igual). Cialdini: gratitud primero y
+  // un pedido pequeño y concreto; Reichheld: una sola pregunta; permiso explícito para decir lo malo.
+  { clave: "resena", nombre: "Pedir opinión y reseña", categoria: "ordenes", texto: "Hola {nombre}, gracias otra vez por dejarnos cuidar tu auto. ¿Cómo lo sentiste? Si tienes un minuto, cuéntalo en Google, bueno o malo: a otras personas de Arequipa les ayuda a elegir y a nosotros a mejorar. Con dos líneas basta: {resena}\nY si algo no quedó como esperabas, dímelo por aquí y lo solucionamos." },
   { clave: "cotizacion", nombre: "Enviar cotización", categoria: "comercial", texto: "Hola {nombre}, te envío la cotización para tu auto: {total}. Puedes verla y aceptarla aquí: {portal}" },
   { clave: "respuesta", nombre: "Responder consulta", categoria: "comercial", texto: "Hola {nombre}, gracias por escribir a {negocio}. Atiendo a domicilio con agua y equipos propios. ¿Qué auto tienes y en qué distrito estás? Así te paso el precio exacto y los horarios libres." },
   { clave: "volver", nombre: "Le toca su mantenimiento", categoria: "campana", texto: "Hola {nombre}, ya pasó un mes desde el último lavado de tu {placa}. ¿Te reservo un espacio esta semana? Tengo libre el {fecha}." },

@@ -22,6 +22,7 @@ export const NAV = [
   { g: "Marketing", items: [
     { r: "contenido", n: "Contenido", i: "calendar-range", mod: "marketing", d: "Calendario, estudio de diseño y publicación" },
     { r: "resultados", n: "Resultados", i: "chart-column", mod: "marketing", d: "Redes, canales que traen clientes y reseñas" },
+    { r: "merch", n: "Merchandising", i: "shirt", mod: "marketing", d: "Polo, gorra, stickers y sus QR con gancho" },
     { r: "fidelidad", n: "Fidelidad y planes", i: "gift", mod: "clientes", d: "Sellos, referidos, planes y membresías" }] },
   { g: "Administración", items: [
     { r: "finanzas", n: "Finanzas", i: "wallet", mod: "finanzas", d: "Caja, por cobrar, gastos, reparto y rentabilidad" },
@@ -34,14 +35,14 @@ const VISTAS = {
   clientes: () => import("./vistas/clientes.js"), ventas: () => import("./vistas/ventas.js"), campanas: () => import("./vistas/campanas.js"),
   contenido: () => import("./vistas/contenido.js"), resultados: () => import("./vistas/resultados.js"), fidelidad: () => import("./vistas/fidelidad.js"),
   finanzas: () => import("./vistas/finanzas.js"), inventario: () => import("./vistas/inventario.js"), activos: () => import("./vistas/activos.js"),
-  tablero: () => import("./vistas/tablero.js"), plan: () => import("./vistas/plan.js"), config: () => import("./vistas/config.js"), ayuda: () => import("./vistas/ayuda.js"), datos: () => import("./vistas/datos.js"), arranque: () => import("./vistas/arranque.js"), mas: () => import("./vistas/mas.js")
+  tablero: () => import("./vistas/tablero.js"), plan: () => import("./vistas/plan.js"), config: () => import("./vistas/config.js"), ayuda: () => import("./vistas/ayuda.js"), datos: () => import("./vistas/datos.js"), arranque: () => import("./vistas/arranque.js"), merch: () => import("./vistas/merch.js"), mas: () => import("./vistas/mas.js")
 };
 // Enlaces que manda el servidor por Telegram
 const ALIAS = { comercial: "ventas", direccion: "tablero", marketing: "contenido" };
 export const puedeRuta = it => !it.mod || D.puede(it.mod, 1);
 // Menú más simple: cada persona ve primero las secciones de sus áreas (las demás, en «Ver todas las secciones»)
 const MOD_AREAS = { tablero: ["pagos"], agenda: ["campo", "ventas", "logistica"], ordenes: ["campo", "pagos"], ventas: ["ventas"], campanas: ["ventas", "marketing"],
-  contenido: ["marketing"], resultados: ["marketing"], fidelidad: ["ventas", "marketing"], finanzas: ["pagos"], inventario: ["campo", "logistica"], activos: ["campo", "logistica"] };
+  contenido: ["marketing"], resultados: ["marketing"], merch: ["marketing"], fidelidad: ["ventas", "marketing"], finanzas: ["pagos"], inventario: ["campo", "logistica"], activos: ["campo", "logistica"] };
 export const esMio = it => { const a = MOD_AREAS[it.r]; return !a || a.some(x => D.tengoArea(x)); };
 export const itemsNav = () => NAV.flatMap(g => g.items);
 

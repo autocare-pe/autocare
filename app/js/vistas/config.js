@@ -5,9 +5,9 @@ import * as N from "../negocio.js";
 import { api } from "../api.js";
 import { ir, usarTitulo } from "../app.js";
 import { aplicarTema } from "../main.js";
-import { Boton, BotonAccion, Hoja, Entrada, Numero, Dinero, Area, Selector, Interruptor, Segmentos, Pestanas, Insignia, Vacio, Fila, Bloque, AvisoLinea, Tabla, Icono, MasDatos, aviso, confirmar, useFicha, b } from "../ui.js";
+import { Boton, BotonAccion, Hoja, Entrada, Numero, Dinero, Area, Selector, Interruptor, Segmentos, Pestanas, Insignia, Vacio, Fila, Bloque, AvisoLinea, Tabla, Icono, MasDatos, aviso, confirmar, preguntar, useFicha, b } from "../ui.js";
 import { soles, duracion, hoy, descargar, copiar, fechaHora, DIAS } from "../util.js";
-import { CATEGORIAS_SERVICIO, MODULOS, AREAS, estadoDe } from "../esquema.js";
+import { CATEGORIAS_SERVICIO, MODULOS, AREAS, PARTES, CALIDAD, estadoDe } from "../esquema.js";
 import { CampoFotos } from "../piezas.js";
 
 export default function Config({ ruta }) {
@@ -78,7 +78,29 @@ function Servicios() {
       cols=${[{ k: "nombre", n: "Servicio", clase: "prin" }, { k: "categoria", n: "Categoría", f: s => CATEGORIAS_SERVICIO[s.categoria] || "", clase: "tenue" }, { k: "minutos", n: "Duración", f: s => duracion(s.minutos || 60) },
         { k: "precio", n: "Precio", num: true, f: s => soles(s.precio) }, { k: "pasos", n: "Pasos", num: true, f: s => (s.pasos || []).length || "", ordenar: false },
         { k: "web", n: "En la web", f: s => (s.web !== false ? "Sí" : "No") }, { k: "estado", n: "Estado", f: s => html`<${Insignia} c=${estadoDe("servicios", s.estado || "activo").c}>${estadoDe("servicios", s.estado || "activo").n}<//>` }]} />
-    ${ed && html`<${FormServicio} s=${ed} cerrar=${() => setEd(null)} />`}<//>`;
+    ${ed && html`<${FormServicio} s=${ed} cerrar=${() => setEd(null)} />`}<//>
+    <${RevisionFinal} />`;
+}
+// Revisión final por partes (Gawande): cada orden muestra solo lo de las partes que se trabajaron, más lo de «Siempre».
+function RevisionFinal() {
+  const [lista, setLista] = useState(() => N.listaCalidad().map(x => Object.assign({}, x)));
+  const [nuevo, setNuevo] = useState(""), [parte, setParte] = useState("exterior");
+  const guardar = l => { setLista(l); D.fijarAjuste("calidad", l); };
+  const grupos = [...Object.keys(PARTES), "siempre"].map(a => [a, lista.filter(x => (x.a || "siempre") === a)]);
+  const agregar = () => { if (!nuevo.trim()) return; guardar([...lista, { t: nuevo.trim(), a: parte }]); setNuevo(""); aviso("Punto agregado."); };
+  const editar = async (x, i) => { const t = await preguntar({ titulo: "Editar punto", etiqueta: "Qué revisas", valor: x.t, si: "Guardar" }); if (t) guardar(lista.map(y => (y === x ? Object.assign({}, y, { t }) : y))); };
+  const restaurar = async () => { if (await confirmar({ titulo: "Volver a la lista sugerida", texto: "Se reemplaza tu lista por la sugerida (12 puntos por partes).", si: "Restaurar" })) guardar(CALIDAD.map(x => Object.assign({}, x))); };
+  return html`<${Bloque} titulo="Revisión final (control de calidad)" sub="Cada orden muestra solo los puntos de las partes que trabajó (lo eliges en cada servicio) y los de «Siempre»."
+    der=${html`<${Boton} chico tipo="fantasma" icono="rotate-ccw" onClick=${restaurar}>Lista sugerida<//>`}>
+    <div class="panel">
+      ${grupos.filter(g => g[1].length).map(([a, l]) => html`<p class="campo-t" style="margin:6px 0">${a === "siempre" ? "Siempre (todas las órdenes)" : PARTES[a]}</p>
+        <div class="grupo" style="margin-bottom:12px">${l.map(x => html`<div class="fila compacta"><span class="cuerpo"><span class="t" style="white-space:normal">${x.t}</span></span>
+          <span class="der"><${Boton} chico tipo="fantasma" icono="pencil" titulo="Editar" onClick=${() => editar(x)} /><${Boton} chico tipo="fantasma" icono="trash-2" titulo="Quitar" onClick=${() => guardar(lista.filter(y => y !== x))} /></span></div>`)}</div>`)}
+      <div class="rejilla" style="align-items:end"><${Entrada} etiqueta="Agregar un punto" valor=${nuevo} cambiar=${setNuevo} placeholder="Ej.: Faros sin restos de pulimento" />
+        <${Selector} etiqueta="Parte" valor=${parte} cambiar=${setParte} opciones=${[...Object.keys(PARTES).map(k => ({ v: k, n: PARTES[k] })), { v: "siempre", n: "Siempre" }]} /></div>
+      <div class="btns" style="margin-top:10px"><${Boton} icono="plus" onClick=${agregar}>Agregar<//></div>
+      <p class="nota" style="margin-top:10px">Consejo de Gawande: una buena lista es corta (5 a 9 puntos por orden) y solo trae lo que de verdad se olvida.</p>
+    </div><//>`;
 }
 function FormServicio({ s, cerrar }) {
   const [f, set] = useFicha(Object.assign({ nombre: "", categoria: "lavado", precio: null, minutos: 60, estado: "activo", web: true, porTamano: true, adelanto: false, volver: 30, descripcion: "", destacado: false, paquete: false, incluye: "", fotoId: "" }, s, { pasosTxt: (s.pasos || []).map(p => p.t || p).join("\n") }));
@@ -105,6 +127,11 @@ function FormServicio({ s, cerrar }) {
       <//>
       <${MasDatos} titulo="Pasos del servicio" abierto=${!!String(f.pasosTxt || "").trim()}>
         <${Area} etiqueta="Pasos del servicio (uno por línea)" filas=${6} ...${b(f, set, "pasosTxt")} ayuda="Se vuelven el checklist de cada orden. Así lo haces igual siempre, y mañana un ayudante también." />
+      <//>
+      <${MasDatos} titulo="Partes del auto que trabaja" abierto=${Array.isArray(f.partes) && f.partes.length > 0}>
+        <p class="nota" style="margin:0">Con esto la revisión final muestra solo lo que corresponde: un lavado exterior no revisa el interior.${!(Array.isArray(f.partes) && f.partes.length) ? " Por ahora se deduce del nombre y los pasos." : ""}</p>
+        <div class="chips">${Object.keys(PARTES).map(k => { const act = (Array.isArray(f.partes) && f.partes.length ? f.partes : N.partesServicio(Object.assign({}, f, { partes: null, pasos: String(f.pasosTxt || "").split("\n") }))).includes(k);
+          return html`<button type="button" class=${"chip" + (act ? " activo" : "")} aria-pressed=${act} onClick=${() => { const base = Array.isArray(f.partes) && f.partes.length ? f.partes : N.partesServicio(Object.assign({}, f, { partes: null, pasos: String(f.pasosTxt || "").split("\n") })); set("partes", act ? base.filter(x => x !== k) : [...base, k]); }}>${PARTES[k]}</button>`; })}</div>
       <//>
       <${MasDatos} titulo="Más ajustes (opcional)">
         <div class="rejilla"><${Selector} etiqueta="Categoría" opciones=${Object.keys(CATEGORIAS_SERVICIO).map(k => ({ v: k, n: CATEGORIAS_SERVICIO[k] }))} ...${b(f, set, "categoria")} />
