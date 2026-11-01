@@ -89,6 +89,7 @@ function Portada() {
     ${GRUPOS.map(g => { const es = g.e.filter(e => ENT[e] && D.puedeVer(e)); if (!es.length) return null;
       return html`<${Bloque} titulo=${g.n}><div class="grupo">${es.map(e => { const c = conteo(e);
         return html`<${Fila} icono=${g.i} titulo=${ENT[e].n} sub=${c.t ? c.t + (c.t === 1 ? " registro" : " registros") + (c.p ? " · " + c.p + " de práctica" : "") : "Vacío"} href=${"#/datos/" + e} flecha />`; })}</div><//>`; })}
+    ${admin && html`<${FotosLivianas} />`}
     ${admin && html`<${Bloque} titulo="Empezar de cero" sub="Para cuando terminen de probar">
       <div class="panel"><p class="tenue chico">Borra los datos del día a día (clientes, citas, órdenes, cobros…) y deja intacta tu configuración: servicios, precios, planes, productos, equipos, usuarios y ajustes. Antes de borrar, el servidor guarda una copia completa en tu Drive (carpeta Respaldos).</p>
         <div class="btns" style="margin-top:12px"><${Boton} tipo="peligro" icono="list-restart" onClick=${() => setReinicio(true)}>Empezar de cero…<//></div></div><//>`}
@@ -193,4 +194,17 @@ function Editor({ e, id, cerrar }) {
       ${propia && html`<${Boton} icono="external-link" onClick=${() => { cerrar(); ir(propia(r.id)); }}>Abrir en su pantalla<//>`}
       ${cols.map(campo)}
       <p class="nota">Creado ${r.creado ? fechaHora(r.creado) : "—"}${r.por ? " · último cambio de " + r.por : ""}</p></div><//>`;
+}
+
+// Fotos de servicios que se borran solas (Ley 29733: guardar solo lo necesario; 5S de Toyota: quitar lo que no se usa)
+function FotosLivianas() {
+  const F = Object.assign({ activo: true, dias: 7 }, D.ajuste("fotos", {}) || {});
+  const poner = (k, v) => D.fijarAjuste("fotos", Object.assign({}, F, { [k]: v }));
+  const ots = D.lista("ordenes"), conFotos = ots.filter(o => (o.fotosAntes || []).length + (o.fotosDespues || []).length > 0).length, borradas = ots.filter(o => o.fotosBorradas).length;
+  return html`<${Bloque} titulo="Fotos de servicios" sub="Para que el sistema se mantenga liviano"><div class="panel form">
+    <${Interruptor} etiqueta="Borrar las fotos de cada servicio después de entregarlo" valor=${F.activo !== false} cambiar=${v => poner("activo", v)} />
+    ${F.activo !== false && html`<${Numero} etiqueta="Días después de la entrega" decimales=${0} sufijo="días" valor=${F.dias} cambiar=${v => poner("dias", Math.max(3, v || 7))} />`}
+    <p class="nota">Se borran solas cada noche (van a la papelera de tu Drive, que se vacía a los 30 días). <b>No se borran</b> si el cliente dejó una observación, calificó con 3 o menos, hay un reclamo, marcaste «Conservar fotos» en la orden o las usas en tu web («Usar en mi web»).</p>
+    <p class="nota">Ahora: ${conFotos} ${conFotos === 1 ? "orden con fotos" : "órdenes con fotos"} · ${borradas} ya ${borradas === 1 ? "limpia" : "limpias"}.</p>
+  </div><//>`;
 }

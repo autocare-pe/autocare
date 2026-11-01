@@ -5,6 +5,7 @@ import { Icono, Logo, LogoHorizontal, Boton, Hoja, Capas, menu, capaExtra, aviso
 import { GUIAS } from "./guias.js";
 import { clases, coincide, nombreDe, telBonito, esMovil, fechaCorta, plural } from "./util.js";
 import { srcFoto } from "./datos.js";
+import { soyWhatsapp, bandeja } from "./negocio.js";
 
 // ---------------------------------------------------------------- menú
 export const NAV = [
@@ -97,7 +98,8 @@ function cuentas() {
   return {
     agenda: D.lista("citas").filter(c => c.estado === "solicitada" && c.fecha >= H).length,
     ordenes: D.lista("ordenes").filter(o => ["recepcion", "proceso", "calidad", "listo"].includes(o.estado)).length,
-    ventas: D.lista("leads").filter(l => l.etapa === "nuevo").length
+    ventas: D.lista("leads").filter(l => l.etapa === "nuevo").length,
+    "": (() => { try { return soyWhatsapp() ? bandeja().length : 0; } catch (e) { return 0; } })()   // mensajes por enviar
   };
 }
 

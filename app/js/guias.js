@@ -118,6 +118,7 @@ export const GLOSARIO = [
   ["Conformidad", "La respuesta del cliente a la revisión de llegada: «Todo bien», una observación, o «sin observaciones hasta la entrega» si no respondió. Se puede cambiar hasta entregar."],
   ["Ruleta de premios", "Un giro por cada servicio pagado. Siempre gana algo para su próxima visita, con fecha de vencimiento. Tú eliges los premios y sus probabilidades."],
   ["Frase gancho", "La frase junto al QR de tu polo o gorra que da curiosidad para escanear."],
+  ["Por enviar", "Los mensajes de las órdenes que faltan mandar (revisión de llegada, auto listo, fotos y premio, recordatorio de opinión). Le aparecen a quien maneja el WhatsApp del negocio."],
   ["Control de calidad", "La revisión final antes de entregar, con las fotos de «después»."],
   ["Consulta (prospecto)", "Alguien que preguntó pero todavía no compra. Se mueve por el embudo hasta que agenda o se pierde."],
   ["Embudo", "Las etapas de una venta: nueva → contactado → cotizado → agendado → ganado o perdido."],
@@ -141,7 +142,7 @@ export const GLOSARIO = [
 
 /** Guía de cada pantalla. t: título · para: para qué sirve · pasos: cómo se usa · datos: qué significa · consejo */
 export const GUIAS = {
-  "": { t: "Inicio", para: "Lo que tienes que hacer hoy, en orden. Si tienes áreas (Configuración → Usuarios), ves primero lo tuyo.",
+  "": { t: "Inicio", para: "Lo que tienes que hacer hoy, en orden. Si llevas el WhatsApp, arriba está «Por enviar»: un toque y el mensaje sale listo.",
     pasos: ["Arriba: cuánto cobraste hoy, en la semana y en el mes.", "Si haces el servicio: tu próxima cita (con «Cómo llegar» y «Voy en camino») y la agenda de hoy.", "Si llevas la gestión: lo que hay que responder, cobrar, preparar para mañana y publicar.", "Toca cualquier fila para ir directo a resolverla."],
     datos: [["Por cobrar", "Servicios entregados que aún no se pagan completos."], ["Les toca volver", "Clientes que, según su costumbre, ya deberían volver: escríbeles."]],
     consejo: "Empieza el día aquí y deja todo en «Todo al día» antes de dormir." },

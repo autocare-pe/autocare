@@ -197,7 +197,9 @@ export const PLANTILLAS = [
   // Thaler y Sunstein (Nudge): si todo está bien, no tiene que hacer nada (lo normal pasa solo).
   { clave: "recepcion", nombre: "Revisión de llegada", categoria: "ordenes", texto: "Hola {nombre}, soy {tecnico} de {negocio}. Antes de empezar revisé tu {vehiculo} y lo registré con fotos ({hallazgos}). Lo hago con todos los autos para cuidar el tuyo y que los dos tengamos la misma información.\n\nPuedes verlo aquí: {portal}\nSi todo está bien, no necesitas hacer nada 👍 Si ves algo distinto, respóndeme por aquí antes de que termine." },
   // Kahneman (pico y final): el cierre es lo que más recuerda. Heath (The Power of Moments): un detalle inesperado.
-  { clave: "listo", nombre: "Tu auto está listo", categoria: "ordenes", texto: "¡Listo, {nombre}! Tu {vehiculo} quedó como nuevo ✨ Mira el antes y después aquí: {portal}{regalo}\nTotal: {total}. ¡Gracias por confiar en nosotros!" },
+  { clave: "listo", nombre: "Tu auto está listo", categoria: "ordenes", texto: "¡Listo, {nombre}! Tu {vehiculo} ya está terminado ✨ Aquí ves cómo quedó: {portal}\nTotal: {total}. Cuando puedas, te lo entregamos." },
+  // Una sola visita después del servicio: antes y después, una estrella, Google y su premio (Fogg: un aviso, una acción)
+  { clave: "entrega", nombre: "Gracias, fotos y premio", categoria: "ordenes", texto: "¡Gracias, {nombre}! Tu {vehiculo} quedó como nuevo ✨ Aquí está tu antes y después{regalo}: {portal}\nSi tienes un segundo, cuéntanos con una estrella cómo te fue. ¡Hasta la próxima!" },
   { clave: "tarjeta", nombre: "Entregar su tarjeta digital", categoria: "ordenes", texto: "¡Gracias por confiar en {negocio}, {nombre}! Esta es tu tarjeta: ahí ves tus sellos, las fotos de antes y después de tu auto y separas tu próxima hora en 1 minuto. Guarda este enlace: {portal}" },
   // Reseña (Google: sin premios a cambio, sin presión en el lugar, a todos por igual). Cialdini: gratitud primero y
   // un pedido pequeño y concreto; Reichheld: una sola pregunta; permiso explícito para decir lo malo.

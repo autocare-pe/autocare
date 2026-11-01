@@ -4,7 +4,7 @@ import { html } from "../../vendor/preact-htm.js";
 import * as D from "../datos.js";
 import * as N from "../negocio.js";
 import { ir, usarTitulo, menuCrear } from "../app.js";
-import { Boton, Icono, Fila, Insignia, Resumen, Bloque, Vacio, Progreso } from "../ui.js";
+import { Boton, Icono, Fila, Insignia, Resumen, Bloque, Vacio, Progreso, aviso } from "../ui.js";
 import { FilaCita } from "./agenda.js";
 import { progresoArranque } from "./arranque.js";
 import { enviarWa } from "../piezas.js";
@@ -84,18 +84,35 @@ export default function Inicio() {
   const sub = campo ? `${fechaLarga(H).replace(/^./, x => x.toUpperCase())}. ${citasHoy.length ? `Tienes ${citasHoy.length} ${citasHoy.length === 1 ? "cita" : "citas"} hoy${cap ? `, ${Math.round((uso / cap) * 100)}% de tu día` : ""}.` : "Hoy no tienes citas."}`
     : `${fechaLarga(H).replace(/^./, x => x.toUpperCase())}. ${todas.length ? `Tienes ${todas.length} ${todas.length === 1 ? "cosa" : "cosas"} por resolver.` : "Todo al día."}`;
   const cab = html`<header class="pagina-cab"><div><h1>${saludo}, ${primerNombre(u) || u.nombre}</h1><p>${sub}</p></div></header>${D.puede("config", 2) && html`<${EnMarcha} />`}${D.enPractica() && html`<${Practica} />`}`;
-  if (!campo) return html`${cab}${resumenDinero}
+  // Bandeja «Por enviar» para quien lleva el WhatsApp (Allen: una sola bandeja; Hick: menos opciones, decisiones más rápidas)
+  const yoEnvio = N.soyWhatsapp(), porEnviar = yoEnvio ? N.bandeja() : [];
+  const bandeja = porEnviar.length > 0 && html`<${Bloque} titulo=${"Por enviar · " + porEnviar.length}>
+    <div class="grupo">${porEnviar.map(m => html`<${FilaEnviar} m=${m} />`)}</div><//>`;
+  if (!campo) {
+    const conPend = orden.filter(a => de(a).length), alDia = orden.filter(a => !de(a).length);
+    return html`${cab}${resumenDinero}
     <div class="columnas">
-      <div>${orden.map(a => html`<${Bloque} titulo=${AR[a].n} sub=${de(a).length ? "" : "Al día"}>${de(a).length ? html`<div class="grupo">${de(a)}</div>` : html`<div class="panel"><p class="tenue">Nada pendiente aquí. ✓</p></div>`}<//>`)}
-        ${filasTareas.length > 0 && html`<${Bloque} titulo="Tus seguimientos" der=${html`<a class="enlace" href="#/ventas/seguimientos">Ver todos</a>`}><div class="grupo">${filasTareas}</div><//>`}</div>
+      <div>${bandeja}
+        ${conPend.map(a => html`<${Bloque} titulo=${AR[a].n}><div class="grupo">${de(a)}</div><//>`)}
+        ${filasTareas.length > 0 && html`<${Bloque} titulo="Tus seguimientos" der=${html`<a class="enlace" href="#/ventas/seguimientos">Ver todos</a>`}><div class="grupo">${filasTareas}</div><//>`}
+        ${!porEnviar.length && !conPend.length && !filasTareas.length ? html`<div class="panel al-dia"><b>Todo al día ✓</b><p class="tenue">No hay nada por enviar, responder ni cobrar. Buen momento para escribirles a los que les toca volver.</p></div>`
+          : alDia.length > 0 && html`<p class="nota" style="margin:-4px 0 18px">Al día: ${alDia.map(a => AR[a].n).join(" · ")} ✓</p>`}</div>
       <div>${agendaHoy}${volver}</div>
     </div>`;
+  }
   return html`${cab}${resumenDinero}
     <div class="columnas">
-      <div>${proxima && html`<${Siguiente} c=${proxima} />`}${agendaHoy}${volver}</div>
+      <div>${proxima && html`<${Siguiente} c=${proxima} />`}${bandeja}${agendaHoy}${volver}</div>
       <div><${Bloque} titulo="Pendientes">
           ${!todas.length ? html`<div class="panel"><p class="tenue">Todo al día.</p></div>` : html`<div class="grupo">${todas}</div>`}<//></div>
     </div>`;
+}
+
+function FilaEnviar({ m }) {
+  const o = m.o, cli = D.uno("clientes", o.clienteId);
+  const enviar = e => { e.preventDefault(); enviarWa(cli.tel, N.textoMensaje(o, m)); N.marcarEnviado(o, m.k); aviso("Marcado como enviado.", { accion: { n: "Deshacer", f: () => N.marcarEnviado(o, m.k, 0) } }); };
+  return html`<${Fila} icono=${m.i} colorIcono="oro" titulo=${m.n + " · " + (o._cliente || "")} sub=${[String(o._vehiculo || "").replace(/\s*\(.*\)$/, ""), m.k === "recepcion" && (o.recepcion || {}).porEnviar ? "la pasó " + hace(o.recepcion.porEnviar) : o.act ? hace(o.act) : ""].filter(Boolean).join(" · ")}
+    href=${"#/ordenes/" + o.id} der=${html`<${Boton} chico tipo="primario" icono="send" onClick=${enviar}>Enviar<//>`} />`;
 }
 
 // Puesta en marcha: mientras falte configurar algo, un solo botón lleva al paso a paso (Krug: un camino claro).

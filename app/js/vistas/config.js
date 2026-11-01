@@ -46,6 +46,8 @@ function Negocio() {
       <div class="separador"></div>
       <div class="titulo-seccion"><h3>Contacto y pagos</h3><p>¿Cambias de número? Solo cámbialo aquí. Lo impreso (polo, QR, stickers, tarjetas) no lleva tu número: no tienes que reimprimir nada.</p></div>
       <${Entrada} etiqueta="WhatsApp del negocio" ...${b(f, set, "tel")} />
+      ${D.somosVarios() && html`<${Selector} etiqueta="¿Quién maneja este WhatsApp?" valor=${f.waUsuario || N.idWhatsapp()} cambiar=${v => set("waUsuario", v)}
+        opciones=${D.equipo().filter(x => x.activo !== false).map(x => ({ v: x.id, n: x.nombre }))} ayuda="A esa persona le llegan los mensajes «Por enviar» (revisión de llegada, auto listo, fotos y premio). Quien está en campo solo trabaja; cámbialo cuando cambien los puestos." />`}
       <div class="rejilla"><${Entrada} etiqueta="Yape: número" ...${b(f, set, "yapeNum")} /><${Entrada} etiqueta="Yape: titular" ...${b(f, set, "yapeTit")} /></div>
       <div class="separador"></div>
       <div class="titulo-seccion"><h3>Redes</h3><p>Salen como botones en tu web, en la tarjeta de tus clientes y en tu página de enlaces.</p></div>

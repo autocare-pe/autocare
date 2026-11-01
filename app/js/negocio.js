@@ -1,6 +1,7 @@
 // AUTOCARE · reglas del negocio (precios, agenda, cobros, clientes, inventario, finanzas)
 // Si cambias una regla aquí, cambia también en el servidor (Publico.gs) las que usa tu web.
 import * as D from "./datos.js";
+import { api } from "./api.js";
 import { TAMANOS, PLANTILLAS, CUENTAS, METODOS, CALIDAD, CALIDAD_ANTERIOR, RULETA_BASE, DANOS } from "./esquema.js";
 import { hoy, sumarDias, diasEntre, minutos, hhmm, diaSemana, msDe, n0, suma, porId, nombreDe, primerNombre, rellenar, fechaLarga, horaDe, soles, llave, mesDe, inicioMes, finMes, isoDe } from "./util.js";
 
@@ -260,11 +261,11 @@ export function gustosTexto(c) {
 /** Dirección de tu web (la de Configuración → Negocio, o la deduce de donde está abierta la app) */
 export function webBase() { return (negocio().web || location.origin + location.pathname.replace(/\/app\/.*$/, "")).replace(/\/+$/, ""); }
 /** Enlace personal del cliente. src = por dónde entra (qr, nfc, tarjeta, sticker, wa…) para medir cuál funciona */
-export function urlPortal(c, src) {
+export function urlPortal(c, src, ordenId) {
   const web = webBase();
   if (!web || !c) return "";
   c = asegurarPortal(c);
-  return web + "/cliente.html" + (src ? "?src=" + src : "") + "#t=" + c.token;
+  return web + "/cliente.html" + (src ? "?src=" + src : "") + "#t=" + c.token + (ordenId ? "&o=" + ordenId : "");
 }
 
 // ---------------------------------------------------------------- mensajes de WhatsApp
@@ -288,11 +289,53 @@ export function varsOrden(o) {
   const hallazgos = !items.length ? "sin detalles a la vista" : items.length === 1 ? "1 detalle: " + detalleRecepcion(items[0])
     : items.length + " detalles: " + items.slice(0, 3).map(detalleRecepcion).join(", ") + (items.length > 3 ? " y más" : "");
   const R = ruleta(), gira = R.activo && (!o.cobro || o.cobro === "normal") && n0(o.total) >= n0(R.minimo) && !o.ruleta;
-  return { nombre: primerNombre(cli) || primerNombre({ nombre: o._cliente }), total: soles(o.total), servicio: nombresItems(o.items), placa: veh ? veh.placa : "", portal: cli ? urlPortal(cli) : "", codigo: cli ? cli.codigo : "",
-    vehiculo: veh ? [veh.marca, veh.modelo].filter(Boolean).join(" ") || "auto" : (o._vehiculo || "auto"), tecnico: primerNombre({ nombre: o.tecnico || (D.yo() || {}).nombre || "" }) || "el equipo",
-    resena: negocio().google || (cli ? urlPortal(cli) : ""), hallazgos, regalo: gira ? "\n🎁 En ese mismo enlace te espera un giro de nuestra ruleta de premios." : "" };
+  return { nombre: primerNombre(cli) || primerNombre({ nombre: o._cliente }), total: soles(o.total), servicio: nombresItems(o.items), placa: veh ? veh.placa : "", portal: cli ? urlPortal(cli, "wa", o.id) : "", codigo: cli ? cli.codigo : "",
+    vehiculo: veh ? [veh.marca, veh.modelo].filter(Boolean).join(" ") || "auto" : (String(o._vehiculo || "").replace(/\s*\(.*\)$/, "") || "auto"), tecnico: primerNombre({ nombre: o.tecnico || (D.yo() || {}).nombre || "" }) || "el equipo",
+    resena: negocio().google || (cli ? urlPortal(cli, "wa", o.id) : ""), hallazgos, regalo: gira ? " (y te espera un giro de premios 🎁)" : "" };
 }
 const detalleRecepcion = i => (DANOS[i.estado] || i.estado).toLowerCase() + " en " + String(i.zona || "").toLowerCase() + (i.nota ? " (" + i.nota + ")" : "");
+
+// ---------------------------------------------------------------- quién envía los mensajes (el dueño del WhatsApp)
+// Wickman (Traction): cada puesto tiene un dueño. Quien está en campo trabaja; quien tiene el WhatsApp del negocio envía.
+// Es por persona y se cambia en Configuración → Negocio (no está atado a nadie).
+export function idWhatsapp() { const n = negocio(); return (n.waUsuario && D.equipo().some(x => x.id === n.waUsuario) && n.waUsuario) || D.responsable("ventas") || ""; }
+export function soyWhatsapp() { const id = idWhatsapp(), yo = (D.yo() || {}).id; return !id || id === yo || !D.somosVarios(); }
+export function nombreWhatsapp() { return primerNombre({ nombre: D.nombreUsuario(idWhatsapp()) }) || "quien lleva el WhatsApp"; }
+/** Aviso por Telegram a una persona del equipo (si conectó su Telegram); si falla, no pasa nada */
+export function avisarA(id, texto, ruta) {
+  if (!id || id === (D.yo() || {}).id) return;
+  const app = webBase() + "/app/" + (ruta ? "#/" + ruta : "");
+  api("avisar", { para: id, texto, botones: [{ text: "Abrir en la app", url: app }] }).catch(() => { });
+}
+
+// ---------------------------------------------------------------- mensajes de cada orden (bandeja «Por enviar»)
+// David Allen (GTD): una sola bandeja. Se arma sola con lo que pasa en las órdenes; un toque abre WhatsApp con el texto.
+const EN_SERVICIO = ["recepcion", "proceso", "calidad", "listo"];
+export function mensajesOrden(o) {
+  if (!o || o.estado === "anulado") return [];
+  const rec = o.recepcion || {}, av = o.avisos || {}, cli = D.uno("clientes", o.clienteId), out = [];
+  const conRevision = (rec.items || []).length || (o.fotosAntes || []).length || rec.porEnviar;
+  if (conRevision || rec.enviada) out.push({ k: "recepcion", n: "Revisión de llegada", i: "camera", enviado: rec.enviada || 0,
+    pendiente: EN_SERVICIO.includes(o.estado) && !rec.enviada && !!conRevision && (!!rec.porEnviar || o.estado !== "recepcion"), plantilla: "recepcion" });
+  if (o.estado === "listo" || av.listo) out.push({ k: "listo", n: "Aviso de auto listo", i: "sparkles", enviado: av.listo || 0, pendiente: o.estado === "listo" && !av.listo, plantilla: "listo" });
+  if (o.estado === "entregado") {
+    const reciente = o.entregado && Date.now() - o.entregado < 3 * 86400000;
+    out.push({ k: "entrega", n: "Fotos, calificación y premio", i: "gift", enviado: av.entrega || 0, pendiente: !av.entrega && reciente, plantilla: "entrega" });
+    const tarde = o.entregado && Date.now() - o.entregado > 20 * 3600000 && Date.now() - o.entregado < 7 * 86400000;
+    if (!o.calificacion && (av.entrega || av.opinion)) out.push({ k: "opinion", n: "Recordarle su opinión", i: "star", enviado: av.opinion || 0, pendiente: tarde && !av.opinion, plantilla: "resena" });
+  }
+  return cli && cli.tel ? out : out.map(m => Object.assign(m, { pendiente: false, sinTel: true }));
+}
+export const textoMensaje = (o, m) => mensaje(m.plantilla, varsOrden(o));
+export function marcarEnviado(o, k, v = Date.now()) {
+  if (k === "recepcion") return D.cambiar("ordenes", o.id, x => ({ recepcion: Object.assign({}, x.recepcion, { enviada: v, porEnviar: v ? null : (x.recepcion || {}).porEnviar }) }));
+  return D.cambiar("ordenes", o.id, x => ({ avisos: Object.assign({}, x.avisos, { [k]: v }) }));
+}
+/** Todo lo que hay que enviar ahora, de todas las órdenes (lo más antiguo primero) */
+export function bandeja() {
+  return D.lista("ordenes").flatMap(o => mensajesOrden(o).filter(m => m.pendiente).map(m => Object.assign({ o }, m)))
+    .sort((a, b) => (a.o.act || 0) - (b.o.act || 0));
+}
 
 // ---------------------------------------------------------------- revisión final según lo que se hizo
 /** Qué partes del auto trabaja un servicio: lo que elegiste en Configuración → Servicios, o se deduce de su nombre y pasos */

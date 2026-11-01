@@ -227,3 +227,79 @@ details.opcional[open] > summary::after { content: " ⌄"; }
 .premio-ganado span { font-size: 14.5px; }
 @keyframes aparecer { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .premio-ganado { animation: none; } }
+
+/* ===================== Página del cliente: un momento por pantalla y movimiento con propósito =====================
+   Val Head (Designing Interface Animation): animar para orientar y dar respuesta, no para adornar.
+   Duraciones cortas (Material Design: 200–400 ms) y curvas suaves al llegar. Todo se apaga con «reducir movimiento». */
+:root { --suave: cubic-bezier(.2, .8, .2, 1); }
+.btn { transition: transform .12s var(--suave), filter .2s, background .2s; }
+.btn:active { transform: scale(.97); }
+.btn.grande { height: 58px; font-size: 17px; border-radius: 16px; }
+.btn.cargando { filter: brightness(.85); pointer-events: none; }
+.enlace-btn { background: none; border: 0; color: var(--t2); text-decoration: underline; font: inherit; cursor: pointer; padding: 6px; }
+
+/* esqueleto mientras carga (Luke Wroblewski: la espera se siente más corta si ves la forma de lo que viene) */
+.esqueleto { display: grid; gap: 14px; padding-top: 8px; }
+.sk { border-radius: 14px; background: linear-gradient(100deg, #161616 30%, #222 50%, #161616 70%); background-size: 300% 100%; animation: brillo 1.3s linear infinite; }
+.sk-e { width: 120px; height: 14px; } .sk-t { width: 78%; height: 34px; } .sk-s { width: 52%; height: 16px; }
+.sk-img { height: 230px; border-radius: 20px; } .sk-b { height: 58px; } .sk-b2 { height: 48px; width: 70%; justify-self: center; }
+@keyframes brillo { from { background-position: 100% 0; } to { background-position: -50% 0; } }
+
+/* entrada escalonada */
+.entra { animation: subir .45s var(--suave) both; animation-delay: calc(var(--i, 0) * 70ms); }
+@keyframes subir { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* el momento: una sola tarea, grande y clara (Krug) */
+.momento { padding: 4px 0 6px; }
+.momento h1 { font-size: clamp(28px, 7vw, 38px); line-height: 1.08; font-stretch: 112%; font-weight: 800; margin: 6px 0 6px; letter-spacing: -.01em; }
+.etiqueta-m { display: inline-flex; align-items: center; gap: 8px; color: var(--oro); font-size: 12.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.etiqueta-m::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--oro); box-shadow: 0 0 0 0 rgba(208,255,20,.6); animation: latido 2s infinite; }
+@keyframes latido { 70% { box-shadow: 0 0 0 10px rgba(208,255,20,0); } 100% { box-shadow: 0 0 0 0 rgba(208,255,20,0); } }
+.carrusel-m { position: relative; margin: 16px 0 10px; }
+.carrusel { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; border-radius: 20px; }
+.carrusel::-webkit-scrollbar { display: none; }
+.carrusel img { flex: 0 0 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 20px; scroll-snap-align: center; background: #111; }
+.puntos { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+.puntos i { width: 7px; height: 7px; border-radius: 4px; background: #3a3a3a; transition: width .3s var(--suave), background .3s; }
+.puntos i.act { width: 22px; background: var(--oro); }
+.contador { position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,.65); color: #fff; font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; backdrop-filter: blur(6px); }
+.hallazgos { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.hallazgo { display: inline-flex; gap: 6px; align-items: baseline; padding: 8px 12px; border-radius: 12px; background: rgba(255,170,40,.12); color: #ffd28a; font-size: 14.5px; animation: subir .4s var(--suave) both; animation-delay: calc(300ms + var(--k, 0) * 80ms); }
+.hallazgo b { color: #ffb648; }
+.hallazgo.ok { background: rgba(54,199,125,.14); color: #9be7c0; } .hallazgo.ok b { color: var(--verde); }
+.acciones-m { display: grid; gap: 10px; margin-top: 16px; }
+.acciones-m > .nota { margin-bottom: 2px; }
+
+/* confirmado: el check se dibuja (respuesta inmediata: Norman) */
+.hecho-m { display: flex; gap: 14px; align-items: flex-start; padding: 16px; margin: 16px 0 10px; border-radius: 18px; background: rgba(54,199,125,.12); border: 1px solid rgba(54,199,125,.35); }
+.hecho-m.obs { background: rgba(255,170,40,.1); border-color: rgba(255,170,40,.35); }
+.hecho-m b { font-size: 18px; display: block; margin-bottom: 4px; }
+.hecho-m p { margin: 0; font-size: 15px; line-height: 1.45; }
+.check-anim { width: 46px; height: 46px; flex: none; }
+.check-anim circle { fill: none; stroke: var(--verde); stroke-width: 3; }
+.check-anim path { fill: none; stroke: var(--verde); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.hecho-m.nuevo { animation: aparecer .45s var(--suave) both; }
+.hecho-m.nuevo .check-anim circle { stroke-dasharray: 145; stroke-dashoffset: 145; animation: trazo .55s var(--suave) .1s forwards; }
+.hecho-m.nuevo .check-anim path { stroke-dasharray: 40; stroke-dashoffset: 40; animation: trazo .35s var(--suave) .55s forwards; }
+@keyframes trazo { to { stroke-dashoffset: 0; } }
+.ico-obs { width: 46px; height: 46px; flex: none; border-radius: 50%; display: grid; place-items: center; background: #ffb648; color: #000; font-weight: 900; font-size: 24px; }
+
+/* acceso directo desde la tarjeta */
+.pendiente-m { display: flex; align-items: center; gap: 14px; padding: 16px; margin-bottom: 14px; border-radius: 18px; background: var(--oro); color: #000; text-decoration: none; }
+.pendiente-m b { display: block; font-size: 17px; } .pendiente-m small { font-size: 14px; opacity: .75; }
+.pendiente-m .ico-m { font-size: 26px; } .pendiente-m .flecha { margin-left: auto; font-size: 30px; font-weight: 300; transition: transform .2s var(--suave); }
+.pendiente-m:active .flecha { transform: translateX(4px); }
+
+/* estrellas que rebotan y sellos que se estampan */
+.estrellas button { transition: transform .15s var(--suave), color .2s; }
+.estrellas button:active { transform: scale(1.25); }
+.estrellas button.si { animation: pop .38s var(--suave) both; animation-delay: calc(var(--k, 0) * 45ms); }
+@keyframes pop { 0% { transform: scale(.6); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
+.entra .sello.si { animation: estampa .42s var(--suave) both; animation-delay: calc(250ms + var(--k, 0) * 70ms); }
+@keyframes estampa { 0% { transform: scale(1.8) rotate(-18deg); opacity: 0; } 70% { transform: scale(.92) rotate(3deg); opacity: 1; } 100% { transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .entra, .hallazgo, .hecho-m.nuevo, .estrellas button.si, .sello.si, .sk, .etiqueta-m::before { animation: none !important; }
+  .hecho-m.nuevo .check-anim circle, .hecho-m.nuevo .check-anim path { animation: none; stroke-dashoffset: 0; }
+  .btn, .puntos i, .estrellas button { transition: none; }
+}

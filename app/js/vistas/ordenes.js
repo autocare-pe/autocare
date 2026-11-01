@@ -110,7 +110,7 @@ function Detalle({ id }) {
   return html`
     <div class="ficha-cab">
       <div><h1>${o.numero || "Orden nueva"} · ${o._cliente}</h1><p class="tenue">${[o._vehiculo, N.tamanoDe(o.tamano).n, fechaCorta(o.fecha)].filter(Boolean).join(" · ")}</p>
-        ${cli && (N.gustosTexto(cli) || cli.notas) && html`<p class="nota" style="margin-top:6px;max-width:640px">💡 ${[N.gustosTexto(cli), cli.notas].filter(Boolean).join(" · ")}</p>`}</div>
+</div>
       <div class="acciones">
         <${EstadoBadge} ent="ordenes" v=${o.estado} />
         ${cli && html`<${Boton} icono="message-circle" onClick=${() => enviarWa(cli.tel, "")}>WhatsApp<//>`}
@@ -121,12 +121,48 @@ function Detalle({ id }) {
           D.esAdmin() && { n: "Eliminar orden", icono: "trash-2", peligro: true, d: o.prueba ? "Es de práctica" : "Se borra con sus cobros", f: async () => { const m = await import("./datos.js"); if (await m.eliminarConConfirmacion("ordenes", o)) ir("ordenes"); } }])} />`}
       </div>
     </div>
+    <${NotasCliente} o=${o} cli=${cli} />
+    <${MensajesOrden} o=${o} cli=${cli} />
     ${o.estado === "anulado" ? html`<${AvisoLinea} c="rojo" icono="circle-alert">Orden anulada${o.motivo ? ": " + o.motivo : ""}.<//>` : html`
     <div class="etapas">${PASOS_ORDEN.map((p, i) => html`<button class=${clases("etapa", i < paso && "hecha", p === ver && "actual")} onClick=${() => i <= paso && setVer(p)}><span>${ESTADOS.ordenes[p].n}</span></button>`)}</div>`}
     ${ver === "recepcion" && html`<${Recepcion} o=${o} g=${g} cli=${cli} puede=${puede} />`}
     ${ver === "proceso" && html`<${Proceso} o=${o} g=${g} puede=${puede} />`}
     ${ver === "calidad" && html`<${Calidad} o=${o} g=${g} puede=${puede} />`}
     ${(ver === "listo" || ver === "entregado" || ver === "anulado") && html`<${Cierre} o=${o} g=${g} cli=${cli} puede=${puede} />`}`;
+}
+
+// Lo que nos dijo el cliente, siempre a la vista (Danny Meyer: «colecciona los puntos» y úsalos en el servicio)
+function NotasCliente({ o, cli }) {
+  const cita = o.citaId ? D.uno("citas", o.citaId) : null, cl = respuestaCliente(o) || {};
+  const filas = [
+    (o.notas || (cita && cita.nota)) && { i: "calendar-check", t: "Al reservar", v: o.notas || cita.nota },
+    cl.nota && { i: "message-circle", t: "Al revisar la llegada", v: cl.nota },
+    cl.estado === "observacion" && cl.texto && { i: "circle-alert", t: "Observación de la llegada", v: cl.texto, c: "ambar" },
+    cli && N.gustosTexto(cli) && { i: "smile", t: "Sus gustos", v: N.gustosTexto(cli) },
+    cli && cli.notas && { i: "notebook-pen", t: "Tus notas de este cliente", v: cli.notas }].filter(Boolean);
+  if (!filas.length) return null;
+  return html`<section class="notas-cliente"><p class="campo-t">Lo que nos dijo el cliente</p>
+    ${filas.map(f => html`<div class=${clases("nota-c", f.c)}><${Icono} n=${f.i} /><span><b>${f.t}</b>${f.v}</span></div>`)}</section>`;
+}
+
+// Los mensajes de esta orden: qué se envió y qué falta. Cualquiera puede enviarlos; lo normal es quien lleva el WhatsApp.
+function MensajesOrden({ o, cli }) {
+  const ms = N.mensajesOrden(o);
+  if (!ms.length || !cli) return null;
+  const enviar = m => { enviarWa(cli.tel, N.textoMensaje(o, m)); N.marcarEnviado(o, m.k); };
+  return html`<section class="mensajes-orden">${ms.map(m => html`<div class=${clases("msj", m.enviado ? "ok" : m.pendiente && "pend")}>
+      <${Icono} n=${m.enviado ? "circle-check" : m.i} /><span class="cuerpo"><b>${m.n}</b><small>${m.enviado ? "Enviado " + hace(m.enviado) : m.sinTel ? "Falta su WhatsApp" : m.pendiente ? "Por enviar" : "Todavía no"}</small></span>
+      ${!m.sinTel && (m.pendiente || m.enviado) ? html`<${Boton} chico tipo=${m.pendiente ? "primario" : "fantasma"} icono=${m.pendiente ? "send" : null} onClick=${() => enviar(m)}>${m.pendiente ? "Enviar" : "Reenviar"}<//>` : null}</div>`)}</section>`;
+}
+// Fotos: se borran solas a los días que elijas (Mis datos). Aquí las conservas o las guardas para tu web.
+function ConservarFotos({ o, g, puede }) {
+  const F = Object.assign({ activo: true, dias: 7 }, D.ajuste("fotos", {}) || {}), gal = D.ajuste("galeria", []) || [];
+  const a = (o.fotosAntes || [])[0], d = (o.fotosDespues || [])[0], enWeb = a && d && gal.some(x => x.antesId === a && x.despuesId === d);
+  if (o.fotosBorradas) return html`<p class="nota" style="margin-top:12px">Las fotos de esta orden se borraron ${hace(o.fotosBorradas.en)} para mantener el sistema liviano.</p>`;
+  if (!F.activo || !puede || !((o.fotosAntes || []).length || (o.fotosDespues || []).length)) return null;
+  return html`<div class="conservar"><p class="nota">Las fotos se borran ${F.dias} días después de entregar${o.conservarFotos ? ", pero estas se conservan" : ""}.</p>
+    <div class="btns">${a && d && html`<${Boton} chico icono="star" disabled=${enWeb} onClick=${() => { D.fijarAjuste("galeria", [...gal, { antesId: a, despuesId: d, txt: N.nombresItems(o.items) }]); aviso("Listo: el antes y después está en tu web y no se borra."); }}>${enWeb ? "Está en tu web" : "Usar en mi web"}<//>`}
+      <${Boton} chico tipo="fantasma" icono=${o.conservarFotos ? "lock" : "camera"} onClick=${() => g({ conservarFotos: !o.conservarFotos })}>${o.conservarFotos ? "No conservar" : "Conservar fotos"}<//></div></div>`;
 }
 
 // 1) Recepción: revisión del auto con fotos. La conformidad del cliente NO es obligatoria (Dixon, The Effortless
@@ -156,17 +192,27 @@ function Recepcion({ o, g, cli, puede }) {
     const resto = items.filter(i => i.zona !== z);
     setRec({ items: k === "ok" ? resto : [...resto, { zona: z, estado: k, nota }] });
   } })));
-  const enviar = () => { if (!cli) return; g({ recepcion: Object.assign({}, rec, { enviada: Date.now(), visto: null }) }); enviarWa(cli.tel, N.mensaje("recepcion", N.varsOrden(o))); };
+  const yoEnvio = N.soyWhatsapp(), quien = N.nombreWhatsapp();
+  const enviar = () => { if (!cli) return; g({ recepcion: Object.assign({}, rec, { enviada: Date.now(), visto: null, porEnviar: null }) }); enviarWa(cli.tel, N.mensaje("recepcion", N.varsOrden(o))); };
+  const pasar = (silencio) => {
+    g({ recepcion: Object.assign({}, rec, { porEnviar: Date.now() }) });
+    N.avisarA(N.idWhatsapp(), `📸 <b>Revisión de llegada lista</b>\n${o._cliente || ""} · ${o._vehiculo || ""}\nEnvíasela por WhatsApp desde la app (Inicio → Por enviar).`, "ordenes/" + o.id);
+    if (!silencio) aviso("Listo: " + quien + " se la envía desde su WhatsApp.");
+  };
   const enPersona = v => setCliente(v ? { estado: "conforme", en: Date.now(), via: "en persona", nombre: nombreDe(cli) } : { estado: "pendiente", en: Date.now() });
   const firmar = async data => { setFirmando(false); const ref = await D.agregarFoto(data, "comprobante", "firma recepcion " + (o.numero || "")); setCliente({ estado: "conforme", en: Date.now(), via: "firma", nombre: nombreDe(cli), firmaLocal: ref }); aviso("Firma guardada. Puedes rehacerla hasta entregar."); };
-  const empezar = () => { g({ estado: "proceso", inicio: o.inicio || Date.now(), reloj: { desde: Date.now(), acum: 0 } }); };
+  const empezar = () => {
+    g({ estado: "proceso", inicio: o.inicio || Date.now(), reloj: { desde: Date.now(), acum: 0 } });
+    // Si otra persona lleva el WhatsApp, la revisión le llega sola para que la envíe (un paso menos en campo)
+    if (!yoEnvio && !rec.enviada && !rec.porEnviar && (items.length || (o.fotosAntes || []).length)) setTimeout(() => pasar(true), 50);
+  };
   return html`<div class="columnas">
     <div>
       ${cerrada && html`<div style="margin-bottom:14px"><${AvisoLinea} icono="lock">Revisión cerrada al entregar${o.entregado ? " el " + fechaHora(o.entregado) : ""}. Ya no se puede cambiar.<//></div>`}
       <${Bloque} titulo="Estado del auto al llegar" sub=${cerrada ? "" : "Toca una zona si tiene algún detalle. Protege tu trabajo ante reclamos."}>
         <div class="zonas">${ZONAS.map(z => { const e = estadoZona(z), it = items.find(i => i.zona === z); return html`<button class=${clases("zona", e !== "ok" && "mal")} disabled=${!edita} onClick=${() => edita && marcar(z)}><b>${z}</b><span class=${e === "ok" ? "mas-tenue chico" : "chico"}>${DANOS[e]}${it && it.nota ? ": " + it.nota : ""}</span></button>`; })}</div>
       <//>
-      <${Bloque} titulo="Fotos de llegada"><${CampoFotos} valor=${o.fotosAntes || []} cambiar=${v => g({ fotosAntes: v, recepcion: Object.assign({}, rec, { fotos: v, editado: Date.now() }) })} tipo="orden" nombre=${"antes " + (o.numero || "")} soloLeer=${!edita} ayuda="4 esquinas, interior y cualquier daño. Son tu respaldo y luego tu antes y después." /><//>
+      <${Bloque} titulo="Fotos de llegada" sub=${o.fotosBorradas ? "Se borraron " + hace(o.fotosBorradas.en) + " para mantener el sistema liviano." : ""}><${CampoFotos} valor=${o.fotosAntes || []} cambiar=${v => g({ fotosAntes: v, recepcion: Object.assign({}, rec, { fotos: v, editado: Date.now() }) })} tipo="orden" nombre=${"antes " + (o.numero || "")} soloLeer=${!edita} ayuda="4 esquinas, interior y cualquier daño. Son tu respaldo y luego tu antes y después." /><//>
     </div>
     <div>
       <div class="panel form">
@@ -178,7 +224,8 @@ function Recepcion({ o, g, cli, puede }) {
         ${edita && !firmando && html`
           <label class=${clases("conforme-check", cl && cl.estado === "conforme" && "si")}><input type="checkbox" checked=${!!(cl && cl.estado === "conforme")} onChange=${e => enPersona(e.currentTarget.checked)} />
             <span><b>El cliente revisó y está conforme</b><small>Muéstrale las fotos en tu celular y que marque aquí. Se puede desmarcar hasta entregar.</small></span></label>
-          <div class="btns">${cli && html`<${Boton} icono="send" onClick=${enviar}>${rec.enviada ? "Reenviar por WhatsApp" : "Enviar por WhatsApp"}<//>`}<${Boton} tipo="fantasma" icono="signature" onClick=${() => setFirmando(true)}>${cl && cl.via === "firma" ? "Rehacer firma" : "Prefiere firmar"}<//></div>`}
+          <div class="btns">${cli && (yoEnvio ? html`<${Boton} icono="send" onClick=${enviar}>${rec.enviada ? "Reenviar por WhatsApp" : "Enviar por WhatsApp"}<//>`
+            : rec.enviada ? html`<span class="nota">✓ ${quien} se la envió</span>` : rec.porEnviar ? html`<span class="nota">✓ Pasada a ${quien} para enviar</span>` : html`<${Boton} icono="send" onClick=${() => pasar()}>Que ${quien} se la envíe<//>`)}<${Boton} tipo="fantasma" icono="signature" onClick=${() => setFirmando(true)}>${cl && cl.via === "firma" ? "Rehacer firma" : "Prefiere firmar"}<//></div>`}
         ${edita && firmando && html`<${Firma} cambiar=${d => d && firmar(d)} /><${Boton} tipo="fantasma" chico onClick=${() => setFirmando(false)}>Cancelar<//>`}
       </div>
       ${puede && o.estado === "recepcion" && html`<div style="margin-top:14px"><${Boton} tipo="primario" grande bloque icono="play" onClick=${empezar}>Empezar el trabajo<//><p class="nota" style="margin-top:6px">No necesitas esperar la respuesta del cliente para empezar.</p></div>`}
@@ -246,6 +293,7 @@ function Calidad({ o, g, puede }) {
     if (!todo) return aviso("Revisa todos los puntos antes de aprobar.", { error: true });
     if (!(o.fotosDespues || []).length && !(await confirmar({ titulo: "No hay fotos de después", texto: "Son tu antes y después y tu respaldo. ¿Aprobar igual?", si: "Aprobar igual" }))) return;
     g({ estado: "listo", fin: Date.now(), minutosReales: minutosReloj(o) || N.minutosEstandar(o), calidadOk: !(o.reintentos > 0) });
+    if (!N.soyWhatsapp()) N.avisarA(N.idWhatsapp(), `✨ <b>Auto listo</b>: ${o._cliente || ""} · ${o._vehiculo || ""}\nAvísale desde la app (Inicio → Por enviar).`, "ordenes/" + o.id);
   };
   const corregir = () => { g({ estado: "proceso", reintentos: n0(o.reintentos) + 1, reloj: Object.assign({}, o.reloj, { desde: Date.now() }) }); aviso("Vuelve a proceso. Cuenta como reproceso en tus indicadores."); };
   return html`<div class="columnas">
@@ -272,14 +320,11 @@ function Cierre({ o, g, cli, puede }) {
     const recepcion = Object.assign({}, rec, tacita ? { cliente: { estado: "sin observaciones", en: Date.now(), via: "hasta la entrega" } } : {}, { cerrada: Date.now() });
     const fin = g({ estado: "entregado", entregado: Date.now(), recepcion, costoInsumos: suma(o.consumo || [], "costo"), minutosReales: o.minutosReales || minutosReloj(o) || N.minutosEstandar(o), fin: o.fin || Date.now() }) || o;
     if (o.citaId) D.cambiar("citas", o.citaId, { estado: "completada" });
-    // La reseña NO se pide aquí (Google: sin presión en el lugar). Queda un seguimiento para más tarde, a quien lleva el WhatsApp.
-    if (cli && cli.tel && !D.lista("tareas").some(t => t.ordenId === o.id && t.tipo === "opinion")) {
-      const h = Math.min(20, Math.max(new Date().getHours() + 3, 9));
-      D.guardar("tareas", { fecha: hoy(), hora: String(h).padStart(2, "0") + ":00", titulo: "Agradecer y pedir su opinión a " + (o._cliente || nombreDe(cli)), tipo: "opinion", prioridad: "media", hecho: false,
-        clienteId: cli.id, ordenId: o.id, mensaje: N.mensaje("resena", N.varsOrden(fin)), asignadoId: D.responsable("ventas") || (D.yo() || {}).id || "" });
-    }
-    aviso("Entregado. Mándale sus fotos ahora; la opinión se la pide " + (D.somosVarios() ? "quien lleva el WhatsApp" : "tú") + " más tarde (quedó en Seguimientos).",
-      cli ? { accion: { n: "Enviar fotos", f: () => enviarWa(cli.tel, N.mensaje("listo", N.varsOrden(fin))) } } : {});
+    // Un solo mensaje después: fotos, una estrella, Google y su premio. La reseña no se pide en el lugar (regla de Google);
+    // si no califica, al día siguiente aparece «Recordarle su opinión» en la bandeja de quien lleva el WhatsApp.
+    if (!cli || !cli.tel) aviso("Entregado.");
+    else if (N.soyWhatsapp()) aviso("Entregado. Mándale sus fotos, su estrella y su premio.", { accion: { n: "Enviar ahora", f: () => { enviarWa(cli.tel, N.mensaje("entrega", N.varsOrden(fin))); N.marcarEnviado(fin, "entrega"); } } });
+    else { N.avisarA(N.idWhatsapp(), `🎉 <b>Entregado</b>: ${o._cliente || ""} · ${o._vehiculo || ""}\nEnvíale sus fotos, su estrella y su premio (Inicio → Por enviar).`, "ordenes/" + o.id); aviso("Entregado. " + N.nombreWhatsapp() + " le envía sus fotos y su premio."); }
   };
   return html`<div class="columnas">
     <div>
@@ -307,10 +352,10 @@ function Cierre({ o, g, cli, puede }) {
           <h3>Entregado ${o.entregado ? fechaHora(o.entregado) : ""}</h3>
           <p class="tenue">${o.minutosReales ? "Tiempo real " + duracion(o.minutosReales) + " · estándar " + duracion(N.minutosEstandar(o)) : ""}</p>
           ${o.calificacion ? html`<p style="margin-top:10px">Calificación: <b>${o.calificacion} de 5</b>${o.nps !== undefined && o.nps !== null && o.nps !== "" ? " · recomendaría " + o.nps + "/10" : ""}${o.comentario ? html`<br /><span class="tenue">«${o.comentario}»</span>` : ""}</p>` : html`<p class="nota" style="margin-top:10px">Aún no califica. Lo hace con un toque en su enlace personal.</p>`}
-          ${cli && html`<div class="btns" style="margin-top:12px"><${Boton} icono="message-circle" onClick=${() => enviarWa(cli.tel, N.mensaje("listo", N.varsOrden(o)))}>Enviar fotos${N.varsOrden(o).regalo ? " y su giro" : ""}<//><${Boton} icono="star" onClick=${() => enviarWa(cli.tel, N.mensaje("resena", N.varsOrden(o)))}>Pedir opinión<//></div>`}
+          <${ConservarFotos} o=${o} g=${g} puede=${puede} />
         </div>` : html`<div class="panel form">
           ${s.cobra && s.saldo > 0 && puede && D.puedeEditar("pagos") && html`<${Boton} tipo="primario" grande bloque icono="banknote" onClick=${() => setCobro(true)}>Cobrar ${soles(s.saldo)}<//>`}
-          ${cli && html`<${Boton} grande bloque icono="message-circle" onClick=${() => enviarWa(cli.tel, N.mensaje("listo", N.varsOrden(o)))}>Avisar que está listo<//>`}
+
           ${puede && html`<${Boton} tipo=${s.saldo > 0 ? "" : "primario"} grande bloque icono="circle-check" onClick=${entregar}>Entregar el auto<//>`}
         </div>`}
     </div>
