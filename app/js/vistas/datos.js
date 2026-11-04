@@ -85,6 +85,7 @@ function Portada() {
           <${BotonAccion} icono="sparkles" accion=${ejemplo}>Cargar datos de ejemplo<//>
           ${totalPrueba > 0 && html`<${BotonAccion} tipo="peligro" icono="eraser" accion=${borrarPractica}>Borrar práctica (${totalPrueba})<//>`}
         </div></div></div></section>`}
+    ${admin && html`<${CargarArchivo} practica=${pr} />`}
     <${AvisoLinea} icono="info">Toca una lista para ver sus datos. Ahí puedes corregir cualquier campo o eliminar lo que no sirve.<//>
     ${GRUPOS.map(g => { const es = g.e.filter(e => ENT[e] && D.puedeVer(e)); if (!es.length) return null;
       return html`<${Bloque} titulo=${g.n}><div class="grupo">${es.map(e => { const c = conteo(e);
@@ -94,6 +95,29 @@ function Portada() {
       <div class="panel"><p class="tenue chico">Borra los datos del día a día (clientes, citas, órdenes, cobros…) y deja intacta tu configuración: servicios, precios, planes, productos, equipos, usuarios y ajustes. Antes de borrar, el servidor guarda una copia completa en tu Drive (carpeta Respaldos).</p>
         <div class="btns" style="margin-top:12px"><${Boton} tipo="peligro" icono="list-restart" onClick=${() => setReinicio(true)}>Empezar de cero…<//></div></div><//>`}
     ${reinicio && html`<${Reiniciar} cerrar=${() => setReinicio(false)} />`}`;
+}
+
+// Cargar el archivo .json que prepara Claude con tus listas (clientes, autos, precios, productos…)
+const NOMBRE_AJUSTE = { negocio: "Datos del negocio", horario: "Horario y reservas", fidelidad: "Tarjeta de sellos", ruleta: "Ruleta de premios", calidad: "Revisión final", fotos: "Fotos de servicios", merch: "Merchandising", socios: "Socios" };
+function CargarArchivo({ practica }) {
+  const [j, setJ] = useState(null), [r, setR] = useState(null);
+  const elegir = async ev => {
+    const inp = ev.currentTarget, f = inp.files && inp.files[0]; if (!f) return;
+    try { const m = await import("../importar.js"); const x = m.leer(await f.text()); setJ(x); setR(m.revisar(x)); }
+    catch (e) { aviso(e.message, { error: true }); }
+    inp.value = "";
+  };
+  const cargar = async () => { const m = await import("../importar.js"); const s = m.aplicar(j); setJ(null); setR(null);
+    aviso(`Listo: ${s.nuevos} nuevos y ${s.cambian} actualizados${s.ajustes ? " · " + s.ajustes + (s.ajustes === 1 ? " ajuste" : " ajustes") : ""}.`); };
+  return html`<${Bloque} titulo="Cargar datos preparados" sub="El archivo que te preparo con tus listas">
+    <div class="panel"><p class="tenue chico">Me pasas tus datos (clientes, autos, precios, productos…) y te devuelvo un archivo <b>.json</b>. Lo eliges aquí, revisas qué se va a cargar y listo. Si algo ya existe (mismo WhatsApp, misma placa o mismo nombre), se actualiza: nunca se duplica.${practica ? " Aunque el modo práctica esté activo, esto se guarda como dato real." : ""}</p>
+      ${!r ? html`<div class="btns" style="margin-top:12px"><label class="btn"><${Icono} n="upload" />Elegir archivo<input type="file" accept=".json,application/json" style="display:none" onChange=${elegir} /></label></div>`
+        : html`<div style="margin-top:14px"><b>${r.titulo}</b>
+          <div class="grupo" style="margin-top:8px">${r.filas.map(f => html`<div class="fila compacta"><span class="cuerpo"><span class="t">${f.n}</span><span class="s">${[f.nuevos ? f.nuevos + (f.nuevos === 1 ? " nuevo" : " nuevos") : "", f.cambian ? f.cambian + " se actualizan" : ""].filter(Boolean).join(" · ")}</span></span></div>`)}
+            ${r.ajustes.map(k => html`<div class="fila compacta"><span class="cuerpo"><span class="t">${NOMBRE_AJUSTE[k] || k}</span><span class="s">Se actualiza</span></span></div>`)}</div>
+          ${r.avisos.map(a => html`<${AvisoLinea} c="ambar" icono="circle-alert">${a}<//>`)}
+          <div class="btns" style="margin-top:12px"><${Boton} tipo="fantasma" onClick=${() => { setJ(null); setR(null); }}>Cancelar<//><${Boton} tipo="primario" icono="check" onClick=${cargar}>Cargar ahora<//></div></div>`}
+    </div><//>`;
 }
 
 function Reiniciar({ cerrar }) {
