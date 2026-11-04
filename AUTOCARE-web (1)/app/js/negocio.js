@@ -1,0 +1,585 @@
+// AUTOCARE · reglas del negocio (precios, agenda, cobros, clientes, inventario, finanzas)
+// Si cambias una regla aquí, cambia también en el servidor (Publico.gs) las que usa tu web.
+import * as D from "./datos.js";
+import { api } from "./api.js";
+import { TAMANOS, PLANTILLAS, CUENTAS, METODOS, CALIDAD, CALIDAD_ANTERIOR, RULETA_BASE, DANOS } from "./esquema.js";
+import { hoy, sumarDias, diasEntre, minutos, hhmm, diaSemana, msDe, n0, suma, porId, nombreDe, primerNombre, rellenar, fechaLarga, horaDe, soles, llave, mesDe, inicioMes, finMes, isoDe } from "./util.js";
+
+// ---------------------------------------------------------------- negocio y catálogo
+export const negocio = () => D.ajuste("negocio", {});
+export const nombreNegocio = () => negocio().nombre || "AUTOCARE";
+export function tamanos() { const t = D.ajuste("tamanos"); return t && t.length ? t : TAMANOS; }
+export const tamanoDe = id => tamanos().find(t => t.id === id) || tamanos()[0];
+export function precioCon(s, tam) {
+  const p = n0(s && s.precio), t = tamanos().find(x => x.id === tam);
+  if (!s || !s.porTamano || !t || !n0(t.pct)) return p;
+  return Math.round((p * (1 + n0(t.pct) / 100)) / 5) * 5;
+}
+export function minutosCon(servs, tam) {
+  const t = tamanos().find(x => x.id === tam);
+  return servs.reduce((a, s) => a + (n0(s.minutos) || 60), 0) + (t ? n0(t.min) : 0);
+}
+export const serviciosActivos = () => D.lista("servicios").filter(s => (s.estado || "activo") === "activo").sort((a, b) => (a.orden || 999) - (b.orden || 999) || n0(a.precio) - n0(b.precio));
+export function itemsDeServicios(ids, tam) {
+  const cat = porId(D.lista("servicios"));
+  return (ids || []).map(id => cat[id]).filter(Boolean).map(s => ({ servicioId: s.id, nombre: s.nombre, precio: precioCon(s, tam), minutos: n0(s.minutos) || 60, cant: 1 }));
+}
+export const totalItems = (items, descuento) => Math.max(0, suma(items, i => n0(i.precio) * (i.cant === undefined ? 1 : n0(i.cant))) - n0(descuento));
+export const nombresItems = items => (items || []).map(i => i.nombre + (n0(i.cant) > 1 ? " ×" + i.cant : "")).join(" + ");
+
+// Redes: acepta «@usuario», «usuario» o el enlace completo y siempre lo guarda igual (así los botones nunca fallan)
+export function limpiarRedes(r = {}) {
+  const usuario = (v, dom) => String(v || "").trim().replace(new RegExp("^(https?://)?(www\\.|m\\.)?" + dom + "\\.com/@?", "i"), "").replace(/^@/, "").replace(/[/?#].*$/, "");
+  let fb = String(r.fb || "").trim();
+  if (fb && !/^https?:\/\//i.test(fb)) fb = "https://facebook.com/" + fb.replace(/^@/, "").replace(/^(www\.|m\.)?facebook\.com\//i, "");
+  return { ig: usuario(r.ig, "instagram"), tt: usuario(r.tt, "tiktok"), fb };
+}
+export const telLimpio = t => { let d = String(t || "").replace(/\D/g, ""); if (d.length === 11 && d.startsWith("51")) d = d.slice(2); return d; };
+
+// ---------------------------------------------------------------- horario y agenda
+export function horario() {
+  return Object.assign({
+    dias: { 0: [], 1: [["08:00", "18:00"]], 2: [["08:00", "18:00"]], 3: [["08:00", "18:00"]], 4: [["08:00", "18:00"]], 5: [["08:00", "18:00"]], 6: [["08:00", "14:00"]] },
+    intervalo: 30, traslado: 30, maxHoras: 8, anticipacion: 12, diasAdelante: 21, bloqueos: []
+  }, D.ajuste("horario", {}));
+}
+const ACTIVAS = ["solicitada", "confirmada", "en_curso"];
+export const citaActiva = c => ACTIVAS.includes(c.estado || "confirmada");
+export function citasDelDia(fecha) {
+  return D.lista("citas").filter(c => c.fecha === fecha).sort((a, b) => String(a.hora || "99").localeCompare(String(b.hora || "99")));
+}
+export function rangosDia(fecha, H = horario()) { return H.dias[String(diaSemana(fecha))] || []; }
+export function capacidadDia(fecha, H = horario()) {
+  const abierto = rangosDia(fecha, H).reduce((a, r) => a + Math.max(0, minutos(r[1]) - minutos(r[0])), 0);
+  const bloq = (H.bloqueos || []).filter(b => b.fecha === fecha).reduce((a, b) => a + Math.max(0, (minutos(b.hasta || "23:59") || 1440) - (minutos(b.desde || "00:00") || 0)), 0);
+  return Math.max(0, Math.min(abierto - bloq, H.maxHoras ? H.maxHoras * 60 : Infinity));
+}
+export function cargaDia(fecha, excluir) {
+  return D.lista("citas").filter(c => c.fecha === fecha && c.id !== excluir && (citaActiva(c) || c.estado === "completada")).reduce((a, c) => a + (n0(c.minutos) || 60), 0);
+}
+/** Horas libres de un día. estricto=true aplica la anticipación mínima (como la web). */
+export function slotsDia(fecha, dur, { excluir, estricto } = {}) {
+  const H = horario(), rangos = rangosDia(fecha, H);
+  if (!rangos.length) return [];
+  const busy = D.lista("citas").filter(c => c.fecha === fecha && c.id !== excluir && citaActiva(c) && minutos(c.hora) !== null)
+    .map(c => ({ i: minutos(c.hora), f: minutos(c.hora) + (n0(c.minutos) || 60) }));
+  const carga = busy.reduce((a, x) => a + x.f - x.i, 0);
+  if (H.maxHoras && carga + dur > H.maxHoras * 60) return [];
+  (H.bloqueos || []).forEach(b => { if (b.fecha === fecha) busy.push({ i: minutos(b.desde || "00:00"), f: minutos(b.hasta || "23:59") || 1440, bloqueo: true }); });
+  const tr = n0(H.traslado), paso = n0(H.intervalo) || 30, limite = Date.now() + (estricto ? n0(H.anticipacion) * 3600000 : 0), out = [];
+  rangos.forEach(r => {
+    for (let t = minutos(r[0]); t + dur <= minutos(r[1]); t += paso) {
+      const choca = busy.some(x => { const m = x.bloqueo ? 0 : tr; return t < x.f + m && t + dur + m > x.i; });
+      if (choca || msDe(fecha, hhmm(t)) < limite) continue;
+      out.push(hhmm(t));
+    }
+  });
+  return out;
+}
+export function proximoLibre(dur, desde = hoy(), dias = 14) {
+  for (let i = 0; i < dias; i++) { const f = sumarDias(desde, i), s = slotsDia(f, dur, { estricto: true }); if (s.length) return { fecha: f, hora: s[0] }; }
+  return null;
+}
+export function ocupacion(desde, hasta) {
+  let cap = 0, usado = 0;
+  for (let f = desde; f <= hasta; f = sumarDias(f, 1)) { cap += capacidadDia(f); usado += cargaDia(f); }
+  return { cap, usado, pct: cap ? usado / cap : null };
+}
+
+// ---------------------------------------------------------------- órdenes y cobros
+export function pagosDeOrden(o) {
+  const vistos = new Set();
+  return D.lista("pagos").filter(p => {
+    const es = p.ordenId === o.id || (o.citaId && p.citaId === o.citaId && !p.ordenId);
+    if (!es || vistos.has(p.id)) return false;
+    vistos.add(p.id); return true;
+  });
+}
+export function saldoOrden(o) {
+  const total = n0(o.total), pagado = suma(pagosDeOrden(o), "monto");
+  const cobra = !o.cobro || o.cobro === "normal";
+  return { total, pagado, saldo: cobra ? Math.max(0, Math.round((total - pagado) * 100) / 100) : 0, cobra };
+}
+export function porCobrar() {
+  return D.lista("ordenes").filter(o => o.estado === "entregado" || o.estado === "listo").map(o => ({ o, s: saldoOrden(o) })).filter(x => x.s.saldo > 0.009);
+}
+export function minutosOrden(o) {
+  if (n0(o.minutosReales)) return n0(o.minutosReales);
+  if (o.inicio && o.fin) return Math.round((o.fin - o.inicio) / 60000);
+  return suma(o.items, i => n0(i.minutos) || 60);
+}
+export function minutosEstandar(o) { return suma(o.items, i => (n0(i.minutos) || 60) * (i.cant === undefined ? 1 : n0(i.cant) || 1)); }
+
+// ---------------------------------------------------------------- clientes: historial, fidelidad y segmentos
+export const SEGMENTOS = {
+  campeon: { n: "Campeones", c: "verde", d: "Vienen seguido y hace poco. Pídeles reseña y que te recomienden." },
+  toca: { n: "Les toca volver", c: "oro", d: "Ya pasó su tiempo normal entre lavados. Escríbeles hoy: es la venta más fácil." },
+  leal: { n: "Frecuentes", c: "azul", d: "Han vuelto y están al día. Ofréceles el plan mensual." },
+  nuevo: { n: "Nuevos", c: "violeta", d: "Una sola visita, hace poco. La segunda visita es la que crea el hábito." },
+  riesgo: { n: "En riesgo", c: "ambar", d: "Entre 2 y 4 meses sin venir. Un mensaje personal suele recuperarlos." },
+  dormido: { n: "Dormidos", c: "rojo", d: "Más de 4 meses sin venir. Ofrece algo especial o pregunta qué pasó." },
+  sin: { n: "Sin servicios", c: "", d: "Registrados, pero todavía no los atiendes." }
+};
+const esPagada = o => o.estado === "entregado" && n0(o.total) > 0 && (!o.cobro || o.cobro === "normal");
+export function perfiles() {
+  return D.calculado("perfiles", () => {
+    const H = hoy(), cat = porId(D.lista("servicios")), volverBase = n0((D.ajuste("fidelidad", {}) || {}).volver) || 30;
+    const porCli = {};
+    D.lista("ordenes").forEach(o => { if (o.estado === "entregado" && o.clienteId) (porCli[o.clienteId] = porCli[o.clienteId] || []).push(o); });
+    const mem = {};
+    D.lista("membresias").forEach(m => { if (m.estado === "activa" && (!m.fin || m.fin >= H)) mem[m.clienteId] = m; });
+    const out = new Map();
+    D.lista("clientes").forEach(c => {
+      const ots = (porCli[c.id] || []).slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+      const visitas = ots.length, ultima = visitas ? ots[visitas - 1].fecha : null, primera = visitas ? ots[0].fecha : null;
+      const gasto = suma(ots.filter(o => !o.cobro || o.cobro === "normal"), "total");
+      let frecuencia = null;
+      if (visitas >= 2) frecuencia = Math.round(diasEntre(primera, ultima) / (visitas - 1));
+      let volver = volverBase;
+      if (ultima) {
+        const vs = (ots[visitas - 1].items || []).map(i => n0((cat[i.servicioId] || {}).volver)).filter(Boolean);
+        if (vs.length) volver = Math.min(...vs);
+      }
+      const ritmo = frecuencia && visitas >= 3 ? Math.max(7, Math.min(frecuencia, volver * 2)) : volver;
+      const proxima = ultima ? sumarDias(ultima, ritmo) : null;
+      const R = ultima ? diasEntre(ultima, H) : null;
+      let seg;
+      if (!visitas) seg = "sin";
+      else if (R > 120) seg = "dormido";
+      else if (R > 60) seg = "riesgo";
+      else if (proxima && proxima <= H) seg = "toca";
+      else if (visitas >= 4 && R <= 45) seg = "campeon";
+      else if (visitas === 1) seg = "nuevo";
+      else seg = "leal";
+      const hace365 = sumarDias(H, -365);
+      out.set(c.id, {
+        visitas, ultima, primera, gasto, ticket: visitas ? gasto / Math.max(1, ots.filter(o => !o.cobro || o.cobro === "normal").length) : 0,
+        frecuencia, proxima, dias: R, seg, membresia: mem[c.id] || null,
+        f365: ots.filter(o => o.fecha >= hace365).length, m365: suma(ots.filter(o => o.fecha >= hace365 && (!o.cobro || o.cobro === "normal")), "total"),
+        nps: ots.map(o => o.nps).filter(x => x !== undefined && x !== null && x !== "").pop()
+      });
+    });
+    return out;
+  });
+}
+export const perfil = id => perfiles().get(id) || { visitas: 0, gasto: 0, seg: "sin" };
+// Tarjeta de sellos manual: tú pones cada sello desde la app. El primer sello llega con regalo (efecto de progreso
+// dotado, Nunes y Drèze 2006: con 2 sellos de regalo, 34% completó la tarjeta frente a 19% sin regalo).
+/** El premio sin el prefijo «Tu regalo a elegir:» para poder usarlo dentro de una frase */
+export const premioCorto = p => String(p || "un servicio gratis").replace(/^\s*tu regalo( a elegir)?\s*:\s*/i, "");
+export function reglasFidelidad() { return Object.assign({ activo: true, cada: 8, regalo: 2, premio: "Lavado completo", bono: 1, manual: true }, D.ajuste("fidelidad", {})); }
+export function fidelidad(cli) {
+  const F = reglasFidelidad(), cada = Math.max(2, Math.round(n0(F.cada) || 8));
+  const s = Math.max(0, Math.round(n0(cli && cli.sellos) + n0(cli && cli.sellosRuleta))), disp = Math.floor(s / cada);
+  const refs = D.lista("clientes").filter(c => c.referidoPor === (cli && cli.id)).length;
+  return { activo: F.activo !== false, cada, sellos: s, actuales: disp ? cada : s, disponibles: disp, usados: n0(cli && cli.canjes), referidos: refs, premio: F.premio, regalo: n0(F.regalo), bono: n0(F.bono) };
+}
+/** Suma un sello. Si es el primero, llegan los sellos de regalo (por defecto 2). */
+export function sumarSello(cli, ordenId) {
+  const F = reglasFidelidad(), s = n0(cli.sellos), suma = s === 0 && !n0(cli.canjes) ? Math.max(1, n0(F.regalo) || 1) : 1;
+  const c = D.cambiar("clientes", cli.id, { sellos: s + suma, ultimoSello: Date.now() });
+  if (ordenId) D.cambiar("ordenes", ordenId, { sello: true });
+  return { cliente: c, sumados: suma };
+}
+export function quitarSello(cli) { return D.cambiar("clientes", cli.id, { sellos: Math.max(0, n0(cli.sellos) - 1) }); }
+export function canjearPremio(cli) {
+  const cada = Math.max(2, Math.round(n0(reglasFidelidad().cada) || 8));
+  return D.cambiar("clientes", cli.id, { sellos: n0(cli.sellos) - cada, canjes: n0(cli.canjes) + 1 });   // los de la ruleta (sellosRuleta) los suma el servidor
+}
+export function vehiculosDe(clienteId) { return D.lista("vehiculos").filter(v => v.clienteId === clienteId); }
+export const nombreVehiculo = v => (v ? [v.marca, v.modelo, v.placa && "(" + v.placa + ")"].filter(Boolean).join(" ") : "");
+export function clientePorTel(tel) { const t = String(tel || "").replace(/\D/g, "").slice(-9); return t.length === 9 ? D.lista("clientes").find(c => String(c.tel || "").replace(/\D/g, "").slice(-9) === t) : null; }
+export function codigoReferido(nombre) {
+  const base = String(nombre || "").normalize("NFD").replace(/[^A-Za-z]/g, "").slice(0, 6).toUpperCase() || "AMIGO";
+  const usados = new Set(D.lista("clientes").map(c => String(c.codigo || "").toUpperCase()));
+  for (let i = 0; i < 50; i++) { const c = base + llave(2).toUpperCase().replace(/[^A-Z0-9]/g, "7"); if (!usados.has(c)) return c; }
+  return base + (Date.now() % 1000);
+}
+/** Asegura que el cliente tenga llave de portal y código de referido */
+export function asegurarPortal(c) {
+  if (!c || (c.token && c.codigo)) return c;
+  return D.cambiar("clientes", c.id, { token: c.token || llave(24), codigo: c.codigo || codigoReferido(c.nombre) });
+}
+// ---------------------------------------------------------------- cobros por verificar (separación de funciones)
+// Quien cobra en el campo no es quien confirma que el dinero llegó: control interno básico (COSO) que protege a los dos socios.
+const esc = t => String(t == null ? "" : t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+export const pagosPorVerificar = () => D.lista("pagos").filter(p => p.verificado === false).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+export function verificarPago(p, llego = true) {
+  const yo = D.yo() || {};
+  D.cambiar("pagos", p.id, llego ? { verificado: true, verificadoPor: yo.nombre || "", verificadoEn: Date.now(), problema: "" } : { problema: "No aparece en la cuenta", revisadoPor: yo.nombre || "" });
+}
+/** Avisa por Telegram a quien lleva los cobros (solo si el cobro quedó por verificar) */
+export function avisarCobro(p) {
+  if (!p || p.verificado !== false) return p;
+  const app = location.origin + location.pathname;
+  import("./api.js").then(m => m.api("avisar", { tema: "pagos",
+    texto: `💰 <b>${esc(p.cobradoPor)} cobró ${esc(soles(p.monto))}</b> por ${esc(METODOS[p.metodo] || p.metodo || "")}\n${esc(p._cliente || p.concepto || "")}${p.referencia ? "\nOperación: " + esc(p.referencia) : ""}\nConfirma que llegó.`,
+    botones: [{ text: "Verificar en la app", url: app + "#/finanzas/verificar" }] })).catch(() => { });
+  return p;
+}
+// ---------------------------------------------------------------- borrar con todo lo relacionado
+/** Deshace el stock que movió un movimiento y lo borra */
+export function revertirMovimiento(m) {
+  const p = D.uno("productos", m.productoId), c = n0(m.cantidad);
+  if (p) D.cambiar("productos", p.id, { stock: Math.round((n0(p.stock) + (m.tipo === "salida" ? c : -c)) * 1000) / 1000 });
+  D.borrar("movimientos", m.id);
+}
+export function relacionadosOrden(o) {
+  return { pagos: D.lista("pagos").filter(p => p.ordenId === o.id), movimientos: D.lista("movimientos").filter(m => m.ordenId === o.id),
+    resenas: D.lista("resenas").filter(r => r.ordenId === o.id), reclamos: D.lista("reclamos").filter(r => r.ordenId === o.id) };
+}
+/** Borra una orden con sus cobros y devuelve al inventario lo que gastó */
+export function borrarOrden(o) {
+  const r = relacionadosOrden(o);
+  r.pagos.forEach(p => D.borrar("pagos", p.id)); r.movimientos.forEach(revertirMovimiento);
+  r.resenas.forEach(x => D.borrar("resenas", x.id)); r.reclamos.forEach(x => D.borrar("reclamos", x.id));
+  D.borrar("ordenes", o.id);
+  return r;
+}
+export function relacionadosCliente(c) {
+  const id = c.id, ordenes = D.lista("ordenes").filter(o => o.clienteId === id), ids = new Set(ordenes.map(o => o.id));
+  const de = e => D.lista(e).filter(x => x.clienteId === id);
+  return { ordenes, citas: de("citas"), pagos: D.lista("pagos").filter(p => p.clienteId === id || ids.has(p.ordenId)), vehiculos: de("vehiculos"), cotizaciones: de("cotizaciones"),
+    tareas: de("tareas"), resenas: de("resenas"), membresias: de("membresias"), reclamos: de("reclamos"), leads: de("leads") };
+}
+const NOMBRES_REL = { ordenes: "órdenes", citas: "citas", pagos: "cobros", vehiculos: "vehículos", cotizaciones: "cotizaciones", tareas: "seguimientos", resenas: "reseñas", membresias: "planes", reclamos: "reclamos", leads: "consultas", movimientos: "movimientos de inventario" };
+export const textoRelacionados = r => Object.keys(r).filter(k => r[k].length).map(k => r[k].length + " " + NOMBRES_REL[k]).join(", ");
+/** Borra un cliente con todo su historial (para limpiar pruebas o duplicados) */
+export function borrarClienteCompleto(c) {
+  const r = relacionadosCliente(c);
+  r.ordenes.forEach(borrarOrden);
+  ["citas", "pagos", "vehiculos", "cotizaciones", "tareas", "resenas", "membresias", "reclamos", "leads"].forEach(k => r[k].forEach(x => D.borrar(k, x.id)));
+  D.borrar("clientes", c.id);
+  return r;
+}
+/** Lo que el cliente contó en su tarjeta (Danny Meyer: colecciona los puntos y conéctalos) */
+export function gustosTexto(c) {
+  const g = (c && c.gustos) || {};
+  return [g.importa && "Le importa: " + g.importa.toLowerCase(), g.aroma && "Aroma: " + g.aroma.toLowerCase(), g.mascota === "Sí" && "Viaja con mascota",
+    g.nota && "«" + g.nota + "»"].filter(Boolean).join(" · ");
+}
+/** Dirección de tu web (la de Configuración → Negocio, o la deduce de donde está abierta la app) */
+export function webBase() { return (negocio().web || location.origin + location.pathname.replace(/\/app\/.*$/, "")).replace(/\/+$/, ""); }
+/** Enlace personal del cliente. src = por dónde entra (qr, nfc, tarjeta, sticker, wa…) para medir cuál funciona */
+export function urlPortal(c, src, ordenId) {
+  const web = webBase();
+  if (!web || !c) return "";
+  c = asegurarPortal(c);
+  return web + "/cliente.html" + (src ? "?src=" + src : "") + "#t=" + c.token + (ordenId ? "&o=" + ordenId : "");
+}
+
+// ---------------------------------------------------------------- mensajes de WhatsApp
+export function plantilla(clave) {
+  const propia = D.lista("plantillas").find(p => p.clave === clave);
+  return propia || PLANTILLAS.find(p => p.clave === clave) || { texto: "" };
+}
+/** Las versiones de un texto (separadas por una línea «---») */
+export const versiones = texto => String(texto || "").split(/\n\s*-{3,}\s*\n/).map(x => x.trim()).filter(Boolean);
+export function saludoHora(ms = Date.now()) { const h = Number(horaDe(ms).slice(0, 2)); return h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches"; }
+// Turna las versiones (una distinta cada vez) para que los mensajes no suenen repetidos ni a robot
+// Elige una versión estable para esa persona y ese día (la vista previa no «salta»), pero distinta
+// entre clientes y entre visitas: así una campaña no manda 30 textos idénticos (Heath: lo inesperado se recuerda).
+function elegirVersion(clave, lista, semilla) {
+  if (lista.length < 2) return lista[0] || "";
+  const t = String(clave) + "|" + (semilla || "") + "|" + hoy();
+  let h = 0; for (let k = 0; k < t.length; k++) h = (h * 31 + t.charCodeAt(k)) >>> 0;
+  return lista[h % lista.length];
+}
+export function mensaje(clave, v = {}) {
+  const n = negocio(), esClave = typeof clave === "string" && !clave.includes(" ") && !clave.includes("{");
+  const base = { saludo: saludoHora(), negocio: nombreNegocio(), vehiculo: "auto", regalo: "", hallazgos: "sin detalles a la vista", tecnico: "el equipo", resena: n.google || "", yape: n.yape && n.yape.numero ? n.yape.numero + (n.yape.titular ? " (" + n.yape.titular + ")" : "") : "" };
+  const texto = elegirVersion(esClave ? clave : "libre", versiones(esClave ? plantilla(clave).texto : clave), v.nombre || v.placa || "");
+  return rellenar(texto, Object.assign(base, v)).replace(/\s*\(\{[a-z]+\}\)/g, "").replace(/\s*\{[a-z]+\}/g, "").replace(/ {2,}/g, " ").replace(/ ([,.:!?])/g, "$1").replace(/[ \t]+\n/g, "\n").trim();
+}
+const nombreVeh = veh => (veh && [veh.marca, veh.modelo].filter(Boolean).join(" ")) || "auto";
+export function varsCita(c) {
+  const cli = D.uno("clientes", c.clienteId), veh = D.uno("vehiculos", c.vehiculoId);
+  return { nombre: primerNombre(cli) || primerNombre({ nombre: c._cliente }), fecha: fechaLarga(c.fecha), hora: c.hora || "", servicio: c._servicios || "", direccion: c.direccion || "",
+    adelanto: c.adelanto ? soles(c.adelanto) : "", total: c.total ? soles(c.total) : "", placa: veh ? veh.placa : "", vehiculo: nombreVeh(veh), portal: cli ? urlPortal(cli) : "" };
+}
+export function varsOrden(o) {
+  const cli = D.uno("clientes", o.clienteId), veh = D.uno("vehiculos", o.vehiculoId);
+  const items = ((o.recepcion || {}).items || []).filter(i => i.estado && i.estado !== "ok");
+  const hallazgos = !items.length ? "sin detalles a la vista" : items.length === 1 ? "1 detalle: " + detalleRecepcion(items[0])
+    : items.length + " detalles: " + items.slice(0, 3).map(detalleRecepcion).join(", ") + (items.length > 3 ? " y más" : "");
+  const R = ruleta(), gira = R.activo && (!o.cobro || o.cobro === "normal") && n0(o.total) >= n0(R.minimo) && !o.ruleta;
+  return { nombre: primerNombre(cli) || primerNombre({ nombre: o._cliente }), total: soles(o.total), servicio: nombresItems(o.items), placa: veh ? veh.placa : "", portal: cli ? urlPortal(cli, "wa", o.id) : "", codigo: cli ? cli.codigo : "",
+    vehiculo: veh ? [veh.marca, veh.modelo].filter(Boolean).join(" ") || "auto" : (String(o._vehiculo || "").replace(/\s*\(.*\)$/, "") || "auto"), tecnico: primerNombre({ nombre: o.tecnico || (D.yo() || {}).nombre || "" }) || "el equipo",
+    resena: negocio().google || (cli ? urlPortal(cli, "wa", o.id) : ""), hallazgos, regalo: gira ? " (y te espera un giro de premios 🎁)" : "" };
+}
+const detalleRecepcion = i => (DANOS[i.estado] || i.estado).toLowerCase() + " en " + String(i.zona || "").toLowerCase() + (i.nota ? " (" + i.nota + ")" : "");
+
+// ---------------------------------------------------------------- quién envía los mensajes (el dueño del WhatsApp)
+// Wickman (Traction): cada puesto tiene un dueño. Quien está en campo trabaja; quien tiene el WhatsApp del negocio envía.
+// Es por persona y se cambia en Configuración → Negocio (no está atado a nadie).
+export function idWhatsapp() { const n = negocio(); return (n.waUsuario && D.equipo().some(x => x.id === n.waUsuario) && n.waUsuario) || D.responsable("ventas") || ""; }
+export function soyWhatsapp() { const id = idWhatsapp(), yo = (D.yo() || {}).id; return !id || id === yo || !D.somosVarios(); }
+export function nombreWhatsapp() { return primerNombre({ nombre: D.nombreUsuario(idWhatsapp()) }) || "quien lleva el WhatsApp"; }
+/** Aviso por Telegram a una persona del equipo (si conectó su Telegram); si falla, no pasa nada */
+export function avisarA(id, texto, ruta) {
+  if (!id || id === (D.yo() || {}).id) return;
+  const app = webBase() + "/app/" + (ruta ? "#/" + ruta : "");
+  api("avisar", { para: id, texto, botones: [{ text: "Abrir en la app", url: app }] }).catch(() => { });
+}
+
+// ---------------------------------------------------------------- puesto: campo u oficina (por áreas, no por persona)
+const AREAS_OFICINA = ["ventas", "pagos", "logistica", "marketing"];
+export function puestos() { const A = new Set(D.misAreas()); return { campo: A.has("campo"), oficina: AREAS_OFICINA.some(a => A.has(a)) }; }
+export function modoTrabajo() {
+  const p = puestos();
+  if (p.campo && p.oficina) {
+    try { const v = JSON.parse(localStorage.getItem("autocare.modo")); if (v === "campo" || v === "oficina") return v; } catch (e) { }
+    // si hay equipo y yo llevo el WhatsApp, lo normal es que esté en oficina; si no, en campo
+    return D.somosVarios() && idWhatsapp() === (D.yo() || {}).id ? "oficina" : "campo";
+  }
+  return p.campo ? "campo" : "oficina";
+}
+export function fijarModo(v) { try { localStorage.setItem("autocare.modo", JSON.stringify(v)); } catch (e) { } D.repintar(); }
+/** Citas de hoy que salieron «en camino» y aún no se le avisa al cliente */
+export function caminosPorAvisar() { return citasDelDia(hoy()).filter(c => c.camino && !c.caminoEnviado && citaActiva(c)); }
+
+// ---------------------------------------------------------------- mensajes de cada orden (bandeja «Por enviar»)
+// David Allen (GTD): una sola bandeja. Se arma sola con lo que pasa en las órdenes; un toque abre WhatsApp con el texto.
+const EN_SERVICIO = ["recepcion", "proceso", "calidad", "listo"];
+export function mensajesOrden(o) {
+  if (!o || o.estado === "anulado") return [];
+  const rec = o.recepcion || {}, av = o.avisos || {}, cli = D.uno("clientes", o.clienteId), out = [];
+  const conRevision = (rec.items || []).length || (o.fotosAntes || []).length || rec.porEnviar;
+  if (conRevision || rec.enviada) out.push({ k: "recepcion", n: "Revisión de llegada", i: "camera", enviado: rec.enviada || 0,
+    pendiente: EN_SERVICIO.includes(o.estado) && !rec.enviada && !!conRevision && (!!rec.porEnviar || o.estado !== "recepcion"), plantilla: "recepcion" });
+  if (o.estado === "listo" || av.listo) out.push({ k: "listo", n: "Aviso de auto listo", i: "sparkles", enviado: av.listo || 0, pendiente: o.estado === "listo" && !av.listo, plantilla: "listo" });
+  if (o.estado === "entregado") {
+    const reciente = o.entregado && Date.now() - o.entregado < 3 * 86400000;
+    out.push({ k: "entrega", n: "Fotos, calificación y premio", i: "gift", enviado: av.entrega || 0, pendiente: !av.entrega && reciente, plantilla: "entrega" });
+    const tarde = o.entregado && Date.now() - o.entregado > 20 * 3600000 && Date.now() - o.entregado < 7 * 86400000;
+    if (!o.calificacion && (av.entrega || av.opinion)) out.push({ k: "opinion", n: "Recordarle su opinión", i: "star", enviado: av.opinion || 0, pendiente: tarde && !av.opinion, plantilla: "resena" });
+  }
+  return cli && cli.tel ? out : out.map(m => Object.assign(m, { pendiente: false, sinTel: true }));
+}
+export const textoMensaje = (o, m) => mensaje(m.plantilla, varsOrden(o));
+export function marcarEnviado(o, k, v = Date.now()) {
+  if (k === "recepcion") return D.cambiar("ordenes", o.id, x => ({ recepcion: Object.assign({}, x.recepcion, { enviada: v, porEnviar: v ? null : (x.recepcion || {}).porEnviar }) }));
+  return D.cambiar("ordenes", o.id, x => ({ avisos: Object.assign({}, x.avisos, { [k]: v }) }));
+}
+/** Todo lo que hay que enviar ahora, de todas las órdenes (lo más antiguo primero) */
+export function bandeja() {
+  return D.lista("ordenes").flatMap(o => mensajesOrden(o).filter(m => m.pendiente).map(m => Object.assign({ o }, m)))
+    .sort((a, b) => (a.o.act || 0) - (b.o.act || 0));
+}
+
+// ---------------------------------------------------------------- revisión final según lo que se hizo
+/** Qué partes del auto trabaja un servicio: lo que elegiste en Configuración → Servicios, o se deduce de su nombre y pasos */
+export function partesServicio(s) {
+  if (!s) return ["exterior", "interior"];
+  if (Array.isArray(s.partes) && s.partes.length) return s.partes;
+  const t = [s.nombre, s.descripcion, s.incluye, ...((s.pasos || []).map(p => p.t || p))].join(" ").toLowerCase(), out = new Set();
+  if (/lavado a mano|carrocer|exterior|secado|pintura|aros|llanta|faro|sensor|c[aá]mara|espejo/.test(t)) out.add("exterior");
+  if (/aspirad|interior|asiento|tapiz|alfombra|tablero|mascota|olor|techo interior|consola/.test(t)) out.add("interior");
+  if (/motor/.test(t)) out.add("motor");
+  if (/cera|encerad|sellad|cer[aá]mic|protecci/.test(t)) { out.add("proteccion"); out.add("exterior"); }
+  if (/todo lo del/.test(t)) { out.add("exterior"); out.add("interior"); }
+  if (!out.size) ({ lavado: ["exterior", "interior"], interior: ["interior"], exterior: ["exterior"], proteccion: ["exterior", "proteccion"], motor: ["motor"] }[s.categoria] || ["exterior", "interior"]).forEach(x => out.add(x));
+  return [...out];
+}
+export function partesOrden(o) {
+  const cat = D.lista("servicios"), out = new Set();
+  (o.items || []).forEach(i => partesServicio(cat.find(x => x.id === i.servicioId) || { nombre: i.nombre }).forEach(p => out.add(p)));
+  return out.size ? [...out] : ["exterior", "interior"];
+}
+/** La lista de revisión final: tu lista (o la de fábrica), solo con lo que aplica a esta orden */
+export function listaCalidad() {
+  const aj = D.ajuste("calidad");
+  if (!Array.isArray(aj) || !aj.length || (aj.every(x => typeof x === "string") && aj.join("|") === CALIDAD_ANTERIOR.join("|"))) return CALIDAD;
+  return aj.map(x => (typeof x === "string" ? { t: x, a: "siempre" } : x)).filter(x => x && x.t);
+}
+export function calidadDeOrden(o) { const p = new Set(partesOrden(o)); return listaCalidad().filter(x => !x.a || x.a === "siempre" || p.has(x.a)); }
+
+// ---------------------------------------------------------------- ruleta de premios (misma regla que el servidor)
+export function ruleta() {
+  const aj = D.ajuste("ruleta", null) || {};
+  const r = Object.assign({}, RULETA_BASE, aj);
+  r.premios = (aj.premios && aj.premios.length ? aj.premios : RULETA_BASE.premios).map(p => Object.assign({}, p));
+  return r;
+}
+export function premiosActivos(R = ruleta()) { return R.premios.filter(p => p.activo !== false && n0(p.peso) > 0); }
+/** Probabilidad de cada premio y costo promedio por giro (lo que te cuesta en promedio cada servicio con giro) */
+export function numerosRuleta(R = ruleta()) {
+  const act = premiosActivos(R), tot = act.reduce((a, p) => a + n0(p.peso), 0) || 1;
+  const costo = act.reduce((a, p) => a + (n0(p.peso) / tot) * n0(p.costo), 0);
+  const ots = D.lista("ordenes").filter(o => o.estado === "entregado" && n0(o.total) > 0 && (!o.cobro || o.cobro === "normal"));
+  const ticket = ots.length ? ots.reduce((a, o) => a + n0(o.total), 0) / ots.length : 79;
+  return { prob: Object.fromEntries(act.map(p => [p.id, Math.round((n0(p.peso) / tot) * 1000) / 10])), costo, ticket, pct: ticket ? (costo / ticket) * 100 : 0 };
+}
+/** Premios de ruleta que el cliente aún puede usar */
+export function premiosRuletaDe(clienteId) {
+  const h = hoy();
+  return D.lista("ordenes").filter(o => o.clienteId === clienteId && o.ruleta && o.ruleta.estado === "pendiente" && o.ruleta.vence >= h)
+    .map(o => Object.assign({ ordenId: o.id }, o.ruleta)).sort((a, b) => String(a.vence).localeCompare(String(b.vence)));
+}
+/** Usa el premio en una orden nueva: descuento, adicional o servicio a S/ 0, o regalo entregado */
+export function canjearRuleta(premio, destino) {
+  const origen = D.uno("ordenes", premio.ordenId);
+  if (!origen || !origen.ruleta) return null;
+  D.cambiar("ordenes", origen.id, { ruleta: Object.assign({}, origen.ruleta, { estado: "canjeado", canjeOrden: destino ? destino.id : "", canjeEn: Date.now(), act: Date.now() }) });
+  if (!destino) return origen;
+  const p = premio, items = (destino.items || []).slice();
+  let desc = n0(destino.descuento);
+  if (p.tipo === "descuento") desc += n0(p.valor);
+  else if (p.tipo === "adicional" || p.tipo === "servicio") items.push({ nombre: "🎁 " + p.n.replace(/ (gratis )?en tu próxima visita$/i, "").replace(/^Tu próximo /, ""), precio: 0, cant: 1, minutos: 0, premio: true });
+  return D.cambiar("ordenes", destino.id, { items, descuento: desc, total: totalItems(items, desc), premioRuleta: p.n });
+}
+export function varsCliente(c) {
+  const p = perfil(c.id), veh = vehiculosDe(c.id)[0];
+  const libre = proximoLibre(60);
+  return { nombre: primerNombre(c), codigo: (asegurarPortal(c) || c).codigo || "", portal: urlPortal(c), placa: veh ? veh.placa || veh.marca || "auto" : "auto", vehiculo: nombreVeh(veh),
+    fecha: libre ? fechaLarga(libre.fecha) + " a las " + libre.hora : "próximo día libre", ultima: p.ultima ? fechaLarga(p.ultima) : "" };
+}
+
+// Datos vivos para las respuestas rápidas (se arman con tus precios actuales)
+export function varsRespuesta() {
+  const n = negocio(), servs = serviciosActivos().filter(x => x.web !== false), paq = servs.filter(x => x.paquete);
+  const libre = proximoLibre(90);
+  const web = (n.web || location.origin + location.pathname.replace(/\/app\/.*$/, "")).replace(/\/+$/, "");
+  return {
+    negocio: nombreNegocio(), web, zonas: n.zonas || n.distrito || "Arequipa",
+    precios: servs.filter(x => !x.paquete).map(x => "• " + x.nombre + ": " + soles(x.precio) + (x.porTamano ? " (auto)" : "")).join("\n"),
+    paquetes: (paq.length ? paq : servs.slice(0, 3)).map(x => "• " + x.nombre + ": " + soles(x.precio) + (x.incluye ? " — " + String(x.incluye).split("\n").filter(Boolean).slice(0, 3).join(", ") : "")).join("\n"),
+    libre: libre ? fechaLarga(libre.fecha) + " a las " + libre.hora : "esta semana",
+    planes: D.lista("planes").filter(p => p.activo !== false).map(p => "• " + p.nombre + ": " + soles(p.precio) + (p.incluye ? " — " + p.incluye : "")).join("\n") || "",
+    tamanos: tamanos().filter(t => n0(t.pct)).map(t => t.n + " +" + t.pct + "%").join(", "),
+    pagos: n.pagos || "Efectivo, Yape, Plin o transferencia"
+  };
+}
+
+// ---------------------------------------------------------------- inventario
+export function costoUso(p) { return p ? (n0(p.rinde) > 0 ? n0(p.costoProm) / n0(p.rinde) : n0(p.costoProm)) : 0; }
+export function costoInsumos(s) {
+  if (!s) return 0;
+  if (s.receta && s.receta.length) { const prod = porId(D.lista("productos")); return suma(s.receta, r => n0(r.usos) * costoUso(prod[r.productoId])); }
+  return n0(s.costo);
+}
+/** Registra una entrada, salida o conteo y actualiza el stock y el costo promedio (promedio ponderado) */
+export function moverInventario({ productoId, tipo, cantidad, costoUnit, motivo, ordenId, compraId, fecha }) {
+  const p = D.uno("productos", productoId);
+  if (!p) return null;
+  const stock = n0(p.stock), cant = n0(cantidad);
+  let nuevo = stock, prom = n0(p.costoProm), mov = cant;
+  if (tipo === "entrada") {
+    nuevo = stock + cant;
+    const cu = costoUnit === undefined || costoUnit === null ? prom : n0(costoUnit);
+    prom = nuevo > 0 ? (Math.max(0, stock) * prom + cant * cu) / (Math.max(0, stock) + cant) : cu;
+  } else if (tipo === "salida") nuevo = stock - cant;
+  else if (tipo === "ajuste") { nuevo = cant; mov = cant - stock; }
+  nuevo = Math.round(nuevo * 1000) / 1000;
+  D.cambiar("productos", productoId, { stock: nuevo, costoProm: Math.round(prom * 100) / 100 });
+  return D.guardar("movimientos", { fecha: fecha || hoy(), _producto: p.nombre, tipo, cantidad: Math.round(mov * 1000) / 1000, costoUnit: tipo === "entrada" ? n0(costoUnit) : prom,
+    saldo: nuevo, motivo: motivo || "", productoId, ordenId: ordenId || "", compraId: compraId || "" });
+}
+export const stockBajo = () => D.lista("productos").filter(p => p.activo !== false && n0(p.minimo) > 0 && n0(p.stock) <= n0(p.minimo));
+export function consumoDeServicios(items) {
+  const cat = porId(D.lista("servicios")), prod = porId(D.lista("productos")), acum = {};
+  (items || []).forEach(i => {
+    const s = cat[i.servicioId];
+    ((s && s.receta) || []).forEach(r => {
+      const p = prod[r.productoId]; if (!p) return;
+      const a = acum[r.productoId] || (acum[r.productoId] = { productoId: p.id, nombre: p.nombre, usos: 0 });
+      a.usos += n0(r.usos) * (n0(i.cant) || 1);
+    });
+  });
+  return Object.values(acum).map(a => Object.assign(a, { costo: Math.round(a.usos * costoUso(prod[a.productoId]) * 100) / 100 }));
+}
+
+// ---------------------------------------------------------------- activos
+export function depreciacionMes(a) {
+  const vida = n0(a.vidaMeses);
+  if (!vida || a.estado === "baja") return 0;
+  return Math.max(0, (n0(a.costo) - n0(a.residual)) / vida);
+}
+export function valorLibros(a) {
+  if (!a.fechaCompra) return n0(a.costo);
+  const meses = Math.max(0, diasEntre(a.fechaCompra, hoy()) / 30.44);
+  return Math.max(n0(a.residual), n0(a.costo) - depreciacionMes(a) * meses);
+}
+export function proximoMantenimiento(a) {
+  if (!n0(a.cadaDias)) return null;
+  const ult = D.lista("mantenimientos").filter(m => m.activoId === a.id).map(m => m.fecha).sort().pop() || a.fechaCompra || hoy();
+  return sumarDias(ult, n0(a.cadaDias));
+}
+export function alertasActivos() {
+  const H = hoy(), out = [];
+  D.lista("activos").filter(a => a.estado !== "baja").forEach(a => {
+    const p = proximoMantenimiento(a);
+    if (p && p <= sumarDias(H, 7)) out.push({ a, tipo: "mantenimiento", fecha: p, txt: "Mantenimiento " + (p < H ? "vencido" : "pronto") });
+    if (a.soat && a.soat <= sumarDias(H, 20)) out.push({ a, tipo: "soat", fecha: a.soat, txt: a.soat < H ? "SOAT vencido" : "SOAT vence pronto" });
+    if (a.revision && a.revision <= sumarDias(H, 20)) out.push({ a, tipo: "revision", fecha: a.revision, txt: a.revision < H ? "Revisión técnica vencida" : "Revisión técnica pronto" });
+  });
+  return out.sort((x, y) => String(x.fecha).localeCompare(String(y.fecha)));
+}
+
+// ---------------------------------------------------------------- finanzas
+export function costosFijosMes() {
+  return suma(D.lista("costosFijos"), "monto") + suma(D.lista("activos"), depreciacionMes);
+}
+// Capacidad práctica (Kaplan y Anderson, costeo por tiempo): 80% del tiempo que abres
+export function capacidadMesMin() {
+  const H = horario();
+  let semana = 0;
+  for (let d = 0; d < 7; d++) {
+    const abierto = (H.dias[String(d)] || []).reduce((a, r) => a + Math.max(0, minutos(r[1]) - minutos(r[0])), 0);
+    semana += Math.min(abierto, H.maxHoras ? H.maxHoras * 60 : Infinity);
+  }
+  return semana * 52 / 12 * 0.8;
+}
+export function tasaMinuto() { const c = capacidadMesMin(); return c ? costosFijosMes() / c : 0; }
+export function rentabilidad(s, tam = "auto") {
+  const precio = precioCon(s, tam), insumos = costoInsumos(s), min = (n0(s.minutos) || 60) + n0(tamanoDe(tam).min);
+  const traslado = n0(horario().traslado), tiempo = min + traslado;
+  const contribucion = precio - insumos;
+  const costoTiempo = tasaMinuto() * tiempo;
+  return { precio, insumos, minutos: min, traslado, contribucion, porHora: tiempo ? contribucion / (tiempo / 60) : 0, costoTiempo, utilidad: contribucion - costoTiempo, margen: precio ? (contribucion - costoTiempo) / precio : 0 };
+}
+export function resultados(desde, hasta) {
+  const en = f => f >= desde && f <= hasta;
+  const pagos = D.lista("pagos").filter(p => en(p.fecha)), gastos = D.lista("gastos").filter(g => en(g.fecha));
+  const ots = D.lista("ordenes").filter(o => o.estado === "entregado" && en(o.fecha));
+  const ingresos = suma(pagos, "monto"), egresos = suma(gastos, "monto");
+  const porMetodo = {}; pagos.forEach(p => (porMetodo[p.metodo || "efectivo"] = (porMetodo[p.metodo || "efectivo"] || 0) + n0(p.monto)));
+  const porCat = {}; gastos.forEach(g => (porCat[g.categoria || "otros"] = (porCat[g.categoria || "otros"] || 0) + n0(g.monto)));
+  const insumosUsados = suma(ots, o => n0(o.costoInsumos));
+  const traslado = n0(horario().traslado);
+  const minutosTrab = suma(ots, o => minutosOrden(o) + traslado);
+  const normales = ots.filter(o => !o.cobro || o.cobro === "normal");
+  const ventasServ = suma(normales, "total");
+  const deMembresias = suma(pagos.filter(p => p.membresiaId), "monto");
+  return {
+    ingresos, egresos, utilidad: ingresos - egresos, margen: ingresos ? (ingresos - egresos) / ingresos : null,
+    porMetodo, porCat, fijos: suma(gastos.filter(g => g.tipo === "fijo"), "monto"), variables: suma(gastos.filter(g => g.tipo !== "fijo"), "monto"),
+    insumosUsados, compraInsumos: n0(porCat.insumos), servicios: ots.length, ventasServ, ticket: normales.length ? ventasServ / normales.length : 0,
+    horas: minutosTrab / 60, porHora: minutosTrab ? (ventasServ - insumosUsados) / (minutosTrab / 60) : null, recurrente: ingresos ? deMembresias / ingresos : null, deMembresias
+  };
+}
+export function resultadosMes(mes) { return resultados(mes + "-01", finMes(mes + "-01")); }
+
+// Reparto de cada cobro (Profit First)
+export function cuentasReparto() {
+  const d = D.ajuste("distribucion", {}), pcts = d.pcts || {};
+  const socios = (D.ajuste("socios", []) || []).length > 1 || D.equipo().filter(x => x.rol === "admin").length > 1;
+  const nombres = socios ? { sueldo: { n: "Sueldo de los socios", d: "Lo que se pagan por trabajar en el negocio. Se reparte abajo según lo acordado." }, ganancia: { n: "Ganancia de los socios", d: "Lo que queda para los dueños. Se retira cada trimestre y se reparte según lo acordado." } } : {};
+  return CUENTAS.map(c => Object.assign({}, c, nombres[c.id] || {}, { pct: pcts[c.id] !== undefined ? n0(pcts[c.id]) : c.pct }));
+}
+export function reparto(desde, hasta) {
+  const en = f => f >= desde && f <= hasta;
+  const cobros = suma(D.lista("pagos").filter(p => en(p.fecha)), "monto");
+  const materiales = suma(D.lista("gastos").filter(g => en(g.fecha) && g.categoria === "insumos"), "monto");
+  const real = Math.max(0, cobros - materiales);
+  const tr = D.lista("transferencias");
+  return {
+    cobros, materiales, real,
+    cuentas: cuentasReparto().map(c => {
+      const debe = real * c.pct / 100, hecho = suma(tr.filter(t => t.cuenta === c.id && en(t.fecha) && n0(t.monto) > 0), "monto");
+      const saldo = suma(tr.filter(t => t.cuenta === c.id), "monto");
+      return Object.assign(c, { debe, hecho, falta: Math.max(0, debe - hecho), saldo });
+    })
+  };
+}
+export { mesDe, inicioMes, finMes, isoDe, horaDe, nombreDe };
