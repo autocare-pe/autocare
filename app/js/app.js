@@ -5,11 +5,11 @@ import { Icono, Logo, LogoHorizontal, Boton, Hoja, Capas, menu, capaExtra, aviso
 import { GUIAS } from "./guias.js";
 import { clases, coincide, nombreDe, telBonito, esMovil, fechaCorta, plural } from "./util.js";
 import { srcFoto } from "./datos.js";
-import { soyWhatsapp, bandeja } from "./negocio.js";
+import { soyWhatsapp, bandeja, caminosPorAvisar, modoTrabajo } from "./negocio.js";
 
 // ---------------------------------------------------------------- menú
 export const NAV = [
-  { g: "", items: [{ r: "", n: "Inicio", i: "house" }] },
+  { g: "", items: [{ r: "", n: "Mi día", i: "sun" }] },
   { g: "Dirección", items: [
     { r: "tablero", n: "Tablero", i: "layout-dashboard", mod: "direccion", d: "Tus indicadores en 4 perspectivas" },
     { r: "plan", n: "Plan y revisión", i: "target", mod: "direccion", d: "Prioridades del trimestre, revisión semanal y mejoras" }] },
@@ -46,6 +46,21 @@ const MOD_AREAS = { tablero: ["pagos"], agenda: ["campo", "ventas", "logistica"]
   contenido: ["marketing"], resultados: ["marketing"], merch: ["marketing"], fidelidad: ["ventas", "marketing"], finanzas: ["pagos"], inventario: ["campo", "logistica"], activos: ["campo", "logistica"] };
 export const esMio = it => { const a = MOD_AREAS[it.r]; return !a || a.some(x => D.tengoArea(x)); };
 export const itemsNav = () => NAV.flatMap(g => g.items);
+// El menú en el orden del trabajo de cada puesto (Cooper: diseñar para cada persona; Krug: lo que más usas, primero).
+// Oficina: los mismos números que sus prioridades en «Mi día». Campo: lo que se usa en la calle, arriba.
+const ORDEN_NAV = {
+  campo: [{ g: "", r: [""] }, { g: "1 · Antes de salir", r: ["inventario", "activos"] }, { g: "2 · En el servicio", r: ["agenda", "ordenes"] }, { g: "3 · Después del servicio", r: ["clientes", "fidelidad"] },
+    { g: "Oficina", r: ["ventas", "finanzas", "campanas", "contenido", "resultados", "merch"] }, { g: "Dirección", r: ["tablero", "plan"] }, { g: "Sistema", r: ["config", "datos", "ayuda"] }],
+  oficina: [{ g: "", r: [""] }, { g: "1 · Responder", r: ["ventas"] }, { g: "2 · Acompañar el servicio", r: ["ordenes", "clientes"] }, { g: "3 · Cobros", r: ["finanzas"] },
+    { g: "4 · Preparar mañana", r: ["agenda"] }, { g: "5 · Hacer crecer", r: ["campanas", "contenido", "fidelidad", "resultados", "merch"] }, { g: "6 · Compras y logística", r: ["inventario", "activos"] },
+    { g: "Dirección", r: ["tablero", "plan"] }, { g: "Sistema", r: ["config", "datos", "ayuda"] }]
+};
+export function navOrdenado() {
+  const todos = itemsNav(), orden = ORDEN_NAV[modoTrabajo()] || ORDEN_NAV.oficina, usados = new Set(orden.flatMap(g => g.r));
+  const grupos = orden.map(g => ({ g: g.g, items: g.r.map(r => todos.find(i => i.r === r)).filter(Boolean) }));
+  const resto = todos.filter(i => !usados.has(i.r));
+  return resto.length ? [...grupos, { g: "Otros", items: resto }] : grupos;
+}
 
 // ---------------------------------------------------------------- rutas (#/agenda/cita/123)
 function leerRuta() {
@@ -99,7 +114,7 @@ function cuentas() {
     agenda: D.lista("citas").filter(c => c.estado === "solicitada" && c.fecha >= H).length,
     ordenes: D.lista("ordenes").filter(o => ["recepcion", "proceso", "calidad", "listo"].includes(o.estado)).length,
     ventas: D.lista("leads").filter(l => l.etapa === "nuevo").length,
-    "": (() => { try { return soyWhatsapp() ? bandeja().length : 0; } catch (e) { return 0; } })()   // mensajes por enviar
+    "": (() => { try { return soyWhatsapp() ? bandeja().length + caminosPorAvisar().length : 0; } catch (e) { return 0; } })()   // mensajes por enviar
   };
 }
 
@@ -112,7 +127,7 @@ function Lateral({ ruta }) {
   const ocultos = itemsNav().filter(puedeRuta).filter(it => !esMio(it)).length;
   return html`<aside class="lateral" aria-label="Menú principal">
     <${Marca} />
-    ${NAV.map(g => {
+    ${navOrdenado().map(g => {
       const items = g.items.filter(puedeRuta).filter(it => todo || esMio(it) || ruta.modulo === it.r);
       if (!items.length) return null;
       return html`${g.g && html`<div class="nav-grupo">${g.g}</div>`}
@@ -157,7 +172,7 @@ function PrimeraVez({ modulo }) {
 }
 function BannerPractica() {
   if (!D.enPractica()) return null;
-  return html`<a class="banner-practica" href="#/datos"><${Icono} n="flask-conical" t=${16} /><span><b>Modo práctica</b> · lo que crees se borra junto después</span><span class="ir">Mis datos ›</span></a>`;
+  return html`<a class="banner-practica" href="#/datos"><${Icono} n="flask-conical" t=${16} /><span><b>Modo práctica</b><span class="solo-ancho"> · lo que crees se borra junto después</span></span><span class="ir">Mis datos ›</span></a>`;
 }
 function Barra({ titulo, abrirPaleta, modulo }) {
   const [borde, setBorde] = useState(false);
@@ -179,10 +194,14 @@ function BarraMovil({ titulo, abrirPaleta, modulo }) {
     <${Boton} tipo="fantasma" icono="search" titulo="Buscar" onClick=${abrirPaleta} />
   </header>`;
 }
-const TABS = [{ r: "", n: "Inicio", i: "house" }, { r: "agenda", n: "Agenda", i: "calendar-days", mod: "agenda" }, { r: "ordenes", n: "Órdenes", i: "clipboard-list", mod: "ordenes" }, { r: "clientes", n: "Clientes", i: "users", mod: "clientes" }];
+// Pestañas de abajo según el puesto: en campo, lo de la calle; en oficina, responder primero
+const TABS = {
+  campo: [{ r: "", n: "Mi día", i: "sun" }, { r: "agenda", n: "Agenda", i: "calendar-days", mod: "agenda" }, { r: "ordenes", n: "Órdenes", i: "clipboard-list", mod: "ordenes" }, { r: "clientes", n: "Clientes", i: "users", mod: "clientes" }],
+  oficina: [{ r: "", n: "Mi día", i: "sun" }, { r: "ventas", n: "Ventas", i: "filter", mod: "comercial" }, { r: "agenda", n: "Agenda", i: "calendar-days", mod: "agenda" }, { r: "ordenes", n: "Órdenes", i: "clipboard-list", mod: "ordenes" }]
+};
 function Tabbar({ ruta }) {
   const c = cuentas();
-  const tabs = TABS.filter(puedeRuta);
+  const tabs = (TABS[modoTrabajo()] || TABS.campo).filter(puedeRuta);
   const enMas = !tabs.some(t => t.r === ruta.modulo);
   return html`<nav class="tabbar" style=${{ gridTemplateColumns: `repeat(${tabs.length + 1}, 1fr)` }} aria-label="Navegación">
     ${tabs.map(t => html`<a class=${clases("tab", ruta.modulo === t.r && "activo")} href=${"#/" + t.r}><${Icono} n=${t.i} /><span>${t.n}</span>${c[t.r] ? html`<span class="cuenta">${c[t.r]}</span>` : null}</a>`)}

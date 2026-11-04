@@ -33,6 +33,7 @@ function notificar() {
   queueMicrotask(() => { avisoPendiente = false; subs.forEach(f => { try { f(version); } catch (e) { console.error(e); } }); });
 }
 export function suscribir(f) { subs.add(f); return () => { subs.delete(f); }; }
+export const repintar = () => notificar();
 export function useDatos() {
   const [v, setV] = useState(version);
   useEffect(() => suscribir(setV), []);
@@ -122,8 +123,12 @@ export async function iniciar() {
 // Después de entrar: si es otra persona, borramos lo de la anterior
 export async function alEntrar(respuesta, recordar) {
   fijarToken(respuesta.token, recordar);
+  // misma persona en el mismo equipo y ya tiene sus datos guardados: entra al instante y se pone al día por detrás
+  // (antes esperaba la descarga completa del servidor, que en Google puede tardar varios segundos)
+  const mismo = !!(YO && respuesta.usuario && YO.id === respuesta.usuario.id && REV > 0);
   if (YO && respuesta.usuario && YO.id !== respuesta.usuario.id) await borrarLocal(false);
   YO = respuesta.usuario; ponerKv("yo", YO);
+  if (mismo) { estado.cargado = true; notificar(); return; }
   await cargarTodo();
 }
 

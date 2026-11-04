@@ -273,15 +273,29 @@ export function plantilla(clave) {
   const propia = D.lista("plantillas").find(p => p.clave === clave);
   return propia || PLANTILLAS.find(p => p.clave === clave) || { texto: "" };
 }
-export function mensaje(clave, v = {}) {
-  const n = negocio();
-  const base = { negocio: nombreNegocio(), resena: n.google || "", yape: n.yape && n.yape.numero ? n.yape.numero + (n.yape.titular ? " (" + n.yape.titular + ")" : "") : "" };
-  return rellenar(typeof clave === "string" && !clave.includes(" ") ? plantilla(clave).texto : clave, Object.assign(base, v)).replace(/\s+\{[a-z]+\}/g, "").trim();
+/** Las versiones de un texto (separadas por una línea «---») */
+export const versiones = texto => String(texto || "").split(/\n\s*-{3,}\s*\n/).map(x => x.trim()).filter(Boolean);
+export function saludoHora(ms = Date.now()) { const h = Number(horaDe(ms).slice(0, 2)); return h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches"; }
+// Turna las versiones (una distinta cada vez) para que los mensajes no suenen repetidos ni a robot
+// Elige una versión estable para esa persona y ese día (la vista previa no «salta»), pero distinta
+// entre clientes y entre visitas: así una campaña no manda 30 textos idénticos (Heath: lo inesperado se recuerda).
+function elegirVersion(clave, lista, semilla) {
+  if (lista.length < 2) return lista[0] || "";
+  const t = String(clave) + "|" + (semilla || "") + "|" + hoy();
+  let h = 0; for (let k = 0; k < t.length; k++) h = (h * 31 + t.charCodeAt(k)) >>> 0;
+  return lista[h % lista.length];
 }
+export function mensaje(clave, v = {}) {
+  const n = negocio(), esClave = typeof clave === "string" && !clave.includes(" ") && !clave.includes("{");
+  const base = { saludo: saludoHora(), negocio: nombreNegocio(), vehiculo: "auto", regalo: "", hallazgos: "sin detalles a la vista", tecnico: "el equipo", resena: n.google || "", yape: n.yape && n.yape.numero ? n.yape.numero + (n.yape.titular ? " (" + n.yape.titular + ")" : "") : "" };
+  const texto = elegirVersion(esClave ? clave : "libre", versiones(esClave ? plantilla(clave).texto : clave), v.nombre || v.placa || "");
+  return rellenar(texto, Object.assign(base, v)).replace(/\s*\(\{[a-z]+\}\)/g, "").replace(/\s*\{[a-z]+\}/g, "").replace(/ {2,}/g, " ").replace(/ ([,.:!?])/g, "$1").replace(/[ \t]+\n/g, "\n").trim();
+}
+const nombreVeh = veh => (veh && [veh.marca, veh.modelo].filter(Boolean).join(" ")) || "auto";
 export function varsCita(c) {
   const cli = D.uno("clientes", c.clienteId), veh = D.uno("vehiculos", c.vehiculoId);
   return { nombre: primerNombre(cli) || primerNombre({ nombre: c._cliente }), fecha: fechaLarga(c.fecha), hora: c.hora || "", servicio: c._servicios || "", direccion: c.direccion || "",
-    adelanto: c.adelanto ? soles(c.adelanto) : "", total: c.total ? soles(c.total) : "", placa: veh ? veh.placa : "", portal: cli ? urlPortal(cli) : "" };
+    adelanto: c.adelanto ? soles(c.adelanto) : "", total: c.total ? soles(c.total) : "", placa: veh ? veh.placa : "", vehiculo: nombreVeh(veh), portal: cli ? urlPortal(cli) : "" };
 }
 export function varsOrden(o) {
   const cli = D.uno("clientes", o.clienteId), veh = D.uno("vehiculos", o.vehiculoId);
@@ -307,6 +321,22 @@ export function avisarA(id, texto, ruta) {
   const app = webBase() + "/app/" + (ruta ? "#/" + ruta : "");
   api("avisar", { para: id, texto, botones: [{ text: "Abrir en la app", url: app }] }).catch(() => { });
 }
+
+// ---------------------------------------------------------------- puesto: campo u oficina (por áreas, no por persona)
+const AREAS_OFICINA = ["ventas", "pagos", "logistica", "marketing"];
+export function puestos() { const A = new Set(D.misAreas()); return { campo: A.has("campo"), oficina: AREAS_OFICINA.some(a => A.has(a)) }; }
+export function modoTrabajo() {
+  const p = puestos();
+  if (p.campo && p.oficina) {
+    try { const v = JSON.parse(localStorage.getItem("autocare.modo")); if (v === "campo" || v === "oficina") return v; } catch (e) { }
+    // si hay equipo y yo llevo el WhatsApp, lo normal es que esté en oficina; si no, en campo
+    return D.somosVarios() && idWhatsapp() === (D.yo() || {}).id ? "oficina" : "campo";
+  }
+  return p.campo ? "campo" : "oficina";
+}
+export function fijarModo(v) { try { localStorage.setItem("autocare.modo", JSON.stringify(v)); } catch (e) { } D.repintar(); }
+/** Citas de hoy que salieron «en camino» y aún no se le avisa al cliente */
+export function caminosPorAvisar() { return citasDelDia(hoy()).filter(c => c.camino && !c.caminoEnviado && citaActiva(c)); }
 
 // ---------------------------------------------------------------- mensajes de cada orden (bandeja «Por enviar»)
 // David Allen (GTD): una sola bandeja. Se arma sola con lo que pasa en las órdenes; un toque abre WhatsApp con el texto.
@@ -401,8 +431,8 @@ export function canjearRuleta(premio, destino) {
 export function varsCliente(c) {
   const p = perfil(c.id), veh = vehiculosDe(c.id)[0];
   const libre = proximoLibre(60);
-  return { nombre: primerNombre(c), codigo: (asegurarPortal(c) || c).codigo || "", portal: urlPortal(c), placa: veh ? veh.placa || veh.marca || "auto" : "auto",
-    fecha: libre ? fechaLarga(libre.fecha) + " a las " + libre.hora : "", ultima: p.ultima ? fechaLarga(p.ultima) : "" };
+  return { nombre: primerNombre(c), codigo: (asegurarPortal(c) || c).codigo || "", portal: urlPortal(c), placa: veh ? veh.placa || veh.marca || "auto" : "auto", vehiculo: nombreVeh(veh),
+    fecha: libre ? fechaLarga(libre.fecha) + " a las " + libre.hora : "próximo día libre", ultima: p.ultima ? fechaLarga(p.ultima) : "" };
 }
 
 // Datos vivos para las respuestas rápidas (se arman con tus precios actuales)

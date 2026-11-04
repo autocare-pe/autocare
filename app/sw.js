@@ -1,5 +1,5 @@
 // AUTOCARE · trabaja sin señal. Si cambias cualquier archivo de la app, sube este número.
-const VERSION = "4.0.0";
+const VERSION = "4.1.3";
 const CACHE = "autocare-" + VERSION;
 const ARCHIVOS = ["./", "index.html", "manifest.webmanifest", "css/app.css", "vendor/preact-htm.js", "vendor/sortable.js",
   "js/main.js", "js/app.js", "js/api.js", "js/datos.js", "js/ui.js", "js/util.js", "js/esquema.js", "js/negocio.js", "js/piezas.js", "js/iconos.js",
@@ -12,6 +12,7 @@ self.addEventListener("fetch", e => {
   const u = new URL(e.request.url);
   if (e.request.method !== "GET" || u.origin !== location.origin) return;
   const red = () => fetch(e.request).then(r => { if (r.ok) { const c = r.clone(); caches.open(CACHE).then(x => x.put(e.request, c)); } return r; });
-  if (u.pathname.endsWith("/config.js")) { e.respondWith(red().catch(() => caches.match(e.request))); return; }
+  // config.js: se usa la copia guardada al instante y se actualiza por detrás (antes se esperaba a internet en cada apertura)
+  if (u.pathname.endsWith("/config.js")) { const n = red(); e.waitUntil(n.catch(() => { })); e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(r => r || n)); return; }
   e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(r => r || red()).catch(() => caches.match("index.html")));
 });

@@ -26,6 +26,8 @@ function Raiz() {
   useEffect(() => {
     if (dentro) { D.arrancarSync(); if (!app) import("./app.js").then(m => setApp(() => m.App)); }
   }, [dentro]);
+  // la entrada con el logo termina cuando ya hay algo real que mostrar (la app o la pantalla de ingreso)
+  useEffect(() => { if (!dentro || app) requestAnimationFrame(() => window.introListo && window.introListo()); }, [dentro, !!app]);
   if (!dentro) return html`<${Entrada} listo=${() => set(x => x + 1)} />`;
   return app ? html`<${app} />` : html`<div class="entrada-pantalla"><span class="nota">Abriendo…</span></div>`;
 }
@@ -38,12 +40,25 @@ let Entrada = () => null;
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     try {
       const reg = await navigator.serviceWorker.register("sw.js");
-      const avisar = w => aviso("Hay una versión nueva de la app.", { duracion: 20000, icono: "sparkles", accion: { n: "Actualizar", f: () => w.postMessage("activar") } });
-      if (reg.waiting) avisar(reg.waiting);
-      reg.addEventListener("updatefound", () => { const w = reg.installing; w && w.addEventListener("statechange", () => { if (w.state === "installed" && navigator.serviceWorker.controller) avisar(w); }); });
+      // Actualizarse sola, sin que nadie tenga que acordarse (antes había que tocar «Actualizar» a tiempo; en la laptop casi nunca pasaba):
+      // · recién abierta (primeros 10 s, sin haber tocado nada): se cambia de inmediato, tapada por la entrada con el logo;
+      // · si te vas a otra app o pestaña y no hay un formulario abierto: se cambia mientras no miras;
+      // · si estás en medio de algo: aviso que se queda hasta que lo toques.
+      let toco = false; ["pointerdown", "keydown"].forEach(ev => addEventListener(ev, () => { toco = true; }, { once: true, capture: true }));
+      const libre = () => !document.querySelector(".hoja-cab, .dialogo, .velo");
+      const aplicar = w => w && w.postMessage("activar");
+      const nueva = w => {
+        if (!toco && performance.now() < 10000 && libre()) return aplicar(w);
+        aviso("Hay una versión nueva de la app.", { duracion: 600000, icono: "sparkles", accion: { n: "Actualizar", f: () => aplicar(w) } });
+      };
+      if (reg.waiting) nueva(reg.waiting);
+      reg.addEventListener("updatefound", () => { const w = reg.installing; w && w.addEventListener("statechange", () => { if (w.state === "installed" && navigator.serviceWorker.controller) nueva(w); }); });
       let recargado = false;
       navigator.serviceWorker.addEventListener("controllerchange", () => { if (!recargado) { recargado = true; location.reload(); } });
-      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => { }); });
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") { if (reg.waiting && libre()) aplicar(reg.waiting); }
+        else reg.update().catch(() => { });
+      });
     } catch (e) { console.warn(e); }
   }
 })();

@@ -1,7 +1,7 @@
 // AUTOCARE · menú completo (celular)
 import { html, useState } from "../../vendor/preact-htm.js";
 import * as D from "../datos.js";
-import { NAV, puedeRuta, usarTitulo, esMio } from "../app.js";
+import { navOrdenado, puedeRuta, usarTitulo, esMio } from "../app.js";
 import { Fila, Boton, confirmar } from "../ui.js";
 
 export default function Mas() {
@@ -12,6 +12,7 @@ export default function Mas() {
     await D.salir(); location.hash = "#/"; location.reload();
   };
   const [todo, setTodo] = useState(false);
+  const NAV = navOrdenado();
   const otros = NAV.filter(g => g.g).flatMap(g => g.items.filter(puedeRuta).filter(it => !esMio(it)));
   return html`${NAV.filter(g => g.g).map(g => {
     const items = g.items.filter(puedeRuta).filter(it => todo || esMio(it));

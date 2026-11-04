@@ -142,10 +142,10 @@ export const GLOSARIO = [
 
 /** Guía de cada pantalla. t: título · para: para qué sirve · pasos: cómo se usa · datos: qué significa · consejo */
 export const GUIAS = {
-  "": { t: "Inicio", para: "Lo que tienes que hacer hoy, en orden. Si llevas el WhatsApp, arriba está «Por enviar»: un toque y el mensaje sale listo.",
-    pasos: ["Arriba: cuánto cobraste hoy, en la semana y en el mes.", "Si haces el servicio: tu próxima cita (con «Cómo llegar» y «Voy en camino») y la agenda de hoy.", "Si llevas la gestión: lo que hay que responder, cobrar, preparar para mañana y publicar.", "Toca cualquier fila para ir directo a resolverla."],
-    datos: [["Por cobrar", "Servicios entregados que aún no se pagan completos."], ["Les toca volver", "Clientes que, según su costumbre, ya deberían volver: escríbeles."]],
-    consejo: "Empieza el día aquí y deja todo en «Todo al día» antes de dormir." },
+  "": { t: "Mi día", para: "Lo que te toca hoy, en orden, según tu puesto. Si haces campo y oficina, cambias arriba con «En campo / En oficina».",
+    pasos: ["En campo: sigue los pasos de arriba abajo: preparar el kit, cada servicio (ir, recepción, trabajo, calidad, entrega) y cerrar el día. El botón de abajo siempre te dice el siguiente paso.", "En oficina: resuelve las prioridades en su orden: 1 Responder, 2 Acompañar el servicio, 3 Cobros, 4 Preparar mañana, 5 Hacer crecer, 6 Compras. Las que están al día quedan cerradas.", "La línea de tiempo muestra los servicios del día: gris por hacer, azul en camino, lima en curso, verde entregado. La línea roja es la hora actual.", "El anillo cuenta cuánto llevas del día."],
+    datos: [["Kit del día", "Los insumos que tus servicios de hoy van a usar (según su receta) y tus equipos. Si algo no alcanza, avisa a la oficina."], ["Por enviar", "Los mensajes que el campo deja listos; los envía quien maneja el WhatsApp."], ["Bloque de tiempo", "La hora sugerida para cada prioridad (Cal Newport): así no saltas de comprar insumos a atender a un cliente."]],
+    consejo: "Una sola cosa a la vez: termina el paso en que estás antes de abrir otro (Toyota: trabajo estándar)." },
   agenda: { t: "Agenda", para: "Tus citas por día o semana, las reservas de la web por confirmar y tus horas libres.",
     pasos: ["Toca + o «Nueva cita»: elige cliente, auto, servicios, día y hora libre. La app calcula precio, tiempo y adelanto.", "Al guardar, mándale la confirmación por WhatsApp con un toque.", "Las reservas que llegan de tu web aparecen en «Por confirmar»: revísalas y confírmalas.", "El día del servicio abre la cita y toca «Empezar servicio»: se crea la orden."],
     datos: [["Por confirmar", "Reservas de la web que aún no aceptas."], ["Capacidad", "Cuánto de tu día ya está ocupado, contando el traslado."]],
@@ -163,8 +163,8 @@ export const GUIAS = {
     datos: [["Etapas", "Nuevo → contactado → cotizado → agendado → ganado o perdido."], ["Seguimiento", "Una tarea con fecha para no olvidar a nadie."]],
     consejo: "Responde en la primera hora: casi 7 veces más probabilidad de cerrar (Harvard Business Review)." },
   campanas: { t: "Campañas", para: "Mensajes para grupos de clientes, respuestas rápidas y plantillas de WhatsApp.",
-    pasos: ["Campañas: elige a quién (ej. «les toca volver»), escribe el mensaje y envíalo uno por uno con un toque.", "Respuestas rápidas: textos listos para las preguntas de siempre (precio, zona, pago). Se arman con tus precios actuales.", "Plantillas: los mensajes automáticos de la app (confirmar cita, voy en camino, listo…). Cámbialos a tu estilo."],
-    datos: [["Variables", "{nombre}, {fecha}, {portal}… se cambian solas por los datos de cada cliente."]],
+    pasos: ["Campañas: elige a quién (ej. «les toca volver»), escribe el mensaje y envíalo uno por uno con un toque.", "Respuestas rápidas: textos listos para las preguntas de siempre (precio, zona, pago). Se arman con tus precios actuales.", "Plantillas: los mensajes automáticos de la app (confirmar cita, voy en camino, listo…). Cada uno trae 2 o 3 versiones: la app alterna entre clientes y días para que no suene a robot. Cámbialos a tu estilo."],
+    datos: [["Variables", "{nombre}, {vehiculo}, {fecha}, {portal}… se cambian solas por los datos de cada cliente. {saludo} pone «Buenos días/tardes/noches»."], ["Versiones", "Sepáralas con una línea que solo tenga ---."]],
     consejo: "Un mensaje personal con su nombre funciona mejor que una promoción masiva." },
   contenido: { t: "Contenido", para: "Lo que publicas en Instagram y TikTok: calendario, diseño con tu marca e ideas.",
     pasos: ["Estudio de diseño: elige foto, modelo y texto; se arma la imagen con tu logo y colores.", "Guárdala en el calendario con fecha y hora; si tienes Telegram, te la recuerda lista para subir.", "Estrategia e ideas: qué publicar cada semana (antes y después, consejos, opiniones, ofertas)."],
