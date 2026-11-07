@@ -115,7 +115,7 @@ function pintar(animar = true) {
     : caja("Cuéntanos cómo te gusta tu auto", `<p class="nota">30 segundos, y la próxima vez lo atendemos sin que tengas que repetirlo.</p>${formGustos}`, "gustos");
   // 6) para tu próxima visita: paquetes y adicionales
   const pq = (P.servicios || []).filter(x => x.paquete), ex = (P.servicios || []).filter(x => !x.paquete);
-  if (pq.length || ex.length) out += caja("Para tu próxima visita", `${pq.map(x => `<a class="paq-mini ${x.destacado ? "dest" : ""}" href="${reservar}"><span><b>${h(x.nombre)}</b>${x.destacado ? ` <i>El más elegido</i>` : ""}<small>${h(String(x.incluye || x.descripcion || "").split("\n").filter(y => y && !/\+$/.test(y)).slice(0, 2).join(" · "))}</small></span><b class="p">${soles(x.precio)}</b></a>`).join("")}
+  if (pq.length || ex.length) out += caja("Para tu próxima visita", `${pq.map(x => `<a class="paq-mini ${x.destacado ? "dest" : ""}" href="${reservar}"><span><b>${h(x.nombre)}</b>${x.destacado ? ` <i>Recomendado</i>` : ""}<small>${h(x.descripcion && x.incluye ? String(x.descripcion) : String(x.incluye || x.descripcion || "").split("\n").filter(y => y && !/\+$/.test(y)).slice(0, 2).join(" · "))}</small></span><b class="p">${soles(x.precio)}</b></a>`).join("")}
     ${ex.length ? `<p class="nota" style="margin:12px 0 6px">Súmale:</p><div class="chips">${ex.map(x => `<span class="chip" style="cursor:default">${h(x.nombre)} · ${soles(x.precio)}</span>`).join("")}</div>` : ""}
     ${!D.plan && (P.planes || []).length ? `<div class="aviso" style="margin-top:14px">💡 <b>${h(P.planes[0].nombre)}:</b> ${h(P.planes[0].incluye)} por ${soles(P.planes[0].precio)} al mes. <a href="${wa(n.tel, "Hola, quiero el " + P.planes[0].nombre)}" target="_blank" rel="noopener" style="color:var(--oro)">Quiero mi plan</a></div>` : ""}
     <a class="btn oro bloque" style="margin-top:14px" href="${reservar}">Separar mi próxima hora</a><p class="nota" style="margin-top:8px">Precios para auto o sedán.</p>`, "precios");
@@ -173,7 +173,7 @@ function conectar() {
     } else if (b.id === "ver-tarjeta") { history.replaceState(null, "", location.pathname + location.search + "#t=" + t); O = ""; M = null; window.scrollTo(0, 0); cargar(); }
     else if (b.id === "d-guardar") accion("datos", { email: $("#d-email").value, cumple: $("#d-cumple").value, acepta: $("#d-acepta").checked });
     else if (b.id === "compartir") {
-      const txt = `Te recomiendo ${D.negocio.nombre}: lavan tu auto en tu casa y queda como nuevo. Reserva con mi código ${D.referido.codigo}: ${D.referido.enlace}`;
+      const txt = `Te recomiendo ${D.negocio.nombre}: llegan donde estés y tu auto queda impecable. Reserva con mi código ${D.referido.codigo}: ${D.referido.enlace}`;
       if (navigator.share) navigator.share({ text: txt }).catch(() => { }); else window.open("https://wa.me/?text=" + encodeURIComponent(txt), "_blank");
     } else if (b.id === "g-guardar") {
       const val = k => (document.querySelector(`input[name="${k}"]:checked`) || {}).value || "";
@@ -318,7 +318,7 @@ function pintarMomento(animar = true) {
     if (resp && resp.estado !== "observacion" && !(c.gustos && c.gustos.fecha)) out += `<section class="caja tarjeta" id="gracias-gustos"><h2>¿Cómo te gusta tu auto?</h2><p class="nota">Opcional, 20 segundos. La próxima vez lo atendemos sin que tengas que repetirlo.</p>${formGustosHtml({})}</section>`;
     else if (resp && c.gustos && c.gustos.fecha) out += `<p class="nota" id="gracias-gustos" style="text-align:center">✓ Ya sabemos cómo te gusta tu auto.</p>`;
   } else if (M.momento === "listo") {
-    out += `<section class="momento"><p class="etiqueta-m">Tu auto está listo</p><h1>¡Quedó como nuevo! ✨</h1><p class="nota">${h(o.servicios)} · Total ${soles(o.total)}</p>
+    out += `<section class="momento"><p class="etiqueta-m">Tu auto está listo</p><h1>¡Quedó impecable! ✨</h1><p class="nota">${h(o.servicios)} · Total ${soles(o.total)}</p>
       ${o.antes.length && o.despues.length ? comparador(o.antes[0], o.despues[0]) + `<p class="nota" style="margin-top:6px">Desliza para comparar.</p>` : carrusel(o.despues, "Foto de después")}
       <p style="margin-top:14px">Te lo entregamos en un momento. ¡Gracias por confiar en nosotros!</p></section>`;
   } else {

@@ -140,7 +140,7 @@ function Reparto() {
       <div style="margin-top:8px"><${Progreso} v=${c.hecho} max=${c.debe || 1} c=${c.falta < 1 ? "verde" : ""} /></div><span class="s">Separado ${soles(c.hecho)} de ${soles(Math.round(c.debe))} · saldo acumulado ${soles(c.saldo)}</span></span>
       <span class="der"><${Boton} chico onClick=${() => setTr({ cuenta: c.id, monto: Math.round(c.falta) })}>${c.falta >= 1 ? "Separar " + soles(Math.round(c.falta)) : "Mover"}<//></span></div>`)}</div>
     <div class="btns" style="margin-top:14px"><${Boton} tipo="fantasma" icono="sliders-horizontal" onClick=${() => setPcts(Object.fromEntries(r.cuentas.map(c => [c.id, c.pct])))}>Cambiar porcentajes<//>${total !== 100 && html`<${Insignia} c="rojo">Los % suman ${total}<//>`}</div>
-    <${Socios} r=${r} />
+    <${Socios} r=${r} mes=${mes} />
     ${tr && html`<${FormTransferencia} inicial=${tr} cuentas=${r.cuentas} cerrar=${() => setTr(null)} />`}
     ${pcts && html`<${Hoja} centro titulo="Porcentajes del reparto" cerrar=${() => setPcts(null)} pie=${html`<${Boton} tipo="primario" onClick=${() => { D.fijarAjuste("distribucion", Object.assign({}, D.ajuste("distribucion", {}), { pcts })); setPcts(null); aviso("Porcentajes guardados."); }}>Guardar<//>`}>
       <div class="form">${r.cuentas.map(c => html`<${Numero} etiqueta=${c.n} sufijo="%" decimales=${0} valor=${pcts[c.id]} cambiar=${v => setPcts(Object.assign({}, pcts, { [c.id]: v || 0 }))} />`)}
@@ -148,18 +148,73 @@ function Reparto() {
 }
 // Socios: el sueldo se reparte por el trabajo de cada uno y la ganancia por lo que cada uno es dueño
 // (Michalowicz, Profit First). Escríbanlo y fírmenlo antes de que haya plata de por medio (Gage, The Partnership Charter).
-function Socios({ r }) {
-  const guardados = D.ajuste("socios", []) || [], [ed, setEd] = useState(null);
+// Reparto automático por rol (mientras no fijen porcentajes a mano). «Paga el puesto, no a la persona» (Gerber, El mito del emprendedor):
+// · Sueldo: el % de campo se reparte según los minutos de servicio que hizo cada uno en el mes; el resto, a quien lleva la oficina.
+// · Ganancia: según lo que cada uno es dueño (lo define el dueño); si no lo definieron, en proporción al sueldo.
+const sinTilde = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+export function repartoAuto(mes, sueldo, ganancia) {
+  const cfg = Object.assign({ campo: 75, duenos: {} }, D.ajuste("repartoAuto", {}) || {});
   const eq = D.equipo().filter(x => x.rol === "admin");
-  const base = guardados.length ? guardados : eq.length > 1 ? eq.map(x => ({ id: x.id, nombre: x.nombre, sueldo: Math.round(100 / eq.length), ganancia: Math.round(100 / eq.length) })) : [];
+  const tiene = (e, a) => !(e.areas || []).length || (e.areas || []).includes(a);
+  const quien = o => eq.find(e => o.tecnicoId && e.id === o.tecnicoId) || eq.find(e => sinTilde(e.nombre) === sinTilde(o.tecnico))
+    || eq.find(e => sinTilde(o.tecnico) && sinTilde(e.nombre).split(" ")[0] === sinTilde(o.tecnico).split(" ")[0]);
+  const min = {}; let colab = 0, total = 0;
+  D.lista("ordenes").filter(o => o.estado === "entregado" && String(o.fecha || "").slice(0, 7) === mes).forEach(o => {
+    const m = n0(o.minutosReales) || N.minutosEstandar(o) || 60, x = quien(o); total += m;
+    if (x) min[x.id] = (min[x.id] || 0) + m; else colab += m;
+  });
+  const pc = Math.min(100, Math.max(0, n0(cfg.campo))) / 100, poolC = sueldo * pc, poolO = sueldo - poolC;
+  const deCampo = eq.filter(e => tiene(e, "campo")), deOficina = eq.filter(e => !tiene(e, "campo"));
+  const ofi = deOficina.length ? deOficina : eq.filter(e => e.id === N.idWhatsapp()).length ? eq.filter(e => e.id === N.idWhatsapp()) : eq;
+  const filas = eq.map(e => {
+    const campo = total ? poolC * (min[e.id] || 0) / total : deCampo.length ? (deCampo.includes(e) ? poolC / deCampo.length : 0) : poolC / (eq.length || 1);
+    const oficina = ofi.includes(e) ? poolO / ofi.length : 0;
+    return { id: e.id, nombre: e.nombre, campo, oficina, sueldo: campo + oficina, horas: (min[e.id] || 0) / 60 };
+  });
+  const sumD = Object.values(cfg.duenos || {}).reduce((a, x) => a + n0(x), 0), sumS = filas.reduce((a, f) => a + f.sueldo, 0);
+  filas.forEach(f => { f.pctG = sumD === 100 ? n0(cfg.duenos[f.id]) : sumS ? (f.sueldo / sumS) * 100 : 100 / (filas.length || 1); f.ganancia = ganancia * f.pctG / 100; f.total = f.sueldo + f.ganancia; });
+  return { cfg, filas, colaboradores: total ? poolC * colab / total : 0, duenosDefinidos: sumD === 100, total };
+}
+function Socios({ r, mes }) {
+  const guardados = D.ajuste("socios", []) || [], [ed, setEd] = useState(null), [aj, setAj] = useState(null);
+  const eq = D.equipo().filter(x => x.rol === "admin");
+  const base = guardados.length ? guardados : [];
   const cS = r.cuentas.find(c => c.id === "sueldo") || { debe: 0 }, cG = r.cuentas.find(c => c.id === "ganancia") || { debe: 0 };
-  const editar = () => setEd((base.length ? base : [{ nombre: (D.yo() || {}).nombre || "", sueldo: 50, ganancia: 50 }, { nombre: "", sueldo: 50, ganancia: 50 }]).map(x => Object.assign({}, x)));
+  // a mano: parte de la propuesta automática del mes (no de un 50/50)
+  const editar = () => {
+    const A = eq.length > 1 ? repartoAuto(mes, cS.debe || 100, cG.debe || 100) : null;
+    const prop = A ? A.filas.map(x => ({ id: x.id, nombre: x.nombre, sueldo: Math.round(x.sueldo / ((cS.debe || 100)) * 100), ganancia: Math.round(x.pctG) })) : [{ nombre: (D.yo() || {}).nombre || "", sueldo: 100, ganancia: 100 }];
+    setEd((base.length ? base : prop).map(x => Object.assign({}, x)));
+  };
+  if (!guardados.length && eq.length > 1) {
+    const A = repartoAuto(mes, cS.debe, cG.debe);
+    return html`<${Bloque} titulo="Reparto entre socios" sub="Automático: el sueldo según el trabajo de cada uno; la ganancia, según lo que cada uno es dueño" der=${D.puedeAjuste("socios") && html`<${Boton} chico tipo="fantasma" icono="sliders-horizontal" onClick=${() => setAj({ campo: A.cfg.campo, duenos: Object.assign({}, A.cfg.duenos) })}>Ajustar<//>`}>
+      <div class="grupo">${A.filas.map(x => html`<${Fila} avatar=${x.nombre} titulo=${x.nombre}
+        sub=${[x.campo >= 1 && "campo " + soles(Math.round(x.campo)) + (x.horas ? " (" + num(x.horas, 1) + " h)" : ""), x.oficina >= 1 && "oficina " + soles(Math.round(x.oficina)), "ganancia " + soles(Math.round(x.ganancia)) + " (" + Math.round(x.pctG) + "%)"].filter(Boolean).join(" · ")}
+        der=${html`<b class="cifra">${soles(Math.round(x.total))}</b>`} />`)}
+        ${A.colaboradores >= 1 && html`<${Fila} icono="users" titulo="Colaboradores de campo" sub="Servicios que hizo alguien que no es socio" der=${html`<b class="cifra">${soles(Math.round(A.colaboradores))}</b>`} />`}</div>
+      <p class="nota" style="margin-top:8px">El ${A.cfg.campo}% del sueldo es para el trabajo de campo y se reparte según los servicios que hizo cada uno este mes; el ${100 - A.cfg.campo}% es para quien lleva la oficina. ${A.duenosDefinidos ? "La ganancia va según lo que acordaron como dueños." : "La ganancia va en proporción al sueldo hasta que definan cuánto es dueño cada uno (Ajustar)."}</p>
+      ${aj && html`<${Hoja} centro titulo="Reparto automático" cerrar=${() => setAj(null)} pie=${html`<${Boton} tipo="fantasma" onClick=${() => { setAj(null); editar(); }}>Fijar a mano<//><${Boton} tipo="primario" onClick=${() => {
+          const sD = Object.values(aj.duenos).reduce((a, x) => a + n0(x), 0);
+          if (sD && sD !== 100) return aviso("Lo que es dueño cada uno debe sumar 100% (ahora suma " + sD + "%).", { error: true });
+          D.fijarAjuste("repartoAuto", { campo: n0(aj.campo), duenos: sD ? aj.duenos : {} }); setAj(null); aviso("Reparto guardado.");
+        }}>Guardar<//>`}>
+        <div class="form"><${Numero} etiqueta="Parte del sueldo para el trabajo de campo" sufijo="%" decimales=${0} valor=${aj.campo} cambiar=${v => setAj(Object.assign({}, aj, { campo: v || 0 }))}
+            ayuda="Propuesta 75%: por cada servicio hay unas 2,5 h de campo (trabajo físico, manejo y equipos) y unos 45 min de oficina (mensajes, cobros, compras y redes). El resto es para quien lleva la oficina." />
+          <p class="etq" style="margin-top:6px">¿Cuánto es dueño cada uno? (para la ganancia)</p>
+          ${A.filas.map(x => html`<${Numero} etiqueta=${x.nombre} sufijo="%" decimales=${0} valor=${aj.duenos[x.id] || 0} cambiar=${v => setAj(Object.assign({}, aj, { duenos: Object.assign({}, aj.duenos, { [x.id]: v || 0 }) }))} />`)}
+          <p class="nota">Déjalo en 0 para repartir la ganancia en proporción al sueldo. Escríbanlo y fírmenlo entre los dos (Gage, <i>The Partnership Charter</i>).</p></div><//>`}
+      ${ed && editorManual()}<//>`;
+  }
   return html`<${Bloque} titulo="Reparto entre socios" sub="El sueldo, por el trabajo de cada uno; la ganancia, por lo que cada uno es dueño" der=${D.puedeAjuste("socios") && html`<${Boton} chico tipo="fantasma" icono="pencil" onClick=${editar}>${base.length ? "Cambiar" : "Agregar socios"}<//>`}>
     ${base.length ? html`<div class="grupo">${base.map(x => html`<${Fila} avatar=${x.nombre} titulo=${x.nombre || "Socio"} sub=${"Sueldo " + n0(x.sueldo) + "% · Ganancia " + n0(x.ganancia) + "%"}
         der=${html`<div style="text-align:right"><b class="cifra">${soles(Math.round(cS.debe * n0(x.sueldo) / 100 + cG.debe * n0(x.ganancia) / 100))}</b><div class="s">${soles(Math.round(cS.debe * n0(x.sueldo) / 100))} sueldo + ${soles(Math.round(cG.debe * n0(x.ganancia) / 100))} ganancia</div></div>`} />`)}</div>
-      ${!guardados.length && html`<p class="nota" style="margin-top:8px">Propuesta 50/50. Tócala para ajustarla a lo que acuerden.</p>`}`
+      ${!guardados.length && html`<p class="nota" style="margin-top:8px">Agrega a tu socio en Configuración → Usuarios para que el reparto sea automático.</p>`}`
       : html`<div class="panel"><p class="tenue">Si tienes socios, agrega cuánto le toca a cada uno del sueldo y de la ganancia.</p></div>`}
-    ${ed && html`<${Hoja} centro titulo="Socios y porcentajes" cerrar=${() => setEd(null)} pie=${html`<${Boton} tipo="fantasma" onClick=${() => setEd(null)}>Cancelar<//><${Boton} tipo="primario" onClick=${() => {
+    ${ed && editorManual()}
+    ${!ed && guardados.length > 0 && D.puedeAjuste("socios") && eq.length > 1 && html`<div class="btns" style="margin-top:8px"><${Boton} chico tipo="fantasma" icono="rotate-ccw" onClick=${() => { D.fijarAjuste("socios", []); aviso("Volvió al reparto automático."); }}>Volver al reparto automático<//></div>`}
+  <//>`;
+  function editorManual() { return html`<${Hoja} centro titulo="Socios y porcentajes" cerrar=${() => setEd(null)} pie=${html`<${Boton} tipo="fantasma" onClick=${() => setEd(null)}>Cancelar<//><${Boton} tipo="primario" onClick=${() => {
         const l = ed.filter(x => String(x.nombre || "").trim());
         const sS = l.reduce((a, x) => a + n0(x.sueldo), 0), sG = l.reduce((a, x) => a + n0(x.ganancia), 0);
         if (l.length && (sS !== 100 || sG !== 100)) return aviso("Cada columna debe sumar 100%. Sueldo: " + sS + "%, ganancia: " + sG + "%.", { error: true });
@@ -171,8 +226,7 @@ function Socios({ r }) {
           <${Numero} etiqueta="% de la ganancia" sufijo="%" decimales=${0} valor=${x.ganancia} cambiar=${v => setEd(ed.map((y, j) => (j === i ? Object.assign({}, y, { ganancia: v || 0 }) : y)))} /></div>
           ${ed.length > 1 && html`<div class="btns fin" style="margin-top:6px"><${Boton} chico tipo="fantasma peligro" icono="trash-2" onClick=${() => setEd(ed.filter((y, j) => j !== i))}>Quitar<//></div>`}</div>`)}
         ${ed.length < 4 && html`<${Boton} chico icono="plus" onClick=${() => setEd([...ed, { nombre: "", sueldo: 0, ganancia: 0 }])}>Otro socio<//>`}
-        <${Par} n="Suma sueldo" v=${ed.reduce((a, x) => a + n0(x.sueldo), 0) + "%"} /><${Par} n="Suma ganancia" v=${ed.reduce((a, x) => a + n0(x.ganancia), 0) + "%"} /></div><//>`}
-  <//>`;
+        <${Par} n="Suma sueldo" v=${ed.reduce((a, x) => a + n0(x.sueldo), 0) + "%"} /><${Par} n="Suma ganancia" v=${ed.reduce((a, x) => a + n0(x.ganancia), 0) + "%"} /></div><//>`; }
 }
 function FormTransferencia({ inicial, cuentas, cerrar }) {
   const [f, set] = useFicha(Object.assign({ fecha: hoy(), monto: 0, nota: "", sentido: "entra" }, inicial));

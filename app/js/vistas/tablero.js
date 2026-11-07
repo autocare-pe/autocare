@@ -4,7 +4,7 @@ import { html, useState } from "../../vendor/preact-htm.js";
 import * as D from "../datos.js";
 import * as N from "../negocio.js";
 import { ir, usarTitulo } from "../app.js";
-import { Boton, Hoja, Numero, Pestanas, Semaforo, Spark, Tendencia, Linea, Par, AvisoLinea, Fila, aviso } from "../ui.js";
+import { Boton, Hoja, Numero, Pestanas, Semaforo, Spark, Tendencia, Linea, Par, AvisoLinea, Fila, Interruptor, aviso } from "../ui.js";
 import { hoy, mesDe, sumarMeses, sumarDias, finMes, mesLargo, soles, pct, num, suma, mediana, promedio, diasEntre, MESES_CORTOS, n0, clases } from "../util.js";
 
 const fin = m => (mesDe(hoy()) === m ? hoy() : finMes(m + "-01"));
@@ -17,13 +17,13 @@ export const KPIS = [
   { id: "ingresos", p: "finanzas", n: "Cobros del mes", u: "S/", mejor: "sube", meta: 4000, f: "Suma de todos los cobros registrados en el mes.",
     a: "Kaplan y Norton, Balanced Scorecard", porque: "Es el resultado final. Pero es un indicador de resultado: para moverlo actúa sobre los de clientes y procesos.", mejora: "Llena tu agenda con clientes que vuelven y sube el ticket con adicionales.",
     calc: m => suma(D.lista("pagos").filter(p => enMes(p.fecha, m)), "monto") },
-  { id: "porHora", p: "finanzas", n: "Ganancia por hora", u: "S/", mejor: "sube", meta: 35, f: "(Servicios entregados − insumos usados) ÷ horas trabajadas, contando el traslado.",
+  { id: "porHora", p: "finanzas", n: "Ganancia por hora", u: "S/", mejor: "sube", meta: 22, f: "(Servicios entregados − insumos usados) ÷ horas trabajadas, contando el traslado.",
     a: "Eliyahu Goldratt, La Meta (teoría de restricciones)", porque: "Tus horas son tu límite. No ganas más trabajando más horas, sino haciendo que cada hora deje más.", mejora: "Agrupa citas por zona, vende servicios que dejan más por hora y reduce tiempos muertos.",
     calc: m => N.resultadosMes(m).porHora },
   { id: "margen", p: "finanzas", n: "Margen del mes", u: "%", mejor: "sube", meta: 0.3, f: "(Cobros − gastos) ÷ cobros.",
     a: "Mike Michalowicz, La ganancia es primero", porque: "Vender mucho y que no quede nada es trabajar gratis. El margen dice cuánto de cada sol es tuyo.", mejora: "Revisa en qué se va el dinero y separa tu ganancia apenas cobras (Finanzas → Reparto).",
     calc: m => N.resultadosMes(m).margen },
-  { id: "ticket", p: "finanzas", n: "Ticket promedio", u: "S/", mejor: "sube", meta: 70, f: "Valor de los servicios entregados ÷ número de servicios cobrados.",
+  { id: "ticket", p: "finanzas", n: "Ticket promedio", u: "S/", mejor: "sube", meta: 80, f: "Valor de los servicios entregados ÷ número de servicios cobrados.",
     a: "Indicador clásico de ventas por cliente", porque: "Subir el ticket rinde más que buscar clientes nuevos: el traslado ya lo hiciste.", mejora: "Ofrece un adicional en cada visita (encerado, motor, ozono) y paquetes de 3 niveles.",
     calc: m => N.resultadosMes(m).ticket || null },
   { id: "recurrente", p: "finanzas", n: "Ingresos de planes", u: "%", mejor: "sube", meta: 0.2, f: "Cobros de membresías ÷ cobros totales.",
@@ -79,15 +79,30 @@ export const PERSPECTIVAS = {
   finanzas: { n: "Dinero", d: "¿El negocio deja ganancia?" }, clientes: { n: "Clientes", d: "¿Te eligen y vuelven?" },
   procesos: { n: "Procesos", d: "¿Trabajas bien y sin desperdicio?" }, aprendizaje: { n: "Aprendizaje", d: "¿Mejoras cada semana?" }
 };
-export function metaDe(k) { const m = D.ajuste("metasKpi", {}) || {}; return m[k.id] !== undefined && m[k.id] !== null ? Number(m[k.id]) : k.meta; }
+// Meta de cobros que se calcula sola (Locke y Latham: difícil pero alcanzable): lo cobrado el mes anterior + 15%,
+// nunca menos de S/ 1,500 (unos 20 servicios) ni más del 80% de lo que permite tu horario.
+export const metaAutoActiva = () => ((D.ajuste("metasKpi", {}) || {}).ingresosModo || "auto") === "auto";
+export function metaCobrosAuto(m = mesDe(hoy())) {
+  const ant = mesDe(sumarMeses(m + "-01", -1));
+  const previo = suma(D.lista("pagos").filter(p => enMes(p.fecha, ant)), "monto");
+  let cap = 0; for (let f = m + "-01"; f <= finMes(m + "-01"); f = sumarDias(f, 1)) cap += N.capacidadDia(f);
+  const techo = cap ? (cap / 150) * 75 * 0.8 : Infinity;   // 150 min por servicio con traslado · ticket S/ 75 · 80% de ocupación
+  const meta = Math.min(Math.max(1500, previo * 1.15), Math.max(1500, techo));
+  return { meta: Math.round(meta / 50) * 50, previo, techo };
+}
+export function metaDe(k, m) {
+  const g = D.ajuste("metasKpi", {}) || {};
+  if (k.id === "ingresos" && metaAutoActiva()) return metaCobrosAuto(m).meta;
+  return g[k.id] !== undefined && g[k.id] !== null ? Number(g[k.id]) : k.meta;
+}
 export function valorKpi(k, m) { return D.calculado("kpi:" + k.id + m, () => { const v = k.calc(m); return v === undefined || v === null || !isFinite(v) ? null : v; }); }
 export function formato(k, v) {
   if (v === null || v === undefined) return "—";
   return k.u === "S/" ? soles(Math.round(v)) : k.u === "%" ? pct(v) : k.u === "min" ? num(v) + " min" : k.u === "★" ? num(v, 1) : num(v);
 }
-export function colorKpi(k, v) {
+export function colorKpi(k, v, m) {
   if (v === null) return "";
-  const meta = metaDe(k);
+  const meta = metaDe(k, m);
   if (k.mejor === "baja") return v <= meta ? "verde" : v <= meta * 1.5 ? "ambar" : "rojo";
   return v >= meta ? "verde" : v >= meta * 0.8 ? "ambar" : "rojo";
 }
@@ -99,7 +114,7 @@ export default function Tablero({ ruta }) {
   const t = ruta.partes[0] || "tablero";
   const ant = mesDe(sumarMeses(mes + "-01", -1));
   const meses = Array.from({ length: 6 }, (_, i) => mesDe(sumarMeses(mes + "-01", i - 5)));
-  const rojos = KPIS.filter(k => colorKpi(k, valorKpi(k, mes)) === "rojo");
+  const rojos = KPIS.filter(k => colorKpi(k, valorKpi(k, mes), mes) === "rojo");
   return html`<header class="pagina-cab"><div><h1>Tablero</h1><p>${mesLargo(mes).replace(/^./, x => x.toUpperCase())}. Toca un indicador para ver su fórmula y cómo mejorarlo.</p></div>
       <div class="acciones"><${Boton} icono="chevron-left" titulo="Mes anterior" onClick=${() => setMes(ant)} /><${Boton} onClick=${() => setMes(mesDe(hoy()))}>Este mes<//><${Boton} icono="chevron-right" titulo="Mes siguiente" onClick=${() => setMes(mesDe(sumarMeses(mes + "-01", 1)))} /></div></header>
     <${Pestanas} valor=${t} cambiar=${v => ir("tablero/" + v, true)} opciones=${[{ v: "tablero", n: "Tablero" }, { v: "metas", n: "Metas" }]} />
@@ -107,7 +122,7 @@ export default function Tablero({ ruta }) {
     ${rojos.length > 0 && html`<div style="margin-bottom:20px"><${AvisoLinea} c="oro" icono="target">Enfócate esta semana en <b>${rojos.slice(0, 2).map(k => k.n.toLowerCase()).join(" y ")}</b>. Pocas prioridades bien hechas valen más que muchas a medias (McChesney, Las 4 disciplinas).<//></div>`}
     ${Object.keys(PERSPECTIVAS).map(p => html`<section class="perspectiva"><div class="perspectiva-cab"><h2>${PERSPECTIVAS[p].n}</h2><p>${PERSPECTIVAS[p].d}</p></div>
       <div class="kpis">${KPIS.filter(k => k.p === p).map(k => {
-        const v = valorKpi(k, mes), va = valorKpi(k, ant), c = colorKpi(k, v), meta = metaDe(k);
+        const v = valorKpi(k, mes), va = valorKpi(k, ant), c = colorKpi(k, v, mes), meta = metaDe(k, mes);
         return html`<button class=${clases("kpi", c)} onClick=${() => setVer(k)}>
           <span class="kpi-nombre">${k.n}<${Semaforo} c=${c} /></span>
           <span class="kpi-valor">${formato(k, v)}</span>
@@ -118,26 +133,29 @@ export default function Tablero({ ruta }) {
     ${ver && html`<${DetalleKpi} k=${ver} mes=${mes} meses=${meses} cerrar=${() => setVer(null)} />`}`;
 }
 function DetalleKpi({ k, mes, meses, cerrar }) {
-  const v = valorKpi(k, mes), [meta, setMeta] = useState(k.u === "%" ? metaDe(k) * 100 : metaDe(k));
-  const guardar = () => { D.fijarAjuste("metasKpi", Object.assign({}, D.ajuste("metasKpi", {}), { [k.id]: k.u === "%" ? n0(meta) / 100 : n0(meta) })); aviso("Meta guardada."); cerrar(); };
+  const v = valorKpi(k, mes), [meta, setMeta] = useState(k.u === "%" ? metaDe(k, mes) * 100 : metaDe(k, mes));
+  const esCobros = k.id === "ingresos", [auto, setAuto] = useState(esCobros && metaAutoActiva()), A = esCobros ? metaCobrosAuto(mes) : null;
+  const guardar = () => { D.fijarAjuste("metasKpi", Object.assign({}, D.ajuste("metasKpi", {}), { [k.id]: k.u === "%" ? n0(meta) / 100 : n0(meta) }, esCobros ? { ingresosModo: auto ? "auto" : "manual" } : {})); aviso("Meta guardada."); cerrar(); };
   return html`<${Hoja} titulo=${k.n} sub=${PERSPECTIVAS[k.p].n} cerrar=${cerrar} pie=${D.puedeAjuste("metasKpi") && html`<${Boton} tipo="primario" onClick=${guardar}>Guardar meta<//>`}>
     <div class="cifra-grande" style="margin-bottom:6px">${formato(k, v)}</div>
-    <p class="tenue" style="margin-bottom:18px">Meta: ${formato(k, metaDe(k))} · ${k.mejor === "baja" ? "mientras más bajo, mejor" : "mientras más alto, mejor"}</p>
-    <div class="panel" style="margin-bottom:16px"><${Linea} datos=${meses.map(x => ({ n: MESES_CORTOS[Number(x.slice(5)) - 1], v: valorKpi(k, x) }))} formato=${x => formato(k, x)} meta=${metaDe(k)} /></div>
+    <p class="tenue" style="margin-bottom:18px">Meta: ${formato(k, metaDe(k, mes))}${esCobros && metaAutoActiva() ? " (automática)" : ""} · ${k.mejor === "baja" ? "mientras más bajo, mejor" : "mientras más alto, mejor"}</p>
+    <div class="panel" style="margin-bottom:16px"><${Linea} datos=${meses.map(x => ({ n: MESES_CORTOS[Number(x.slice(5)) - 1], v: valorKpi(k, x) }))} formato=${x => formato(k, x)} meta=${metaDe(k, mes)} /></div>
     <div class="grupo" style="margin-bottom:16px">
       <${Fila} icono="calculator" titulo="Cómo se calcula" sub=${k.f} multi />
       <${Fila} icono="lightbulb" titulo="Por qué importa" sub=${k.porque} multi />
       <${Fila} icono="trending-up" titulo="Cómo mejorarlo" sub=${k.mejora} multi />
       <${Fila} icono="book-open" titulo="De dónde viene" sub=${k.a} multi />
     </div>
-    ${D.puedeAjuste("metasKpi") && html`<${Numero} etiqueta=${"Tu meta" + (k.u === "%" ? " (%)" : k.u === "S/" ? " (S/)" : "")} valor=${meta} cambiar=${setMeta} decimales=${k.u === "★" ? 1 : 0} />`}
+    ${esCobros && html`<div class="panel" style="margin-bottom:12px">${D.puedeAjuste("metasKpi") && html`<${Interruptor} etiqueta="Meta automática" valor=${auto} cambiar=${setAuto} />`}
+      <p class="nota" style="margin-top:6px">Se calcula sola: lo que cobraron el mes anterior (${soles(Math.round(A.previo))}) + 15%, nunca menos de S/ 1,500 ni más del 80% de lo que permite su horario${isFinite(A.techo) ? " (" + soles(Math.round(A.techo)) + ")" : ""}. Este mes: <b>${soles(A.meta)}</b>. Difícil pero alcanzable (Locke y Latham).</p></div>`}
+    ${D.puedeAjuste("metasKpi") && !(esCobros && auto) && html`<${Numero} etiqueta=${"Tu meta" + (k.u === "%" ? " (%)" : k.u === "S/" ? " (S/)" : "")} valor=${meta} cambiar=${setMeta} decimales=${k.u === "★" ? 1 : 0} />`}
   <//>`;
 }
 function Metas() {
   const [m, setM] = useState(() => Object.fromEntries(KPIS.map(k => [k.id, k.u === "%" ? metaDe(k) * 100 : metaDe(k)])));
-  const guardar = () => { D.fijarAjuste("metasKpi", Object.fromEntries(KPIS.map(k => [k.id, k.u === "%" ? n0(m[k.id]) / 100 : n0(m[k.id])]))); aviso("Metas guardadas."); };
+  const guardar = () => { const prev = D.ajuste("metasKpi", {}) || {}; D.fijarAjuste("metasKpi", Object.assign({}, prev, Object.fromEntries(KPIS.filter(k => !(k.id === "ingresos" && metaAutoActiva())).map(k => [k.id, k.u === "%" ? n0(m[k.id]) / 100 : n0(m[k.id])])))); aviso("Metas guardadas."); };
   return html`<${AvisoLinea} icono="target">Pon metas que puedas alcanzar en 3 meses. Una meta imposible desanima; una muy fácil no te mueve.<//>
     ${Object.keys(PERSPECTIVAS).map(p => html`<section class="bloque" style="margin-top:18px"><div class="bloque-cab"><h2>${PERSPECTIVAS[p].n}</h2></div>
-      <div class="panel"><div class="rejilla" style="--col:3">${KPIS.filter(k => k.p === p).map(k => html`<${Numero} etiqueta=${k.n + (k.u === "%" ? " (%)" : k.u === "S/" ? " (S/)" : k.u === "min" ? " (min)" : "")} decimales=${k.u === "★" ? 1 : 0} valor=${m[k.id]} cambiar=${v => setM(Object.assign({}, m, { [k.id]: v }))} />`)}</div></div></section>`)}
+      <div class="panel"><div class="rejilla" style="--col:3">${KPIS.filter(k => k.p === p).map(k => k.id === "ingresos" && metaAutoActiva() ? html`<div class="campo"><span class="etq">${k.n} (S/)</span><p style="padding:10px 0"><b>${soles(metaDe(k))}</b> · automática</p><span class="ayuda">Lo del mes anterior + 15%. Para fijarla a mano, toca el indicador en el Tablero.</span></div>` : html`<${Numero} etiqueta=${k.n + (k.u === "%" ? " (%)" : k.u === "S/" ? " (S/)" : k.u === "min" ? " (min)" : "")} decimales=${k.u === "★" ? 1 : 0} valor=${m[k.id]} cambiar=${v => setM(Object.assign({}, m, { [k.id]: v }))} />`)}</div></div></section>`)}
     ${D.puedeAjuste("metasKpi") && html`<${Boton} tipo="primario" grande onClick=${guardar}>Guardar metas<//>`}`;
 }

@@ -186,10 +186,10 @@ function MiWeb() {
 function Horario() {
   const H = N.horario(), R = Object.assign({ activo: true, adelantoDesdeMin: 180, adelantoPct: 30 }, D.ajuste("reservas", {}));
   const [dias, setDias] = useState(() => { const o = {}; for (let d = 0; d < 7; d++) o[d] = (H.dias[String(d)] || [])[0] || null; return o; });
-  const [f, set] = useFicha({ intervalo: H.intervalo, traslado: H.traslado, maxHoras: H.maxHoras, anticipacion: H.anticipacion, diasAdelante: H.diasAdelante, activo: R.activo !== false, adelantoDesdeMin: R.adelantoDesdeMin, adelantoPct: R.adelantoPct });
+  const [f, set] = useFicha({ autosCarga: H.autosCarga || 0, intervalo: H.intervalo, traslado: H.traslado, maxHoras: H.maxHoras, anticipacion: H.anticipacion, diasAdelante: H.diasAdelante, activo: R.activo !== false, adelantoDesdeMin: R.adelantoDesdeMin, adelantoPct: R.adelantoPct });
   const guardar = () => {
     const d = {}; Object.keys(dias).forEach(k => (d[k] = dias[k] ? [dias[k]] : []));
-    D.fijarAjuste("horario", Object.assign({}, D.ajuste("horario", {}), { dias: d, intervalo: f.intervalo, traslado: f.traslado, maxHoras: f.maxHoras, anticipacion: f.anticipacion, diasAdelante: f.diasAdelante }));
+    D.fijarAjuste("horario", Object.assign({}, D.ajuste("horario", {}), { dias: d, intervalo: f.intervalo, traslado: f.traslado, maxHoras: f.maxHoras, anticipacion: f.anticipacion, diasAdelante: f.diasAdelante, autosCarga: f.autosCarga || 0 }));
     D.fijarAjuste("reservas", Object.assign({}, D.ajuste("reservas", {}), { activo: f.activo, adelantoDesdeMin: f.adelantoDesdeMin, adelantoPct: f.adelantoPct }));
     aviso("Horario guardado.");
   };
@@ -203,6 +203,7 @@ function Horario() {
     </div>
     <div><div class="panel form"><h3>Capacidad</h3>
       <div class="rejilla"><${Numero} etiqueta="Máximo de horas de trabajo al día" decimales=${1} ...${b(f, set, "maxHoras")} /><${Numero} etiqueta="Minutos de traslado entre citas" decimales=${0} ...${b(f, set, "traslado")} /></div>
+      <${Numero} etiqueta="Autos por carga de batería" decimales=${0} ...${b(f, set, "autosCarga")} ayuda="Si tus equipos son a batería: cuántos autos rinde una carga. «Mi día» te avisa cuando hoy necesitas una carga extra. 0 = no aplica." />
       <div class="rejilla"><${Numero} etiqueta="Ofrecer horas cada (min)" decimales=${0} ...${b(f, set, "intervalo")} /><${Numero} etiqueta="Reservar con (horas) de anticipación" decimales=${0} ...${b(f, set, "anticipacion")} /></div>
       <${Numero} etiqueta="Se puede reservar hasta (días adelante)" decimales=${0} ...${b(f, set, "diasAdelante")} />
     </div>

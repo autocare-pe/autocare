@@ -76,6 +76,17 @@ export function slotsDia(fecha, dur, { excluir, estricto } = {}) {
   });
   return out;
 }
+/** ¿Esa hora se cruza con otra cita del día (contando su duración y el traslado)?
+ *  Devuelve la cita con la que choca y la siguiente hora libre, o null si no choca. */
+export function choqueCita(fecha, hora, dur, excluir) {
+  const t = minutos(hora); if (!fecha || t === null) return null;
+  const tr = n0(horario().traslado);
+  const cita = D.lista("citas").find(c => c.fecha === fecha && c.id !== excluir && citaActiva(c) && minutos(c.hora) !== null
+    && t < minutos(c.hora) + (n0(c.minutos) || 60) + tr && t + dur + tr > minutos(c.hora));
+  if (!cita) return null;
+  const libres = slotsDia(fecha, dur, { excluir });
+  return { cita, fin: hhmm(minutos(cita.hora) + (n0(cita.minutos) || 60)), traslado: tr, siguiente: libres.find(h => minutos(h) > t) || libres[0] || null };
+}
 export function proximoLibre(dur, desde = hoy(), dias = 14) {
   for (let i = 0; i < dias; i++) { const f = sumarDias(desde, i), s = slotsDia(f, dur, { estricto: true }); if (s.length) return { fecha: f, hora: s[0] }; }
   return null;
@@ -443,7 +454,7 @@ export function varsRespuesta() {
   return {
     negocio: nombreNegocio(), web, zonas: n.zonas || n.distrito || "Arequipa",
     precios: servs.filter(x => !x.paquete).map(x => "• " + x.nombre + ": " + soles(x.precio) + (x.porTamano ? " (auto)" : "")).join("\n"),
-    paquetes: (paq.length ? paq : servs.slice(0, 3)).map(x => "• " + x.nombre + ": " + soles(x.precio) + (x.incluye ? " — " + String(x.incluye).split("\n").filter(Boolean).slice(0, 3).join(", ") : "")).join("\n"),
+    paquetes: (paq.length ? paq : servs.slice(0, 3)).map(x => "• " + x.nombre + ": " + soles(x.precio) + (x.descripcion && x.incluye ? " — " + String(x.descripcion).trim() : x.incluye ? " — " + String(x.incluye).split("\n").filter(Boolean).slice(0, 3).join(", ") : "")).join("\n"),
     libre: libre ? fechaLarga(libre.fecha) + " a las " + libre.hora : "esta semana",
     planes: D.lista("planes").filter(p => p.activo !== false).map(p => "• " + p.nombre + ": " + soles(p.precio) + (p.incluye ? " — " + p.incluye : "")).join("\n") || "",
     tamanos: tamanos().filter(t => n0(t.pct)).map(t => t.n + " +" + t.pct + "%").join(", "),

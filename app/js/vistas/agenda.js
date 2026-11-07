@@ -8,6 +8,8 @@ import { ElegirCliente, ElegirVehiculo, ElegirServicios, enviarWa, EstadoBadge }
 import { hoy, sumarDias, inicioSemana, fechaCorta, fechaLarga, relativa, minutos, hhmm, duracion, soles, nombreDe, mapa, clases, diaSemana, DIAS_CORTOS, n0, msDe, isoDe, horaDe } from "../util.js";
 import { estadoDe, METODOS } from "../esquema.js";
 
+const citaActivaForm = f => !["cancelada", "no_asistio"].includes(f.estado);
+
 export default function Agenda({ ruta }) {
   D.useDatos();
   usarTitulo("Agenda");
@@ -194,13 +196,23 @@ export function FormCita({ inicial = {}, cerrar }) {
     const vs = id ? N.vehiculosDe(id) : [];
     set({ clienteId: id, vehiculoId: vs[0] ? vs[0].id : "", tamano: vs[0] ? vs[0].tamano || "auto" : f.tamano, direccion: f.direccion || (c ? [c.direccion, c.distrito].filter(Boolean).join(", ") : "") });
   };
-  const guardar = () => {
+  const guardar = async () => {
     if (!f.clienteId) return aviso("Elige o crea el cliente.", { error: true });
     if (!elegidos.length) return aviso("Elige al menos un servicio.", { error: true });
     if (!f.fecha) return aviso("Elige la fecha.", { error: true });
+    // Una sola persona no puede estar en dos autos a la vez: si la hora se cruza (con el traslado), no se agenda
+    let hora = f.hora;
+    const ch = hora && citaActivaForm(f) && N.choqueCita(f.fecha, hora, dur, inicial.id);
+    if (ch) {
+      const quien = ch.cita._cliente || "otro cliente";
+      if (!ch.siguiente) return aviso(`A las ${hora} ya está ${quien} (${ch.cita.hora}–${ch.fin}) y ese día no queda espacio para ${duracion(dur)}. Prueba otro día.`, { error: true, duracion: 8000 });
+      const ok = await confirmar({ titulo: "Esa hora se cruza con otra cita", texto: `${quien} tiene de ${ch.cita.hora} a ${ch.fin}, más ${ch.traslado} min de traslado. La siguiente hora libre para ${duracion(dur)} es ${ch.siguiente}.`, si: "Agendar a las " + ch.siguiente, no: "Elegir otra hora" });
+      if (!ok) return;
+      hora = ch.siguiente; set("hora", hora);
+    }
     const cli = D.uno("clientes", f.clienteId);
     const adelanto = f.adelanto === undefined || f.adelanto === null ? sugerido : n0(f.adelanto);
-    const r = D.guardar("citas", Object.assign({}, inicial, f, { minutos: dur, total, adelanto, adelantoEstado: adelanto ? f.adelantoEstado || "pendiente" : "", _cliente: nombreDe(cli), _servicios: elegidos.map(s => s.nombre).join(" + ") }));
+    const r = D.guardar("citas", Object.assign({}, inicial, f, { hora, minutos: dur, total, adelanto, adelantoEstado: adelanto ? f.adelantoEstado || "pendiente" : "", _cliente: nombreDe(cli), _servicios: elegidos.map(s => s.nombre).join(" + ") }));
     if (!editando) N.asegurarPortal(cli);
     aviso(editando ? "Cita actualizada." : "Cita agendada para " + relativa(r.fecha) + (r.hora ? " a las " + r.hora : "") + ".",
       !editando && cli && cli.tel ? { accion: { n: "Avisar por WhatsApp", f: () => enviarWa(cli.tel, N.mensaje(adelanto ? "adelanto" : "confirmar", N.varsCita(r))) } } : {});

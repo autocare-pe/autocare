@@ -76,6 +76,9 @@ function DiaCampo() {
   const insumos = kitDelDia(citas), equipos = D.lista("activos").filter(a => ["equipo", "herramienta"].includes(a.tipo) && a.estado !== "baja").slice(0, 8);
   const items = [...insumos.map(x => ({ k: "p" + x.id, n: x.n, d: x.falta ? `Necesitas ${x.usos} usos y quedan ${Math.floor(x.disp)}: avisa a la oficina` : `${x.usos} ${x.usos === 1 ? "uso" : "usos"} para hoy`, falta: x.falta })),
     ...equipos.map(a => ({ k: "a" + a.id, n: a.nombre, d: "Cargado y funcionando" })), { k: "comb", n: "Combustible y agua", d: "Para toda la ruta de hoy" }];
+  // Goldratt: si la batería es el cuello de botella, que se vea antes de salir
+  const porCarga = n0(N.horario().autosCarga), pend = citas.filter(c => c.estado !== "completada").length;
+  if (porCarga > 0 && pend > 0) items.unshift({ k: "bat", n: pend > porCarga ? `Baterías: ${pend} autos hoy, una carga rinde ${porCarga}` : "Baterías cargadas", d: pend > porCarga ? "Lleva batería extra o carga en el auto entre servicios" : `Hoy tienes ${pend} ${pend === 1 ? "auto" : "autos"}; una carga alcanza`, falta: pend > porCarga });
   const kitListo = !!kit.listo || (items.length > 0 && items.every(i => kit[i.k]));
   const est = citas.map(c => Object.assign({ c }, estadoCita(c)));
   const hechos = est.filter(e => e.k === "hecho").length, actual = est.find(e => e.k !== "hecho");

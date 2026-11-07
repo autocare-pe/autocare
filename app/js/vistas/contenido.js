@@ -160,7 +160,7 @@ function dibujar(cv, modelo, d, imgs, logo, marca) {
     if (imgs[0]) { cubrir(x, imgs[0], 0, 0, W, H); x.fillStyle = "rgba(0,0,0,.72)"; x.fillRect(0, 0, W, H); }
     logoArriba();
     texto(x, "★".repeat(Math.max(1, Math.min(5, n0(d.estrellas) || 5))), M, H * 0.24, W, 86, { color: VERDE, ancho: false });
-    const y = texto(x, "“" + (d.titulo || "Mi auto quedó como nuevo y no tuve que moverme de casa.") + "”", M, H * 0.24 + 130, W - M * 2, alto ? 70 : 60, { peso: 700, ancho: false, alto: 1.2 });
+    const y = texto(x, "“" + (d.titulo || "Mi auto quedó impecable y no tuve que moverme.") + "”", M, H * 0.24 + 130, W - M * 2, alto ? 70 : 60, { peso: 700, ancho: false, alto: 1.2 });
     texto(x, "— " + (d.subtitulo || "Cliente de AUTOCARE"), M, y + 30, W - M * 2, 38, { peso: 600, color: "#ccc", ancho: false });
     pie(H - M - 60);
   } else if (modelo === "consejo") {
@@ -177,7 +177,7 @@ function dibujar(cv, modelo, d, imgs, logo, marca) {
   } else {
     if (imgs[0]) cubrir(x, imgs[0], 0, 0, W, H);
     degradado(x, H * 0.45, H, 0, 0.92); degradado(x, 0, 220, 0.7, 0); logoArriba();
-    const y = texto(x, d.titulo || "Tu auto como nuevo, sin moverte de casa.", M, H * (alto ? 0.62 : 0.58), W - M * 2, alto ? 86 : 72);
+    const y = texto(x, d.titulo || "Tu auto impecable, sin moverte.", M, H * (alto ? 0.62 : 0.58), W - M * 2, alto ? 86 : 72);
     if (d.subtitulo) texto(x, d.subtitulo, M, y + 14, W - M * 2, 36, { peso: 500, color: "#ddd", ancho: false });
     pie(H - M - 60);
   }

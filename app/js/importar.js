@@ -2,6 +2,7 @@
 // Formato: { autocare: "carga", version: 1, titulo, datos: { clientes: [...], vehiculos: [...], ... }, ajustes: { negocio: {...}, ... } }
 // · Si un registro ya existe (mismo id, mismo WhatsApp, misma placa o mismo nombre), se actualiza: nunca se duplica.
 // · Lo cargado es real: no se marca como práctica aunque el modo práctica esté activo.
+// · Un registro con "_soloSiExiste": true solo actualiza algo que ya tienes (sirve para apagar lo viejo); si no existe, se ignora.
 import * as D from "./datos.js";
 import { ENT } from "./esquema.js";
 
@@ -38,8 +39,8 @@ export function revisar(j) {
     const l = j.datos[e];
     if (!ENT[e]) { avisos.push(`«${e}» no es una lista de la app: se ignora.`); return; }
     if (!Array.isArray(l) || !l.length) return;
-    let nuevos = 0, cambian = 0; l.forEach(r => (existente(e, r) ? cambian++ : nuevos++));
-    filas.push({ e, n: ENT[e].n, nuevos, cambian });
+    let nuevos = 0, cambian = 0; l.forEach(r => (existente(e, r) ? cambian++ : r._soloSiExiste ? null : nuevos++));
+    if (nuevos || cambian) filas.push({ e, n: ENT[e].n, nuevos, cambian });
   });
   const ajustes = Object.keys(j.ajustes || {});
   return { titulo: j.titulo || "Datos preparados", filas, ajustes, avisos };
@@ -53,8 +54,13 @@ export function aplicar(j) {
   entidades.forEach(e => {
     (j.datos[e] || []).forEach(r0 => {
       const r = Object.assign({}, r0);
-      Object.keys(REFS).forEach(k => { if (r[k] && mapaIds[REFS[k] + "/" + r[k]]) r[k] = mapaIds[REFS[k] + "/" + r[k]]; });
+      const traducir = o => Object.keys(REFS).forEach(k => { if (o[k] && mapaIds[REFS[k] + "/" + o[k]]) o[k] = mapaIds[REFS[k] + "/" + o[k]]; });
+      traducir(r);
+      // también dentro de listas (ej. la receta de un servicio: [{ productoId, usos }])
+      Object.keys(r).forEach(k => { if (Array.isArray(r[k])) r[k] = r[k].map(x => (x && typeof x === "object" ? (traducir(x = Object.assign({}, x)), x) : x)); });
       const prev = existente(e, r);
+      const soloSi = r._soloSiExiste; delete r._soloSiExiste;
+      if (soloSi && !prev) return;
       const idArchivo = r.id;
       const rec = prev ? Object.assign({}, prev, r, { id: prev.id }) : r;
       rec.prueba = false; // dato real

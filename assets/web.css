@@ -11,7 +11,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--oro); outline-offset: 2px; }
 .ancho { font-stretch: 125%; }
 .envoltura { width: min(1120px, 100% - 32px); margin: 0 auto; }
-.cab { position: sticky; top: 0; z-index: 10; background: rgba(0,0,0,.82); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--linea); }
+.cab { position: sticky; top: 0; z-index: 10; background: rgba(0,0,0,.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--linea); }
 .cab .envoltura { display: flex; align-items: center; gap: 18px; height: 64px; }
 .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 800; font-stretch: 125%; letter-spacing: .01em; font-size: 18px; }
 .logo i { width: 34px; height: 34px; border-radius: 9px; background: var(--oro); display: grid; place-items: center; }
@@ -131,9 +131,10 @@ textarea.entrada { height: auto; min-height: 84px; padding: 12px 14px; resize: v
 @media (max-width: 860px) { .paquetes { grid-template-columns: 1fr; } }
 .paquete { position: relative; background: var(--capa); border: 1px solid var(--linea); border-radius: 22px; padding: 26px 22px 22px; display: flex; flex-direction: column; gap: 10px; }
 .paquete.destacado { border: 2px solid var(--oro); background: #10140a; transform: translateY(-6px); }
-.paquete.destacado::before { content: "El más elegido"; position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--oro); color: #000; font-size: 12.5px; font-weight: 800; padding: 3px 12px; border-radius: 12px; white-space: nowrap; }
+.paquete.destacado::before { content: "Recomendado"; position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--oro); color: #000; font-size: 12.5px; font-weight: 800; padding: 3px 12px; border-radius: 12px; white-space: nowrap; }
 @media (max-width: 860px) { .paquete.destacado { transform: none; order: -1; } }
 .paquete h3 { font-size: 20px; font-weight: 720; }
+.paquete .gancho { margin: -4px 0 0; font-size: 15px; font-style: italic; color: var(--oro); line-height: 1.35; }
 .paquete .precio { font-size: 34px; }
 .paquete ul { list-style: none; padding: 0; margin: 6px 0 10px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .paquete li { display: flex; gap: 10px; font-size: 15px; color: var(--texto); }
@@ -303,3 +304,7 @@ details.opcional[open] > summary::after { content: " ⌄"; }
   .hecho-m.nuevo .check-anim circle, .hecho-m.nuevo .check-anim path { animation: none; stroke-dashoffset: 0; }
   .btn, .puntos i, .estrellas button { transition: none; }
 }
+
+/* movilidad incluida, a la vista junto a los precios (el "envío gratis" se dice, no se esconde) */
+.movilidad { display: inline-block; margin: 0 0 16px; padding: 8px 14px; border-radius: 999px; background: rgba(208, 255, 20, .12); color: #D0FF14; font-weight: 600; font-size: 14px; }
+.heroe .sub-heroe b { color: #D0FF14; font-weight: 700; }

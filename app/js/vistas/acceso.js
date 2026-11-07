@@ -103,9 +103,9 @@ export function AccesoCliente({ id, cerrar }) {
 export function QrNegocio({ cerrar }) {
   const n = N.negocio(), web = N.webBase();
   const OPS = [
-    { v: "auto", n: "Tu auto", titulo: "Tu auto como nuevo, sin moverte de casa", sub: "Detailing a domicilio en Arequipa", cta: "Escanea y separa tu hora", url: web + "/?src=auto", nombre: "qr-mi-auto",
+    { v: "auto", n: "Tu auto", titulo: "Tu auto impecable, sin moverte", sub: "Llegamos donde estés en Arequipa", cta: "Escanea y separa tu hora", url: web + "/?src=auto", nombre: "qr-mi-auto",
       nota: "Imprímelo en vinil y pégalo en la ventana trasera de tu auto: cada semáforo y cada estacionamiento es publicidad gratis (Levinson, Guerrilla Marketing). Lo que se ve, se contagia (Berger, Contagious)." },
-    { v: "volante", n: "Volantes", titulo: "Tu auto como nuevo, sin moverte de casa", sub: "Mira precios, fotos de antes y después y elige tu hora", cta: "Escanea y separa tu hora en 1 minuto", url: web + "/?src=volante", nombre: "qr-volante",
+    { v: "volante", n: "Volantes", titulo: "Tu auto impecable, sin moverte", sub: "Mira precios, fotos de antes y después y elige tu hora", cta: "Escanea y separa tu hora en 1 minuto", url: web + "/?src=volante", nombre: "qr-volante",
       nota: "Para volantes en condominios, edificios y oficinas. En Resultados → De dónde vienen ves cuántos llegaron por «Volante»: si no funciona, cambia el lugar o el mensaje (Ries, Lean Startup)." },
     { v: "resena", n: "Reseñas", titulo: "¿Te gustó cómo quedó tu auto?", sub: "Cuéntalo en Google: ayuda a otros a decidir y a nosotros a crecer", cta: "Escanea y deja tu opinión", url: n.google || "", nombre: "qr-resenas",
       nota: "Muéstralo a todos tus clientes, no solo a los más contentos: Google no permite elegir a quién se le pide. Con 5 o más opiniones, la compra sube mucho (Spiegel Research Center)." }];

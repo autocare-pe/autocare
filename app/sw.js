@@ -1,5 +1,5 @@
 // AUTOCARE · trabaja sin señal. Si cambias cualquier archivo de la app, sube este número.
-const VERSION = "4.1.4";
+const VERSION = "4.1.5";
 const CACHE = "autocare-" + VERSION;
 const ARCHIVOS = ["./", "index.html", "manifest.webmanifest", "css/app.css", "vendor/preact-htm.js", "vendor/sortable.js",
   "js/main.js", "js/app.js", "js/api.js", "js/datos.js", "js/ui.js", "js/util.js", "js/esquema.js", "js/negocio.js", "js/piezas.js", "js/iconos.js",
