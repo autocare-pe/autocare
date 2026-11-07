@@ -75,7 +75,7 @@ function DiaCampo() {
   const marcarKit = (k, v) => { const n = Object.assign({}, kit, { [k]: v }); setKit(n); ponerLS("autocare.kit." + H, n); };
   const insumos = kitDelDia(citas), equipos = D.lista("activos").filter(a => ["equipo", "herramienta"].includes(a.tipo) && a.estado !== "baja").slice(0, 8);
   const items = [...insumos.map(x => ({ k: "p" + x.id, n: x.n, d: x.falta ? `Necesitas ${x.usos} usos y quedan ${Math.floor(x.disp)}: avisa a la oficina` : `${x.usos} ${x.usos === 1 ? "uso" : "usos"} para hoy`, falta: x.falta })),
-    ...equipos.map(a => ({ k: "a" + a.id, n: a.nombre, d: "Cargado y funcionando" })), { k: "comb", n: "Combustible y agua", d: "Para toda la ruta de hoy" }];
+    ...equipos.map(a => ({ k: "a" + a.id, n: a.nombre, d: "Cargado y funcionando" })), { k: "comb", n: "Combustible y agua", d: rutaHoy(citas) }];
   // Goldratt: si la batería es el cuello de botella, que se vea antes de salir
   const porCarga = n0(N.horario().autosCarga), pend = citas.filter(c => c.estado !== "completada").length;
   if (porCarga > 0 && pend > 0) items.unshift({ k: "bat", n: pend > porCarga ? `Baterías: ${pend} autos hoy, una carga rinde ${porCarga}` : "Baterías cargadas", d: pend > porCarga ? "Lleva batería extra o carga en el auto entre servicios" : `Hoy tienes ${pend} ${pend === 1 ? "auto" : "autos"}; una carga alcanza`, falta: pend > porCarga });
@@ -242,4 +242,11 @@ function Practica() {
     <div class="grupo">${pasos.map((p, i) => html`<${Fila} icono=${p.ok ? "circle-check" : "circle"} colorIcono=${p.ok ? "verde" : ""} titulo=${(i + 1) + ". " + p.t} sub=${p.ok ? "Hecho" : p.d}
       onClick=${() => (p.f ? p.f() : ir(p.ir))} flecha=${!p.ok} clase=${p.ok ? "hecha" : ""} multi />`)}</div>
     ${hechos === pasos.length && html`<div style="margin-top:12px"><${Boton} tipo="primario" icono="eraser" href="#/datos">¡Listo! Borrar la práctica<//></div>`}</details>`;
+}
+
+// Agua y gasolina para la ruta de hoy, según los autos que faltan
+function rutaHoy(citas) {
+  const n = citas.filter(c => c.estado !== "completada").length, agua = n0(N.horario().aguaAuto) * n, km = Math.round(n0(N.movil().km) * n);
+  const t = [agua ? `~${agua} L de agua` : "", km ? `gasolina para ~${km} km` : ""].filter(Boolean).join(" · ");
+  return t ? t + " (si agrupas citas por zona, menos)" : "Para toda la ruta de hoy";
 }

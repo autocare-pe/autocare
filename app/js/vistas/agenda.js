@@ -3,7 +3,7 @@ import { html, useState, useMemo } from "../../vendor/preact-htm.js";
 import * as D from "../datos.js";
 import * as N from "../negocio.js";
 import { ir, usarTitulo, abrir } from "../app.js";
-import { Boton, Icono, Hoja, Entrada, Numero, Dinero, Area, Selector, Pestanas, Segmentos, Insignia, Vacio, Fila, Par, Progreso, AvisoLinea, aviso, confirmar, preguntar, menu, useFicha, b } from "../ui.js";
+import { Boton, Icono, Hoja, Entrada, Numero, Dinero, Area, Selector, Interruptor, Pestanas, Segmentos, Insignia, Vacio, Fila, Par, Progreso, AvisoLinea, aviso, confirmar, preguntar, menu, useFicha, b } from "../ui.js";
 import { ElegirCliente, ElegirVehiculo, ElegirServicios, enviarWa, EstadoBadge } from "../piezas.js";
 import { hoy, sumarDias, inicioSemana, fechaCorta, fechaLarga, relativa, minutos, hhmm, duracion, soles, nombreDe, mapa, clases, diaSemana, DIAS_CORTOS, n0, msDe, isoDe, horaDe } from "../util.js";
 import { estadoDe, METODOS } from "../esquema.js";
@@ -185,7 +185,8 @@ export function FormCita({ inicial = {}, cerrar }) {
   const editando = !!inicial.id;
   const [f, set] = useFicha(Object.assign({ fecha: hoy(), hora: "", servicios: [], tamano: "auto", estado: "confirmada", origen: "app", direccion: "", nota: "", clienteId: "", vehiculoId: "" }, inicial));
   const cat = D.lista("servicios"), elegidos = cat.filter(s => (f.servicios || []).includes(s.id));
-  const dur = elegidos.length ? N.minutosCon(elegidos, f.tamano) : n0(f.minutos) || 60;
+  // Auto muy sucio o con mascota: no se cobra más, pero se reserva más tiempo para que no se cruce con la siguiente cita
+  const dur = elegidos.length ? N.minutosCon(elegidos, f.tamano) + (f.sucio ? 30 : 0) : n0(f.minutos) || 60;
   const total = elegidos.reduce((a, s) => a + N.precioCon(s, f.tamano), 0);
   const R = Object.assign({ adelantoDesdeMin: 180, adelantoPct: 30 }, D.ajuste("reservas", {}));
   const pideAdelanto = dur >= n0(R.adelantoDesdeMin) || elegidos.some(s => s.adelanto);
@@ -224,6 +225,7 @@ export function FormCita({ inicial = {}, cerrar }) {
       <${ElegirVehiculo} clienteId=${f.clienteId} valor=${f.vehiculoId} cambiar=${(id, v) => set({ vehiculoId: id, tamano: (v && v.tamano) || f.tamano })} />
       <${Segmentos} etiqueta="Tamaño del vehículo" valor=${f.tamano} cambiar=${v => set("tamano", v)} opciones=${N.tamanos().map(t => ({ v: t.id, n: t.n.split(" ")[0] }))} />
       <${ElegirServicios} valor=${f.servicios} cambiar=${v => set("servicios", v)} tamano=${f.tamano} />
+      ${elegidos.length > 0 && html`<${Interruptor} etiqueta="Auto muy sucio o con mascota (+30 min)" valor=${!!f.sucio} cambiar=${v => set("sucio", v)} ayuda="No se cobra más: solo se reserva más tiempo para no cruzarse con la siguiente cita." />`}
       <div class="campo"><span class="etq">Fecha</span>
         <div class="dias-rapidos">${dias.map(d => html`<button type="button" class=${clases("dia-rapido", d === f.fecha && "activo", !N.capacidadDia(d) && "lleno")} onClick=${() => set("fecha", d)}><small>${DIAS_CORTOS[diaSemana(d)]}</small><b>${Number(d.slice(8))}</b></button>`)}</div>
         <input class="entrada" type="date" value=${f.fecha} onChange=${e => set("fecha", e.currentTarget.value)} aria-label="Otra fecha" /></div>

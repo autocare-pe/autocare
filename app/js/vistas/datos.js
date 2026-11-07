@@ -98,7 +98,7 @@ function Portada() {
 }
 
 // Cargar el archivo .json que prepara Claude con tus listas (clientes, autos, precios, productos…)
-const NOMBRE_AJUSTE = { negocio: "Datos del negocio", horario: "Horario y reservas", fidelidad: "Tarjeta de sellos", ruleta: "Ruleta de premios", calidad: "Revisión final", fotos: "Fotos de servicios", merch: "Merchandising", socios: "Socios" };
+const NOMBRE_AJUSTE = { negocio: "Datos del negocio", horario: "Horario y reservas", fidelidad: "Tarjeta de sellos", ruleta: "Ruleta de premios", calidad: "Revisión final", fotos: "Fotos de servicios", merch: "Merchandising", socios: "Socios", reservas: "Reservas y adelantos", movil: "Movilidad por servicio", publicidad: "Regla de publicidad" };
 function CargarArchivo({ practica }) {
   const [j, setJ] = useState(null), [r, setR] = useState(null);
   const elegir = async ev => {

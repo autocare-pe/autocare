@@ -232,7 +232,7 @@ function faq(n) {
     [`¿Cuánto demora?`, `El Express toma alrededor de una hora; el Impecable, unas dos; Interior Total y Exposición, de 3 a 4 horas y media. Tú sigues con tu día mientras trabajamos.`],
     [`¿Cómo pago?`, `${n.pagos || "Efectivo, Yape, Plin o transferencia"}, al terminar, cuando ya viste el resultado. Los servicios largos piden un adelanto pequeño para separar la hora.`],
     [`¿A qué zonas van? ¿Cobran movilidad?`, n.movilidad ? n.movilidad : n.zonas ? `Atendemos ${n.zonas}. Si estás en otra zona, escríbenos y lo vemos.` : `Atendemos en ${n.distrito || "Arequipa"}. Escríbenos tu distrito y te confirmamos.`],
-    [`¿Y si mi auto está muy sucio?`, `Si tiene barro, arena o pelo de mascota en exceso, te lo mostramos con foto al llegar y se suman S/ 20. Nunca cobramos algo que no hayas visto antes.`],
+    [`¿Y si mi auto está muy sucio?`, `No pagas más: barro, arena o polvo acumulado van incluidos y queda impecable igual. Solo cuéntanos al reservar para darle el tiempo que necesita.`],
     [`¿Y si no quedo conforme?`, `Revisamos el auto contigo antes de empezar. Si algo no queda bien, volvemos y lo repasamos sin costo.`],
     [`¿Tienen premios por volver?`, `Sí. Desde tu primer servicio tu tarjeta ya trae sellos de regalo, y al completarla recibes un servicio gratis. La ves en tu enlace personal.`]];
   $("#faq").innerHTML = L.map(([p, r]) => `<details><summary>${h(p)}</summary><p>${h(r)}</p></details>`).join("");

@@ -169,7 +169,7 @@ function estadoCot(c) { return c.estado === "enviada" && sumarDias(c.fecha, n0(c
 function Cotizaciones() {
   const l = D.lista("cotizaciones").slice().sort((a, c) => String(c.fecha + (c.numero || "")).localeCompare(String(a.fecha + (a.numero || ""))));
   const env = l.filter(c => estadoCot(c) === "enviada"), acep = l.filter(c => c.estado === "aceptada").length, resp = l.filter(c => ["aceptada", "rechazada"].includes(c.estado)).length;
-  return html`<div class="filtros"><p class="tenue" style="flex:1">Para trabajos grandes: detallados de SUV, autos muy sucios, flotas de empresa. ${resp ? `Te aceptan el ${Math.round((acep / resp) * 100)}%.` : ""} ${env.length ? `${env.length} esperan respuesta: haz seguimiento a los 2 días.` : ""}</p>
+  return html`<div class="filtros"><p class="tenue" style="flex:1">Para trabajos grandes: flotas de empresa, varios autos en un mismo lugar o trabajos especiales. ${resp ? `Te aceptan el ${Math.round((acep / resp) * 100)}%.` : ""} ${env.length ? `${env.length} esperan respuesta: haz seguimiento a los 2 días.` : ""}</p>
       <${Boton} tipo="primario" icono="plus" href="#/ventas/cotizaciones/nueva">Nueva cotización<//></div>
     <${Tabla} filas=${l} onFila=${c => ir("ventas/cotizaciones/" + c.id)} vacio=${html`<${Vacio} icono="file-text" titulo="Aún no haces cotizaciones" texto="El cliente la ve en su enlace personal, la acepta y la firma desde su celular." />`}
       movil=${c => html`<${Fila} icono="file-text" titulo=${(c.numero || "Borrador") + " · " + (c._cliente || "")} sub=${fechaCorta(c.fecha)} der=${html`<b class="cifra">${soles(c.total)}</b><${EstadoBadge} ent="cotizaciones" v=${estadoCot(c)} />`} href=${"#/ventas/cotizaciones/" + c.id} />`}

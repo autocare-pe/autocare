@@ -26,7 +26,7 @@ export default function Config({ ruta }) {
 // ---------------------------------------------------------------- negocio y fidelidad
 function Negocio() {
   const n = D.ajuste("negocio", {}), fi = D.ajuste("fidelidad", {});
-  const [f, set] = useFicha(Object.assign({ nombre: "AUTOCARE", eslogan: "", tel: "", distrito: "Arequipa", zonas: "", web: location.origin + location.pathname.replace(/\/app\/?.*$/, ""), google: "", ruc: "", pagos: "", ig: "", fb: "", tt: "", yapeNum: "", yapeTit: "" },
+  const [f, set] = useFicha(Object.assign({ nombre: "AUTOCARE", eslogan: "", tel: "", distrito: "Arequipa", zonas: "", movilidad: "", agua: false, luz: false, web: location.origin + location.pathname.replace(/\/app\/?.*$/, ""), google: "", ruc: "", pagos: "", ig: "", fb: "", tt: "", yapeNum: "", yapeTit: "" },
     n, { ig: (n.redes || {}).ig || "", fb: (n.redes || {}).fb || "", tt: (n.redes || {}).tt || "", yapeNum: (n.yape || {}).numero || "", yapeTit: (n.yape || {}).titular || "" }));
   const [F, setF] = useFicha(Object.assign({ activo: true, cada: 8, regalo: 2, bono: 1, premio: "Lavado completo", volver: 30, manual: true }, fi));
   const guardar = () => {
@@ -43,12 +43,15 @@ function Negocio() {
       <div class="titulo-seccion"><h3>Lo básico</h3></div>
       <div class="rejilla"><${Entrada} etiqueta="Nombre" ...${b(f, set, "nombre")} /><${Entrada} etiqueta="Frase corta" ...${b(f, set, "eslogan")} placeholder="Detailing a domicilio" /></div>
       <div class="rejilla"><${Entrada} etiqueta="Ciudad o distrito base" ...${b(f, set, "distrito")} /><${Entrada} etiqueta="Zonas que atiendes" ...${b(f, set, "zonas")} placeholder="Cayma, Yanahuara, Cerro Colorado…" /></div>
+      <${Area} etiqueta="Movilidad" filas=${2} ...${b(f, set, "movilidad")} placeholder="Incluida en Cayma, Yanahuara… Más lejos, el Express suma S/ 10." ayuda="Sale en tu web junto a los precios y en las preguntas frecuentes. La primera oración es la que se ve en grande." />
+      <div class="rejilla"><${Interruptor} etiqueta="El cliente nos da agua" ...${b(f, set, "agua")} ayuda="Apagado = tu web dice que llevan el agua." /><${Interruptor} etiqueta="El cliente nos da un enchufe" ...${b(f, set, "luz")} ayuda="Apagado = tu web dice que llevan su propia energía." /></div>
       <div class="separador"></div>
       <div class="titulo-seccion"><h3>Contacto y pagos</h3><p>¿Cambias de número? Solo cámbialo aquí. Lo impreso (polo, QR, stickers, tarjetas) no lleva tu número: no tienes que reimprimir nada.</p></div>
       <${Entrada} etiqueta="WhatsApp del negocio" ...${b(f, set, "tel")} />
       ${D.somosVarios() && html`<${Selector} etiqueta="¿Quién maneja este WhatsApp?" valor=${f.waUsuario || N.idWhatsapp()} cambiar=${v => set("waUsuario", v)}
         opciones=${D.equipo().filter(x => x.activo !== false).map(x => ({ v: x.id, n: x.nombre }))} ayuda="A esa persona le llegan los mensajes «Por enviar» (revisión de llegada, auto listo, fotos y premio). Quien está en campo solo trabaja; cámbialo cuando cambien los puestos." />`}
       <div class="rejilla"><${Entrada} etiqueta="Yape: número" ...${b(f, set, "yapeNum")} /><${Entrada} etiqueta="Yape: titular" ...${b(f, set, "yapeTit")} /></div>
+      <${Entrada} etiqueta="Formas de pago" ...${b(f, set, "pagos")} placeholder="Efectivo, Yape o Plin" />
       <div class="separador"></div>
       <div class="titulo-seccion"><h3>Redes</h3><p>Salen como botones en tu web, en la tarjeta de tus clientes y en tu página de enlaces.</p></div>
       <div class="rejilla"><${Entrada} etiqueta="Instagram (usuario)" ...${b(f, set, "ig")} /><${Entrada} etiqueta="TikTok (usuario)" ...${b(f, set, "tt")} /></div>
@@ -186,10 +189,10 @@ function MiWeb() {
 function Horario() {
   const H = N.horario(), R = Object.assign({ activo: true, adelantoDesdeMin: 180, adelantoPct: 30 }, D.ajuste("reservas", {}));
   const [dias, setDias] = useState(() => { const o = {}; for (let d = 0; d < 7; d++) o[d] = (H.dias[String(d)] || [])[0] || null; return o; });
-  const [f, set] = useFicha({ autosCarga: H.autosCarga || 0, intervalo: H.intervalo, traslado: H.traslado, maxHoras: H.maxHoras, anticipacion: H.anticipacion, diasAdelante: H.diasAdelante, activo: R.activo !== false, adelantoDesdeMin: R.adelantoDesdeMin, adelantoPct: R.adelantoPct });
+  const [f, set] = useFicha({ autosCarga: H.autosCarga || 0, aguaAuto: H.aguaAuto || 0, intervalo: H.intervalo, traslado: H.traslado, maxHoras: H.maxHoras, anticipacion: H.anticipacion, diasAdelante: H.diasAdelante, activo: R.activo !== false, adelantoDesdeMin: R.adelantoDesdeMin, adelantoPct: R.adelantoPct });
   const guardar = () => {
     const d = {}; Object.keys(dias).forEach(k => (d[k] = dias[k] ? [dias[k]] : []));
-    D.fijarAjuste("horario", Object.assign({}, D.ajuste("horario", {}), { dias: d, intervalo: f.intervalo, traslado: f.traslado, maxHoras: f.maxHoras, anticipacion: f.anticipacion, diasAdelante: f.diasAdelante, autosCarga: f.autosCarga || 0 }));
+    D.fijarAjuste("horario", Object.assign({}, D.ajuste("horario", {}), { dias: d, intervalo: f.intervalo, traslado: f.traslado, maxHoras: f.maxHoras, anticipacion: f.anticipacion, diasAdelante: f.diasAdelante, autosCarga: f.autosCarga || 0, aguaAuto: f.aguaAuto || 0 }));
     D.fijarAjuste("reservas", Object.assign({}, D.ajuste("reservas", {}), { activo: f.activo, adelantoDesdeMin: f.adelantoDesdeMin, adelantoPct: f.adelantoPct }));
     aviso("Horario guardado.");
   };
@@ -204,6 +207,7 @@ function Horario() {
     <div><div class="panel form"><h3>Capacidad</h3>
       <div class="rejilla"><${Numero} etiqueta="Máximo de horas de trabajo al día" decimales=${1} ...${b(f, set, "maxHoras")} /><${Numero} etiqueta="Minutos de traslado entre citas" decimales=${0} ...${b(f, set, "traslado")} /></div>
       <${Numero} etiqueta="Autos por carga de batería" decimales=${0} ...${b(f, set, "autosCarga")} ayuda="Si tus equipos son a batería: cuántos autos rinde una carga. «Mi día» te avisa cuando hoy necesitas una carga extra. 0 = no aplica." />
+      <${Numero} etiqueta="Litros de agua por auto" decimales=${0} ...${b(f, set, "aguaAuto")} ayuda="Si llevan el agua: «Mi día» calcula cuánta cargar según los autos de hoy. 0 = no lo muestra." />
       <div class="rejilla"><${Numero} etiqueta="Ofrecer horas cada (min)" decimales=${0} ...${b(f, set, "intervalo")} /><${Numero} etiqueta="Reservar con (horas) de anticipación" decimales=${0} ...${b(f, set, "anticipacion")} /></div>
       <${Numero} etiqueta="Se puede reservar hasta (días adelante)" decimales=${0} ...${b(f, set, "diasAdelante")} />
     </div>

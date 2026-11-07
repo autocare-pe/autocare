@@ -541,13 +541,24 @@ export function capacidadMesMin() {
   }
   return semana * 52 / 12 * 0.8;
 }
+// Movilidad: lo que cuesta ir y volver a cada servicio (gasolina + desgaste del vehículo por km)
+export function movil() { return Object.assign({ km: 10, kmGalon: 22, galon: 24, mantKm: 0.15 }, D.ajuste("movil", {}) || {}); }
+export function costoMovilidad() { const m = movil(), g = n0(m.kmGalon); return n0(m.km) * ((g > 0 ? n0(m.galon) / g : 0) + n0(m.mantKm)); }
+// Publicidad que crece con el negocio: % de lo cobrado el mes pasado, con un mínimo (SBA: 7–8%; un negocio nuevo, algo más)
+export function publicidadSugerida(m = mesDe(hoy())) {
+  const p = Object.assign({ pct: 10, min: 60 }, D.ajuste("publicidad", {}) || {});
+  const [a, mm] = m.split("-").map(Number), ant = mm === 1 ? (a - 1) + "-12" : a + "-" + String(mm - 1).padStart(2, "0");
+  const previo = suma(D.lista("pagos").filter(x => String(x.fecha || "").slice(0, 7) === ant), "monto");
+  return { monto: Math.max(n0(p.min), Math.round(previo * n0(p.pct) / 100 / 10) * 10), previo, pct: n0(p.pct), min: n0(p.min), mesAnterior: ant };
+}
 export function tasaMinuto() { const c = capacidadMesMin(); return c ? costosFijosMes() / c : 0; }
 export function rentabilidad(s, tam = "auto") {
   const precio = precioCon(s, tam), insumos = costoInsumos(s), min = (n0(s.minutos) || 60) + n0(tamanoDe(tam).min);
-  const traslado = n0(horario().traslado), tiempo = min + traslado;
-  const contribucion = precio - insumos;
+  // Un adicional se hace en la misma visita: no lleva traslado ni movilidad propios
+  const adicional = s.categoria === "adicional", traslado = adicional ? 0 : n0(horario().traslado), tiempo = min + traslado, movilidad = adicional ? 0 : costoMovilidad();
+  const contribucion = precio - insumos - movilidad;
   const costoTiempo = tasaMinuto() * tiempo;
-  return { precio, insumos, minutos: min, traslado, contribucion, porHora: tiempo ? contribucion / (tiempo / 60) : 0, costoTiempo, utilidad: contribucion - costoTiempo, margen: precio ? (contribucion - costoTiempo) / precio : 0 };
+  return { precio, insumos, movilidad, minutos: min, traslado, contribucion, porHora: tiempo ? contribucion / (tiempo / 60) : 0, costoTiempo, utilidad: contribucion - costoTiempo, margen: precio ? (contribucion - costoTiempo) / precio : 0 };
 }
 export function resultados(desde, hasta) {
   const en = f => f >= desde && f <= hasta;

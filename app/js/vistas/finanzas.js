@@ -4,7 +4,7 @@ import * as D from "../datos.js";
 import * as N from "../negocio.js";
 import { ir, usarTitulo } from "../app.js";
 import { menu } from "../ui.js";
-import { Boton, Hoja, Entrada, Numero, Dinero, Area, Selector, Chips, Pestanas, Insignia, Vacio, Fila, Bloque, Resumen, Barras, BarrasH, Tabla, Par, AvisoLinea, Progreso, aviso, confirmar, useFicha, b } from "../ui.js";
+import { Boton, Hoja, Entrada, Numero, Dinero, Area, Selector, Chips, MasDatos, Pestanas, Insignia, Vacio, Fila, Bloque, Resumen, Barras, BarrasH, Tabla, Par, AvisoLinea, Progreso, aviso, confirmar, useFicha, b } from "../ui.js";
 import { ElegirCliente } from "../piezas.js";
 import { hoy, sumarDias, sumarMeses, mesDe, mesLargo, inicioMes, finMes, fechaCorta, fechaLarga, relativa, soles, pct, duracion, suma, nombreDe, n0, MESES_CORTOS, num } from "../util.js";
 import { METODOS, CATEGORIAS_GASTO } from "../esquema.js";
@@ -243,19 +243,49 @@ function Rentabilidad() {
   const [tam, setTam] = useState("auto"), [cf, setCf] = useState(null);
   const servs = N.serviciosActivos().map(s => Object.assign({ id: s.id, nombre: s.nombre }, N.rentabilidad(s, tam)));
   const fijos = D.lista("costosFijos"), tasa = N.tasaMinuto();
-  return html`<${AvisoLinea} c="oro" icono="lightbulb">Cada servicio debe pagar los insumos <b>y el tiempo</b> que te toma, incluido el traslado. Costo de tu tiempo = costos fijos del mes ÷ minutos que puedes trabajar (Kaplan y Anderson, costeo por tiempo).<//>
+  return html`<${AvisoLinea} c="oro" icono="lightbulb">Cada servicio debe pagar los insumos, la movilidad <b>y el tiempo</b> que te toma, incluido el traslado (los adicionales van en la misma visita: sin traslado). Costo de tu tiempo = costos fijos del mes ÷ minutos que puedes trabajar (Kaplan y Anderson, costeo por tiempo).<//>
     <div style="margin:16px 0"><${Resumen} items=${[{ n: "Costos fijos al mes", v: soles(Math.round(N.costosFijosMes())) }, { n: "Horas útiles al mes (80%)", v: num(N.capacidadMesMin() / 60) + " h" }, { n: "Costo de tu tiempo", v: soles(tasa * 60) + " / h", c: "oro" }]} /></div>
     <div style="margin-bottom:12px"><${Chips} valor=${tam} cambiar=${v => setTam(v || "auto")} opciones=${N.tamanos().map(t => ({ v: t.id, n: t.n }))} /></div>
     <${Tabla} filas=${servs} vacio=${html`<${Vacio} titulo="Agrega servicios en Configuración" />`}
       movil=${s => html`<${Fila} icono="sparkles" titulo=${s.nombre} sub=${soles(Math.round(s.porHora)) + " por hora · " + pct(s.margen) + " margen"} der=${html`<b class="cifra" style=${{ color: s.utilidad < 0 ? "var(--rojo)" : "" }}>${soles(Math.round(s.utilidad))}</b>`} />`}
-      cols=${[{ k: "nombre", n: "Servicio", clase: "prin" }, { k: "precio", n: "Precio", num: true, f: s => soles(s.precio) }, { k: "insumos", n: "Insumos", num: true, f: s => soles(s.insumos) },
+      cols=${[{ k: "nombre", n: "Servicio", clase: "prin" }, { k: "precio", n: "Precio", num: true, f: s => soles(s.precio) }, { k: "insumos", n: "Insumos", num: true, f: s => soles(s.insumos) }, { k: "movilidad", n: "Movilidad", num: true, f: s => soles(s.movilidad) },
         { k: "minutos", n: "Tiempo + traslado", num: true, f: s => duracion(s.minutos + s.traslado) }, { k: "porHora", n: "Deja por hora", num: true, f: s => html`<b>${soles(Math.round(s.porHora))}</b>` },
         { k: "utilidad", n: "Utilidad real", num: true, f: s => html`<span style=${{ color: s.utilidad < 0 ? "var(--rojo)" : "var(--verde)" }}>${soles(Math.round(s.utilidad))}</span>` }, { k: "margen", n: "Margen", num: true, f: s => pct(s.margen) }]}
       ordenInicial=${{ k: "porHora", d: true }} />
     <${Bloque} titulo="Costos fijos del mes" sub="Lo que pagas aunque no laves ningún auto" der=${html`<${Boton} chico icono="plus" onClick=${() => setCf({})}>Agregar<//>`} clase="" >
       <div style="margin-top:4px"></div>${fijos.length ? html`<div class="grupo">${fijos.map(c => html`<${Fila} icono="calendar-clock" titulo=${c.nombre} sub=${CATEGORIAS_GASTO[c.categoria] || ""} der=${html`<b class="cifra">${soles(c.monto)}</b>`} onClick=${() => setCf(c)} />`)}</div>`
         : html`<p class="nota">Agrega celular, plan de datos, seguro, cuota del vehículo, publicidad fija y tu sueldo base. Sin esto, la utilidad real se ve mejor de lo que es.</p>`}<//>
+    <${Movilidad} />
+    <${PublicidadMes} />
     ${cf && html`<${FormCostoFijo} c=${cf} cerrar=${() => setCf(null)} />`}`;
+}
+// Gasolina y desgaste del vehículo por servicio: se resta en «Deja por hora» de cada servicio
+function Movilidad() {
+  const [f, set] = useFicha(N.movil());
+  const g = n0(f.kmGalon), costo = n0(f.km) * ((g > 0 ? n0(f.galon) / g : 0) + n0(f.mantKm));
+  return html`<${Bloque} titulo="Movilidad por servicio" sub="Ir y volver a cada cliente. Anota el kilometraje una semana y ajusta los km." clase="">
+    <div class="form" style="margin-top:4px">
+      <div class="rejilla"><${Numero} etiqueta="Km ida y vuelta por servicio" decimales=${1} ...${b(f, set, "km")} /><${Numero} etiqueta="Km por galón" decimales=${1} ...${b(f, set, "kmGalon")} /></div>
+      <div class="rejilla"><${Dinero} etiqueta="Precio del galón" ...${b(f, set, "galon")} /><${Dinero} etiqueta="Mantenimiento por km" ...${b(f, set, "mantKm")} ayuda="Aceite, llantas y revisiones. S/ 0.15 es un estimado prudente." /></div>
+      <p class="nota">Cada servicio cuesta <b>${soles(costo)}</b> en movilidad. Si dos citas seguidas están en la misma zona, baja mucho: agrúpalas cuando puedas.</p>
+      <${Boton} chico tipo="primario" onClick=${() => { D.fijarAjuste("movil", { km: n0(f.km), kmGalon: n0(f.kmGalon), galon: n0(f.galon), mantKm: n0(f.mantKm) }); aviso("Movilidad guardada."); }}>Guardar movilidad<//>
+    </div><//>`;
+}
+// Publicidad progresiva: crece con lo que cobras
+function PublicidadMes() {
+  const s = N.publicidadSugerida(), [f, set] = useFicha({ pct: s.pct, min: s.min });
+  const pub = D.lista("costosFijos").find(c => c.categoria === "marketing");
+  const usar = () => { D.guardar("costosFijos", Object.assign({ nombre: "Publicidad", categoria: "marketing" }, pub || {}, { monto: s.monto })); aviso("Publicidad del mes: " + soles(s.monto) + "."); };
+  return html`<${Bloque} titulo="Publicidad de este mes" sub="Sube a medida que cobras más" clase="">
+    <div class="form" style="margin-top:4px">
+      <p>Sugerido: <b class="cifra">${soles(s.monto)}</b> = ${s.pct}% de lo cobrado el mes pasado (${soles(s.previo)}), mínimo ${soles(s.min)}. ${pub ? html`Hoy tienes ${soles(pub.monto)} en costos fijos.` : ""}</p>
+      <${Boton} chico tipo="primario" onClick=${usar}>Usar ${soles(s.monto)} este mes<//>
+      <${MasDatos} titulo="Cambiar la regla">
+        <div class="rejilla"><${Numero} etiqueta="% de lo cobrado" decimales=${0} ...${b(f, set, "pct")} /><${Dinero} etiqueta="Mínimo al mes" ...${b(f, set, "min")} /></div>
+        <${Boton} chico onClick=${() => { D.fijarAjuste("publicidad", { pct: n0(f.pct), min: n0(f.min) }); aviso("Regla guardada."); }}>Guardar regla<//>
+      <//>
+      <p class="nota">Solo súbela si cada cliente nuevo te cuesta menos de un tercio de lo que te deja en su vida (David Skok). Mira cuántos clientes trae cada canal en Resultados.</p>
+    </div><//>`;
 }
 function FormCostoFijo({ c, cerrar }) {
   const [f, set] = useFicha(Object.assign({ nombre: "", categoria: "telefono", monto: null }, c));
