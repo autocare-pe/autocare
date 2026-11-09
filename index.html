@@ -8,7 +8,16 @@
 <meta name="theme-color" content="#000000">
 <meta property="og:title" content="AUTOCARE · Tu auto impecable, sin moverte">
 <meta property="og:description" content="Lavado y detailing a domicilio en Arequipa. Llegamos donde estés. Separa tu hora en un minuto.">
-<meta property="og:image" content="app/icons/icon-512.png?v=2">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="es_PE">
+<meta property="og:site_name" content="AUTOCARE">
+<meta property="og:url" content="https://autocare-pe.github.io/autocare/">
+<meta property="og:image" content="https://autocare-pe.github.io/autocare/assets/compartir.jpg?v=1">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="AUTOCARE: tu auto impecable, sin moverte. Lavado y detailing a domicilio en Arequipa.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://autocare-pe.github.io/autocare/">
 <link rel="icon" type="image/png" sizes="32x32" href="app/icons/favicon-32.png?v=2">
 <link rel="icon" type="image/png" sizes="192x192" href="app/icons/icon-192.png?v=2">
 <link rel="apple-touch-icon" href="app/icons/icon-180.png?v=2">
@@ -89,7 +98,7 @@
           <label class="campo">Placa (opcional)<input class="entrada" name="placa" style="text-transform:uppercase"></label>
           <label class="campo todo">Algo que debamos saber<textarea class="entrada" name="nota" placeholder="Ej.: tiene pelos de mascota, manchas en el asiento"></textarea></label>
           <input name="web" class="oculto" tabindex="-1" autocomplete="off">
-          <label class="check todo"><input type="checkbox" name="acepta" checked> Quiero recibir recordatorios y promociones por WhatsApp. Puedo darme de baja cuando quiera.</label>
+          <label class="check todo"><input type="checkbox" name="acepta"> Quiero que me avisen por WhatsApp cuando me toque lavar y de sus promociones. Puedo darme de baja cuando quiera.</label>
         </form>
       </div>
     </div>
@@ -227,6 +236,22 @@ function urlVideo(u) {
 function comparadores() {
   document.querySelectorAll(".comparar input").forEach(i => { i.oninput = () => i.parentElement.style.setProperty("--corte", i.value + "%"); });
 }
+// Ficha para Google (schema.org): se arma con los datos actuales, así nunca queda un teléfono o una zona vieja
+function datosGoogle(n, P) {
+  try {
+    const servs = (P.servicios || []).filter(x => x.precio > 0), paq = servs.filter(x => x.paquete), precios = (paq.length ? paq : servs).map(x => x.precio), tel = String(n.tel || (window.AUTOCARE || {}).WHATSAPP || "").replace(/\D/g, "").slice(-9);
+    const zonas = String(n.zonas || "").replace(/\(.*?\)/g, "").split(/,| y /).map(z => z.trim()).filter(Boolean);
+    const red = n.redes || {}, redes = [red.ig && "https://instagram.com/" + String(red.ig).replace("@", ""), red.tt && "https://tiktok.com/@" + String(red.tt).replace("@", ""), red.fb, n.google].filter(x => x && /^https?:/.test(x));
+    const ld = { "@context": "https://schema.org", "@type": "AutoWash", name: n.nombre || "AUTOCARE", description: "Lavado y detailing de autos a domicilio en " + (n.distrito || "Arequipa") + ". Llegamos donde estés.",
+      url: location.origin + location.pathname, image: location.origin + location.pathname.replace(/[^/]*$/, "") + "assets/compartir.jpg", telephone: tel ? "+51" + tel : undefined,
+      priceRange: precios.length ? "S/ " + Math.min(...precios) + " – S/ " + Math.max(...precios) : undefined, currenciesAccepted: "PEN", paymentAccepted: n.pagos || undefined,
+      areaServed: zonas.length ? zonas.map(z => ({ "@type": "City", name: z + ", Arequipa" })) : { "@type": "City", name: "Arequipa" },
+      address: { "@type": "PostalAddress", addressLocality: n.distrito || "Arequipa", addressRegion: "Arequipa", addressCountry: "PE" }, sameAs: redes.length ? redes : undefined,
+      makesOffer: servs.slice(0, 8).map(x => ({ "@type": "Offer", price: x.precio, priceCurrency: "PEN", itemOffered: { "@type": "Service", name: x.nombre } })) };
+    let el = document.getElementById("ld-negocio"); if (!el) { el = document.createElement("script"); el.type = "application/ld+json"; el.id = "ld-negocio"; document.head.appendChild(el); }
+    el.textContent = JSON.stringify(ld);
+  } catch (e) { }
+}
 function faq(n) {
   const L = [[`¿Necesito darles agua o luz?`, n.agua || n.luz ? `Llevamos casi todo; ${[n.agua && "agua", n.luz && "un enchufe"].filter(Boolean).join(" y ")} nos ayuda.` : `No. Llevamos agua, energía y todos los productos. Solo necesitamos espacio alrededor del auto.`],
     [`¿Cuánto demora?`, `El Express toma alrededor de una hora; el Impecable, unas dos; Interior Total y Exposición, de 3 a 4 horas y media. Tú sigues con tu día mientras trabajamos.`],
@@ -259,7 +284,11 @@ function faq(n) {
       $("#galeria").innerHTML = P.galeria.map(g => `<div><div class="comparar"><img src="${h(g.antes)}" alt="Antes" loading="lazy"><img class="despues" src="${h(g.despues)}" alt="Después" loading="lazy">
         <span class="et" style="left:10px">Antes</span><span class="et" style="right:10px">Después</span><span class="barra-c"></span><input type="range" min="0" max="100" value="50" aria-label="Comparar antes y después"></div>${g.txt ? `<p class="comparar-txt">${h(g.txt)}</p>` : ""}</div>`).join("");
       comparadores();
-    } else { document.querySelectorAll('a[href="#resultados"]').forEach(a => a.setAttribute("href", "#paquetes")); }
+    } else {   // aún sin fotos: no se promete «ver cómo queda»; se lleva a los precios
+      document.querySelectorAll('.cab nav a[href="#resultados"]').forEach(a => a.classList.add("oculto"));
+      document.querySelectorAll('a[href="#resultados"]').forEach(a => { a.setAttribute("href", "#paquetes"); if (a.textContent === "Ver cómo queda") a.textContent = "Ver precios"; });
+    }
+    datosGoogle(n, P);
     if (P.productos && P.productos.length) { $("#productos-sec").classList.remove("oculto"); $("#productos").innerHTML = P.productos.map(p => `<div class="producto">${p.foto ? `<img src="${h(p.foto)}" alt="${h(p.nombre)}" loading="lazy">` : ""}<small>${h(p.marca)}</small><b>${h(p.nombre)}</b><p>${h(p.para)}</p></div>`).join(""); }
     const vids = (P.videos || []).map(v => Object.assign({ t: v.titulo }, urlVideo(v.url))).filter(v => v.src || v.video);
     if (vids.length) { $("#videos-sec").classList.remove("oculto"); $("#videos").innerHTML = vids.map(v => `<div class="video ${v.ancho ? "ancho" : ""}">${v.video ? `<video src="${h(v.video)}" controls playsinline preload="metadata"></video>` : `<iframe src="${h(v.src)}" loading="lazy" allowfullscreen allow="encrypted-media; picture-in-picture" title="${h(v.t || "Video")}"></iframe>`}${v.t ? `<p>${h(v.t)}</p>` : ""}</div>`).join(""); }

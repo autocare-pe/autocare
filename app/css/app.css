@@ -677,7 +677,8 @@ button.kpi:hover { border-color: var(--linea-2); }
   .hoja { position: static; box-shadow: none; border: 0; width: 100%; animation: none; }
   .hoja-cuerpo { overflow: visible; }
 }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+/* Movimiento suave (Reducir movimiento del celular, o Mi cuenta › Movimiento: Suave): sin desplazamientos */
+html[data-mov="suave"] *, html[data-mov="suave"] *::before, html[data-mov="suave"] *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 
 /* ---------- tarjeta del cliente: QR, NFC, piezas para imprimir ---------- */
 .qr-acceso { display: flex; gap: 18px; align-items: center; }
@@ -795,7 +796,7 @@ button.kpi:hover { border-color: var(--linea-2); }
 .anillo circle { fill: none; stroke-width: 7; }
 .an-fondo { stroke: var(--capa-3); }
 .an-valor { stroke: var(--oro); stroke-linecap: round; transition: stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1); }
-.anillo span { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; line-height: 1; }
+.anillo > span { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; line-height: 1; }
 .anillo b { font-size: 18px; } .anillo small { font-size: 10.5px; color: var(--texto-2); }
 /* línea de tiempo del día */
 .linea-dia { margin: 6px 0 18px; }
@@ -868,7 +869,7 @@ button.kpi:hover { border-color: var(--linea-2); }
 .prioridad.vacia { opacity: .7; }
 .pr-cuerpo { padding: 0 12px 12px; display: grid; gap: 8px; }
 .pr-cuerpo > .nota { margin: 0 4px; }
-@media (prefers-reduced-motion: reduce) { .pulso { animation: none; } .an-valor { transition: none; } }
+html[data-mov="suave"] .pulso { animation: none; } html[data-mov="suave"] .an-valor { transition: none; }
 
 /* «Para empezar»: configurar y practicar, abajo y compacto */
 .para-empezar { margin-top: 30px; display: grid; gap: 10px; }
@@ -885,3 +886,49 @@ details.empezar-fila[open] .pr-flecha { transform: rotate(180deg); }
 .ef-cuerpo small { color: var(--texto-3); font-size: 12.5px; }
 .ef-cuerpo .barra-meta { margin-top: 4px; }
 @media (max-width: 759px) { .banner-practica .solo-ancho { display: none; } }
+
+/* ---------------------------------------------------------------- movimiento con propósito
+   Val Head (Designing Interface Animation): cada animación avisa, confirma u orienta; nada se mueve «porque sí».
+   Atención: lo pendiente «suena» como una campanita unas pocas veces y se queda con un punto (Weinschenk, 100 Things:
+   el movimiento en la periferia atrae la mirada). No se mueve sin fin: cansa y deja de verse (WCAG 2.2.2).
+   Con Movimiento: Suave (Mi cuenta) o «Reducir movimiento» del celular, todo esto queda quieto. */
+.fila.llama .ico { position: relative; transform-origin: 50% 18%; animation: timbre 3.6s ease-in-out .5s 4; }
+.fila.llama .ico::after { content: ""; position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%; background: currentColor; border: 2px solid var(--capa); box-sizing: border-box; }
+.fila.llama .ico::before { content: ""; position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%; background: currentColor; opacity: 0; animation: onda-punto 1.8s ease-out .5s 6; }
+.grupo > .llama:nth-child(2) .ico, .grupo > .llama:nth-child(2) .ico::before { animation-delay: .75s; }
+.grupo > .llama:nth-child(3) .ico, .grupo > .llama:nth-child(3) .ico::before { animation-delay: 1s; }
+.grupo > .llama:nth-child(4) .ico, .grupo > .llama:nth-child(4) .ico::before { animation-delay: 1.25s; }
+.grupo > .llama:nth-child(n+5) .ico, .grupo > .llama:nth-child(n+5) .ico::before { animation-delay: 1.5s; }
+@keyframes timbre {
+  0%, 24%, 100% { transform: rotate(0); }
+  3% { transform: rotate(16deg); } 6% { transform: rotate(-14deg); } 9% { transform: rotate(11deg); }
+  12% { transform: rotate(-8deg); } 15% { transform: rotate(5deg); } 18% { transform: rotate(-3deg); } 21% { transform: rotate(1deg); }
+}
+@keyframes onda-punto { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(3.2); opacity: 0; } }
+/* contadores de abajo y del menú: el número salta y el ícono suena una vez cuando llega algo nuevo */
+.tab .cuenta, .nav-item .cuenta { animation: salta .5s cubic-bezier(.3, 1.7, .5, 1) both; }
+.i.suena { transform-origin: 50% 12%; animation: timbre-1 1s ease-in-out .15s; }
+@keyframes salta { 0% { transform: scale(.2); opacity: 0; } 60% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes timbre-1 { 0%, 100% { transform: rotate(0); } 12% { transform: rotate(18deg); } 26% { transform: rotate(-15deg); } 40% { transform: rotate(11deg); } 54% { transform: rotate(-7deg); } 68% { transform: rotate(4deg); } 82% { transform: rotate(-2deg); } }
+/* Mi día de oficina: el número de cada bloque con pendientes late tres veces */
+.prioridad:not(.vacia) .pr-c { animation: salta .5s cubic-bezier(.3, 1.7, .5, 1) both, latido-lima 2.2s ease-out .7s 3; }
+@keyframes latido-lima { 0% { box-shadow: 0 0 0 0 rgba(208, 255, 20, .55); } 75%, 100% { box-shadow: 0 0 0 9px rgba(208, 255, 20, 0); } }
+/* kit del día: lo que falta se «empuja» para que no se te pase */
+.kit-it.falta { animation: empujon 3s ease .8s 3; }
+@keyframes empujon { 0%, 16%, 100% { transform: translateX(0); } 3% { transform: translateX(-5px); } 6% { transform: translateX(5px); } 9% { transform: translateX(-3px); } 12% { transform: translateX(2px); } }
+/* confirmar: marcar algo del kit da un pequeño «clic» visual; el paso que se completa aparece con su ✓ */
+.kit-it.si { animation: marca .32s cubic-bezier(.3, 1.5, .5, 1); }
+@keyframes marca { 0% { transform: scale(.97); } 100% { transform: scale(1); } }
+.sec-paso.hecho .sec-n { animation: salta .5s cubic-bezier(.3, 1.7, .5, 1) both; }
+/* el botón «Siguiente paso» brilla tres veces cada vez que cambia: es lo próximo que toca */
+.siguiente-paso .btn { animation: llamar-boton 2.2s ease-out .9s 3; }
+@keyframes llamar-boton { 0% { box-shadow: 0 10px 30px rgba(0,0,0,.45), 0 0 0 0 rgba(208, 255, 20, .6); } 70%, 100% { box-shadow: 0 10px 30px rgba(0,0,0,.45), 0 0 0 14px rgba(208, 255, 20, 0); } }
+/* orientar: el anillo de avance se llena al aparecer */
+.an-valor { animation: llena-anillo 1s cubic-bezier(.2, .8, .2, 1) .15s backwards; }
+@keyframes llena-anillo { from { stroke-dashoffset: var(--c); } }
+.cifra-viva { font-variant-numeric: tabular-nums; }
+/* celebración: papel picado (lo crea celebrar() en ui.js) */
+.confeti { position: fixed; inset: 0; z-index: 120; pointer-events: none; overflow: hidden; }
+.confeti i { position: absolute; display: block; will-change: transform, opacity; }
+/* continuidad: al cambiar de pantalla, lo nuevo aparece con un fundido corto (solo opacidad: no mueve lo que está fijo) */
+.contenido > * { animation: aparece .22s ease-out; }

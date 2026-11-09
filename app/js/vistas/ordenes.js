@@ -4,7 +4,7 @@ import { html, useState, useEffect } from "../../vendor/preact-htm.js";
 import * as D from "../datos.js";
 import * as N from "../negocio.js";
 import { ir, usarTitulo } from "../app.js";
-import { Boton, BotonAccion, Icono, Hoja, Entrada, Numero, Dinero, Area, Selector, Segmentos, Chips, Pestanas, Insignia, Vacio, Fila, Par, Check, AvisoLinea, Tabla, Firma, Bloque, Sellos, aviso, confirmar, preguntar, menu, useFicha, b } from "../ui.js";
+import { Boton, BotonAccion, Icono, Hoja, Entrada, Numero, Dinero, Area, Selector, Segmentos, Chips, Pestanas, Insignia, Vacio, Fila, Par, Check, AvisoLinea, Tabla, Firma, Bloque, Sellos, aviso, confirmar, preguntar, menu, useFicha, b, celebrar } from "../ui.js";
 import { ElegirCliente, ElegirVehiculo, ElegirServicios, CampoFotos, enviarWa, EstadoBadge } from "../piezas.js";
 import { hoy, fechaCorta, relativa, duracion, soles, nombreDe, clases, n0, suma, hace, fechaHora, esMovil } from "../util.js";
 import { estadoDe, ESTADOS, PASOS_ORDEN, ZONAS, DANOS, PARTES, COBROS, METODOS } from "../esquema.js";
@@ -320,6 +320,7 @@ function Cierre({ o, g, cli, puede }) {
     const recepcion = Object.assign({}, rec, tacita ? { cliente: { estado: "sin observaciones", en: Date.now(), via: "hasta la entrega" } } : {}, { cerrada: Date.now() });
     const fin = g({ estado: "entregado", entregado: Date.now(), recepcion, costoInsumos: suma(o.consumo || [], "costo"), minutosReales: o.minutosReales || minutosReloj(o) || N.minutosEstandar(o), fin: o.fin || Date.now() }) || o;
     if (o.citaId) D.cambiar("citas", o.citaId, { estado: "completada" });
+    celebrar(null, 1.4);   // el auto entregado es el pico del servicio
     // Un solo mensaje después: fotos, una estrella, Google y su premio. La reseña no se pide en el lugar (regla de Google);
     // si no califica, al día siguiente aparece «Recordarle su opinión» en la bandeja de quien lleva el WhatsApp.
     if (!cli || !cli.tel) aviso("Entregado.");

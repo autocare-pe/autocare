@@ -1,10 +1,10 @@
 // AUTOCARE · Tablero de indicadores (Balanced Scorecard, Kaplan y Norton)
 // 4 perspectivas: dinero, clientes, procesos y aprendizaje. Cada indicador dice su fórmula, tu meta y por qué importa.
-import { html, useState } from "../../vendor/preact-htm.js";
+import { html, useState, useEffect } from "../../vendor/preact-htm.js";
 import * as D from "../datos.js";
 import * as N from "../negocio.js";
 import { ir, usarTitulo } from "../app.js";
-import { Boton, Hoja, Numero, Pestanas, Semaforo, Spark, Tendencia, Linea, Par, AvisoLinea, Fila, Interruptor, aviso } from "../ui.js";
+import { Boton, Hoja, Numero, Pestanas, Semaforo, Spark, Tendencia, Linea, Par, AvisoLinea, Fila, Interruptor, Cifra, aviso, celebrar } from "../ui.js";
 import { hoy, mesDe, sumarMeses, sumarDias, finMes, mesLargo, soles, pct, num, suma, mediana, promedio, diasEntre, MESES_CORTOS, n0, clases } from "../util.js";
 
 const fin = m => (mesDe(hoy()) === m ? hoy() : finMes(m + "-01"));
@@ -115,6 +115,13 @@ export default function Tablero({ ruta }) {
   const ant = mesDe(sumarMeses(mes + "-01", -1));
   const meses = Array.from({ length: 6 }, (_, i) => mesDe(sumarMeses(mes + "-01", i - 5)));
   const rojos = KPIS.filter(k => colorKpi(k, valorKpi(k, mes), mes) === "rojo");
+  // Llegar a la meta de cobros del mes se celebra una vez (Locke y Latham: la meta lograda se tiene que sentir)
+  const kIng = KPIS.find(k => k.id === "ingresos"), vIng = kIng ? valorKpi(kIng, mes) : null, mIng = kIng ? metaDe(kIng, mes) : 0;
+  useEffect(() => {
+    if (t !== "tablero" || mes !== mesDe(hoy()) || !(vIng >= mIng && mIng > 0)) return;
+    let ya = true; try { ya = localStorage.getItem("autocare.metaFestejada") === mes; if (!ya) localStorage.setItem("autocare.metaFestejada", mes); } catch (e) { }
+    if (!ya) setTimeout(() => { celebrar(document.querySelector(".kpi.verde") || null, 1.5); aviso("¡Llegaron a la meta de cobros del mes! 🎉"); }, 500);
+  }, [t, mes, vIng >= mIng]);
   return html`<header class="pagina-cab"><div><h1>Tablero</h1><p>${mesLargo(mes).replace(/^./, x => x.toUpperCase())}. Toca un indicador para ver su fórmula y cómo mejorarlo.</p></div>
       <div class="acciones"><${Boton} icono="chevron-left" titulo="Mes anterior" onClick=${() => setMes(ant)} /><${Boton} onClick=${() => setMes(mesDe(hoy()))}>Este mes<//><${Boton} icono="chevron-right" titulo="Mes siguiente" onClick=${() => setMes(mesDe(sumarMeses(mes + "-01", 1)))} /></div></header>
     <${Pestanas} valor=${t} cambiar=${v => ir("tablero/" + v, true)} opciones=${[{ v: "tablero", n: "Tablero" }, { v: "metas", n: "Metas" }]} />
@@ -125,7 +132,7 @@ export default function Tablero({ ruta }) {
         const v = valorKpi(k, mes), va = valorKpi(k, ant), c = colorKpi(k, v, mes), meta = metaDe(k, mes);
         return html`<button class=${clases("kpi", c)} onClick=${() => setVer(k)}>
           <span class="kpi-nombre">${k.n}<${Semaforo} c=${c} /></span>
-          <span class="kpi-valor">${formato(k, v)}</span>
+          <span class="kpi-valor"><${Cifra} v=${formato(k, v)} k=${"kpi-" + k.id + "-" + mes} /></span>
           <div class="meta-barra"><i style=${{ width: v === null ? "0%" : Math.min(100, k.mejor === "baja" ? (v ? (meta / v) * 100 : 100) : (v / (meta || 1)) * 100) + "%" }}></i></div>
           <span class="kpi-pie">meta ${formato(k, meta)} <${Tendencia} actual=${v} previo=${va} mejorSube=${k.mejor !== "baja"} /><${Spark} valores=${meses.map(x => valorKpi(k, x))} /></span>
         </button>`;

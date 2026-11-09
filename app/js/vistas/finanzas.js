@@ -63,7 +63,7 @@ function PorVerificar() {
     p.ordenId && { n: "Ver la orden", icono: "clipboard-list", f: () => ir("ordenes/" + p.ordenId) }]);
   return html`<${AvisoLinea} c="oro" icono="shield-check">Quien cobra en el servicio no es quien confirma que el dinero llegó. Revisa tu Yape o tu cuenta y marca cada cobro: así los dos socios están tranquilos y nada se pierde.<//>
     ${l.length ? html`<div style="margin:16px 0 8px"><${Resumen} items=${[{ n: "Por verificar", v: soles(suma(l, "monto")), c: "oro" }, { n: "Cobros", v: l.length }, { n: "Con problema", v: l.filter(p => p.problema).length, c: l.some(p => p.problema) ? "rojo" : "" }]} /></div>
-      <div class="grupo">${l.map(p => html`<${Fila} icono=${p.metodo === "efectivo" ? "banknote" : "wallet"} colorIcono=${p.problema ? "rojo" : "ambar"} titulo=${soles(p.monto) + " · " + (p._cliente || p.concepto || "Cobro")}
+      <div class="grupo">${l.map(p => html`<${Fila} clase="llama" icono=${p.metodo === "efectivo" ? "banknote" : "wallet"} colorIcono=${p.problema ? "rojo" : "ambar"} titulo=${soles(p.monto) + " · " + (p._cliente || p.concepto || "Cobro")}
         sub=${[METODOS[p.metodo] || p.metodo, p.referencia ? "Op. " + p.referencia : "", "cobró " + (p.cobradoPor || p.por || "—"), fechaCorta(p.fecha), p.problema ? "⚠ " + p.problema : ""].filter(Boolean).join(" · ")}
         der=${puede && html`<${Boton} chico tipo="primario" icono="check" onClick=${e => { e.stopPropagation(); N.verificarPago(p); aviso("Cobro verificado."); }}>${p.metodo === "efectivo" ? "Recibido" : "Llegó"}<//>`}
         onClick=${() => puede && opciones(p)} />`)}</div>`

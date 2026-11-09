@@ -4,7 +4,7 @@ import * as D from "../datos.js";
 import * as N from "../negocio.js";
 import { api } from "../api.js";
 import { ir, usarTitulo } from "../app.js";
-import { aplicarTema } from "../main.js";
+import { aplicarTema, aplicarMov } from "../main.js";
 import { Boton, BotonAccion, Hoja, Entrada, Numero, Dinero, Area, Selector, Interruptor, Segmentos, Pestanas, Insignia, Vacio, Fila, Bloque, AvisoLinea, Tabla, Icono, MasDatos, aviso, confirmar, preguntar, useFicha, b } from "../ui.js";
 import { soles, duracion, hoy, descargar, copiar, fechaHora, DIAS } from "../util.js";
 import { CATEGORIAS_SERVICIO, MODULOS, AREAS, PARTES, CALIDAD, estadoDe } from "../esquema.js";
@@ -317,6 +317,7 @@ function Cuenta() {
   const [f, set] = useFicha({ actual: "", nueva: "", nueva2: "" });
   let tema = "oscuro"; try { tema = localStorage.getItem("autocare.tema") || "oscuro"; } catch (e) { }
   const [t, setT] = useState(tema);
+  const [mov, setMov] = useState(() => { try { return localStorage.getItem("autocare.mov") || "auto"; } catch (e) { return "auto"; } });
   const cambiarClave = async () => {
     if (f.nueva !== f.nueva2) throw new Error("Las dos claves nuevas no coinciden.");
     await api("miClave", { actual: f.actual, nueva: f.nueva }); set({ actual: "", nueva: "", nueva2: "" }); aviso("Clave cambiada.");
@@ -329,6 +330,8 @@ function Cuenta() {
   return html`<div class="columnas mitad">
     <div class="panel form"><h3>${u.nombre} · @${u.usuario}</h3>
       <${Segmentos} etiqueta="Apariencia" valor=${t} cambiar=${v => { setT(v); aplicarTema(v); }} opciones=${[{ v: "oscuro", n: "Oscuro" }, { v: "claro", n: "Claro" }, { v: "auto", n: "Como el celular" }]} />
+      <${Segmentos} etiqueta="Movimiento" valor=${mov} cambiar=${v => { setMov(v); aplicarMov(v); aviso(v === "suave" ? "Animaciones suaves: sin movimiento, solo fundidos." : v === "completo" ? "Animaciones completas, aunque el celular tenga «Reducir movimiento»." : "Sigue lo que diga tu celular."); }} opciones=${[{ v: "auto", n: "Como el celular" }, { v: "completo", n: "Completo" }, { v: "suave", n: "Suave" }]} />
+      <p class="nota">La entrada con el logo, los avisos que se mueven y las celebraciones. En iPhone, si está activado Ajustes › Accesibilidad › Movimiento › «Reducir movimiento», «Como el celular» los muestra suaves; elige «Completo» para verlos siempre.</p>
       <div class="separador"></div><h3>Cambiar mi clave</h3>
       <${Entrada} etiqueta="Clave actual" tipo="password" ...${b(f, set, "actual")} autocomplete="current-password" />
       <div class="rejilla"><${Entrada} etiqueta="Clave nueva" tipo="password" ...${b(f, set, "nueva")} autocomplete="new-password" /><${Entrada} etiqueta="Repite la nueva" tipo="password" ...${b(f, set, "nueva2")} autocomplete="new-password" /></div>

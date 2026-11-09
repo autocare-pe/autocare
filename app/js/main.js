@@ -12,6 +12,12 @@ export function aplicarTema(t) {
   const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = claro ? "#EFEFEC" : "#000000";
 }
 aplicarTema();
+// Movimiento: «auto» sigue a «Reducir movimiento» del celular; «completo» o «suave» lo elige cada uno (Mi cuenta)
+export function aplicarMov(v) {
+  try { if (v) localStorage.setItem("autocare.mov", v); v = localStorage.getItem("autocare.mov") || "auto"; } catch (e) { v = v || "auto"; }
+  document.documentElement.dataset.mov = v === "suave" || (v === "auto" && matchMedia("(prefers-reduced-motion: reduce)").matches) ? "suave" : "completo";
+}
+if (!document.documentElement.dataset.mov) aplicarMov();
 
 let forzar = () => { };
 cuandoTermineSesion(() => { fijarToken(""); forzar(); });
@@ -54,7 +60,12 @@ let Entrada = () => null;
       if (reg.waiting) nueva(reg.waiting);
       reg.addEventListener("updatefound", () => { const w = reg.installing; w && w.addEventListener("statechange", () => { if (w.state === "installed" && navigator.serviceWorker.controller) nueva(w); }); });
       let recargado = false;
-      navigator.serviceWorker.addEventListener("controllerchange", () => { if (!recargado) { recargado = true; location.reload(); } });
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (recargado) return; recargado = true;
+        // si la versión nueva llegó mientras corría la entrada, que al recargar se vea completa (y no cortada dos veces)
+        try { if (performance.now() < 15000) sessionStorage.setItem("autocare.introCompleta", "1"); } catch (e) { }
+        location.reload();
+      });
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "hidden") { if (reg.waiting && libre()) aplicar(reg.waiting); }
         else reg.update().catch(() => { });

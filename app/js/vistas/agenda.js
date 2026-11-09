@@ -71,7 +71,7 @@ function Dia({ fecha, setFecha, nueva }) {
 }
 export function FilaCita({ c, conFecha }) {
   const e = estadoDe("citas", c.estado);
-  return html`<${Fila} icono=${c.estado === "solicitada" ? "calendar-clock" : "calendar-check"} colorIcono=${e.c} titulo=${(conFecha ? relativa(c.fecha) + ", " : "") + (c.hora || "sin hora") + " · " + (c._cliente || "Sin nombre")}
+  return html`<${Fila} clase=${c.estado === "solicitada" && c.fecha >= hoy() ? "llama" : ""} icono=${c.estado === "solicitada" ? "calendar-clock" : "calendar-check"} colorIcono=${e.c} titulo=${(conFecha ? relativa(c.fecha) + ", " : "") + (c.hora || "sin hora") + " · " + (c._cliente || "Sin nombre")}
     sub=${[c._servicios, c.direccion].filter(Boolean).join(" · ")} der=${html`<${Insignia} c=${e.c}>${e.n}<//>`} onClick=${() => ir("agenda/cita/" + c.id)} />`;
 }
 

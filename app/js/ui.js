@@ -1,5 +1,5 @@
 // AUTOCARE · piezas de la interfaz (botones, campos, hojas, listas, indicadores, gráficos)
-import { html, useState, useEffect, useRef, useMemo, useCallback } from "../vendor/preact-htm.js";
+import { html, useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "../vendor/preact-htm.js";
 import { ICONOS } from "./iconos.js";
 import { AYUDA_CAMPOS, EJEMPLOS } from "./guias.js";
 import { clases, esMovil, num, soles, iniciales } from "./util.js";
@@ -353,7 +353,50 @@ export function Progreso({ v, max = 1, c }) {
   return html`<div class=${clases("barra-meta", c)}><i style=${{ width: p * 100 + "%" }}></i></div>`;
 }
 export function Resumen({ items }) {
-  return html`<div class="resumen">${items.filter(Boolean).map(x => html`<div><div class="et">${x.n}</div><div class=${clases("v", x.c)}>${x.v}</div>${x.d && html`<div class="d">${x.d}</div>`}</div>`)}</div>`;
+  return html`<div class="resumen">${items.filter(Boolean).map(x => html`<div><div class="et">${x.n}</div><div class=${clases("v", x.c)}>${typeof x.v === "string" || typeof x.v === "number" ? html`<${Cifra} v=${x.v} k=${x.n} />` : x.v}</div>${x.d && html`<div class="d">${x.d}</div>`}</div>`)}</div>`;
+}
+
+// ---------------------------------------------------------------- movimiento con propósito (Val Head: avisar, confirmar, orientar)
+export const conMovimiento = () => document.documentElement.dataset.mov !== "suave";
+// Una cifra que «cuenta» hasta su valor la primera vez que aparece en la sesión o cuando cambia: se nota qué número se movió.
+// El texto lo maneja solo este componente (así Preact no pisa el número a mitad de la cuenta).
+const CIFRAS = new Map();
+const NUM_RX = /\d[\d,]*(?:\.\d+)?/;
+const aNumero = t => Number(((String(t || "").match(NUM_RX) || ["0"])[0]).replace(/,/g, ""));
+export function Cifra({ v, k }) {
+  const ref = useRef(), txt = String(v);
+  useLayoutEffect(() => {
+    const el = ref.current; if (!el) return;
+    const m = txt.match(NUM_RX), clave = k || txt, antes = CIFRAS.get(clave); CIFRAS.set(clave, txt);
+    if (!m || antes === txt || !conMovimiento()) { el.textContent = txt; return; }
+    const fin = aNumero(txt), ini = antes === undefined ? 0 : aNumero(antes);
+    if (!isFinite(fin) || fin === ini) { el.textContent = txt; return; }
+    const dec = (m[0].split(".")[1] || "").length, coma = m[0].includes(",");
+    const fmt = x => { let n = x.toFixed(dec); if (coma) { const [e, d] = n.split("."); n = e.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (d ? "." + d : ""); } return txt.slice(0, m.index) + n + txt.slice(m.index + m[0].length); };
+    const t0 = performance.now(), dur = fin > 999 ? 900 : 650; let raf;
+    const paso = t => { const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3); el.textContent = p < 1 ? fmt(ini + (fin - ini) * e) : txt; if (p < 1) raf = requestAnimationFrame(paso); };
+    el.textContent = fmt(ini); raf = requestAnimationFrame(paso);
+    return () => { cancelAnimationFrame(raf); el.textContent = txt; };
+  }, [txt]);
+  return html`<span class="cifra-viva" ref=${ref}></span>`;
+}
+// Celebración (Heath, The Power of Moments; Kahneman, pico y final): papel picado con los colores de la marca, solo en
+// momentos que de verdad cierran algo (día cerrado, auto entregado, todo al día, meta del mes). Con movimiento suave, no sale.
+export function celebrar(desde, fuerza = 1) {
+  if (!conMovimiento() || !document.body.animate) return;
+  const r = desde && desde.getBoundingClientRect ? desde.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight * .6, width: 0, height: 0 };
+  const x0 = r.left + r.width / 2, y0 = r.top + r.height / 2;
+  const capa = document.createElement("div"); capa.className = "confeti"; capa.setAttribute("aria-hidden", "true"); document.body.appendChild(capa);
+  const COLORES = ["#D0FF14", "#D0FF14", "#FFFFFF", "#9BE000", "#F4FFB0"], n = Math.round(26 * fuerza);
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement("i"), ang = (-90 + (Math.random() - .5) * 150) * Math.PI / 180, dist = (90 + Math.random() * 140) * Math.sqrt(fuerza);
+    const dx = Math.cos(ang) * dist, dy = Math.sin(ang) * dist, giro = (Math.random() - .5) * 900, w = 5 + Math.random() * 5;
+    p.style.cssText = `left:${x0}px;top:${y0}px;width:${w}px;height:${w * (Math.random() < .5 ? 1 : 1.8)}px;background:${COLORES[i % COLORES.length]};border-radius:${Math.random() < .35 ? "50%" : "2px"}`;
+    capa.appendChild(p);
+    p.animate([{ transform: "translate(-50%,-50%) rotate(0)", opacity: 1 }, { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) rotate(${giro * .6}deg)`, opacity: 1, offset: .55 },
+      { transform: `translate(calc(-50% + ${dx * 1.15}px), calc(-50% + ${dy + 140}px)) rotate(${giro}deg)`, opacity: 0 }], { duration: 1100 + Math.random() * 500, easing: "cubic-bezier(.2,.7,.4,1)", fill: "forwards" });
+  }
+  setTimeout(() => capa.remove(), 1800);
 }
 export function Sellos({ actuales, cada }) {
   return html`<div class="sellos" aria-label=${`${actuales} de ${cada} sellos`}>${Array.from({ length: cada }, (_, i) => html`<span class=${clases("sello", i < actuales && "si")}>${i < actuales ? html`<${Icono} n="sparkles" />` : i === cada - 1 ? html`<${Icono} n="gift" />` : null}</span>`)}</div>`;

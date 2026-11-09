@@ -1,9 +1,9 @@
 // AUTOCARE · Mi día: lo que toca hoy, en orden, según tu puesto (campo u oficina).
-import { html, useState } from "../../vendor/preact-htm.js";
+import { html, useState, useEffect, useRef } from "../../vendor/preact-htm.js";
 import * as D from "../datos.js";
 import * as N from "../negocio.js";
 import { ir, usarTitulo, menuCrear, abrir } from "../app.js";
-import { Boton, Icono, Fila, Insignia, Resumen, Bloque, Vacio, Progreso, Segmentos, aviso, preguntar } from "../ui.js";
+import { Boton, Icono, Fila, Insignia, Resumen, Bloque, Vacio, Progreso, Segmentos, Cifra, aviso, preguntar, celebrar } from "../ui.js";
 import { FilaCita } from "./agenda.js";
 import { progresoArranque } from "./arranque.js";
 import { enviarWa } from "../piezas.js";
@@ -59,8 +59,8 @@ export function LineaDia({ citas, titulo }) {
 /** Anillo de avance */
 export function Anillo({ v, max, t }) {
   const r = 26, C = 2 * Math.PI * r, p = max ? Math.min(1, v / max) : 0;
-  return html`<div class="anillo" role="img" aria-label=${`${v} de ${max} ${t || ""}`}><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r=${r} class="an-fondo" /><circle cx="32" cy="32" r=${r} class="an-valor" style=${{ strokeDasharray: C, strokeDashoffset: C * (1 - p) }} /></svg>
-    <span><b>${v}</b><small>de ${max}</small></span></div>`;
+  return html`<div class="anillo" role="img" aria-label=${`${v} de ${max} ${t || ""}`}><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r=${r} class="an-fondo" /><circle cx="32" cy="32" r=${r} class="an-valor" style=${{ strokeDasharray: C, strokeDashoffset: C * (1 - p), "--c": C }} /></svg>
+    <span><b><${Cifra} v=${v} k=${"anillo-" + (t || "")} /></b><small>de ${max}</small></span></div>`;
 }
 
 // ---------------------------------------------------------------- campo: antes de salir → cada servicio → cierre
@@ -106,16 +106,16 @@ function DiaCampo() {
       <li id="paso-kit" class=${clases("sec-paso", kitListo ? "hecho" : "actual")}><span class="sec-n">${kitListo ? "✓" : "1"}</span><div class="sec-cuerpo">
         <p class="sec-etq">Antes de salir</p><h3>Prepara el kit del día</h3>
         ${!kitListo ? html`<div class="kit">${items.map(i => html`<label class=${clases("kit-it", kit[i.k] && "si", i.falta && "falta")}><input type="checkbox" checked=${!!kit[i.k]} onChange=${e => marcarKit(i.k, e.currentTarget.checked)} /><span><b>${i.n}</b><small>${i.d}</small></span></label>`)}</div>
-          <div class="btns"><${Boton} tipo="primario" icono="check" onClick=${() => marcarKit("listo", true)}>Listo, salgo<//>${insumos.some(i => i.falta) && html`<${Boton} icono="bell" onClick=${() => { N.avisarA(D.responsable("logistica") || N.idWhatsapp(), "📦 <b>Faltan insumos</b> para hoy: " + insumos.filter(i => i.falta).map(i => i.n).join(", "), "inventario"); aviso("Le avisé a la oficina."); }}>Avisar lo que falta<//>`}</div>`
+          <div class="btns"><${Boton} tipo="primario" icono="check" onClick=${e => { celebrar(e.currentTarget, .6); marcarKit("listo", true); }}>Listo, salgo<//>${insumos.some(i => i.falta) && html`<${Boton} icono="bell" onClick=${() => { N.avisarA(D.responsable("logistica") || N.idWhatsapp(), "📦 <b>Faltan insumos</b> para hoy: " + insumos.filter(i => i.falta).map(i => i.n).join(", "), "inventario"); aviso("Le avisé a la oficina."); }}>Avisar lo que falta<//>`}</div>`
           : html`<p class="tenue chico">Kit listo. <button class="enlace-btn" onClick=${() => { setKit({}); ponerLS("autocare.kit." + H, {}); }}>Revisar otra vez</button></p>`}</div></li>
       ${est.map((e, i) => html`<${PasoServicio} e=${e} n=${i + 2} actual=${kitListo && actual && actual.c.id === e.c.id} camino=${camino} empezar=${empezar} />`)}
       <li id="paso-cierre" class=${clases("sec-paso", cierre ? "hecho" : !actual && kitListo ? "actual" : "")}><span class="sec-n">${cierre ? "✓" : citas.length + 2}</span><div class="sec-cuerpo">
         <p class="sec-etq">Al terminar</p><h3>Cierra el día</h3>
         ${!cierre ? html`<ul class="cierre"><li>Cuenta el efectivo y revisa los Yape del día.</li><li>Registra combustible y otros gastos.</li><li>Avisa qué se acabó: la oficina lo compra (tú no pierdes tiempo en tiendas).</li></ul>
           <div class="btns"><${Boton} icono="receipt" onClick=${() => abrir(() => import("./finanzas.js"), "FormGasto", {})}>Registrar gasto<//><${Boton} icono="package" onClick=${async () => { const t = await preguntar({ titulo: "¿Qué se acabó o está por acabarse?", etiqueta: "Producto o equipo", si: "Avisar" }); if (t) { D.guardar("porComprar", { item: t, cant: 1, estado: "pendiente", tipo: "insumo", prioridad: 1, notas: "Lo pidió " + ((D.yo() || {}).nombre || "campo") }); N.avisarA(D.responsable("logistica") || N.idWhatsapp(), "📦 <b>Por comprar</b>: " + t, "inventario/comprar"); aviso("Anotado en Por comprar."); } }}>Avisar qué reponer<//>
-            <${Boton} tipo="primario" icono="check" onClick=${() => { setCierre(true); ponerLS("autocare.cierre." + H, true); aviso("¡Buen trabajo hoy!"); }}>Día cerrado<//></div>` : html`<p class="tenue chico">¡Buen trabajo! Mañana: ${N.citasDelDia(sumarDias(H, 1)).filter(N.citaActiva).length} servicios.</p>`}</div></li>
+            <${Boton} tipo="primario" icono="check" onClick=${e => { celebrar(e.currentTarget, 1.3); setCierre(true); ponerLS("autocare.cierre." + H, true); aviso("¡Buen trabajo hoy!"); }}>Día cerrado<//></div>` : html`<p class="tenue chico">¡Buen trabajo! Mañana: ${N.citasDelDia(sumarDias(H, 1)).filter(N.citaActiva).length} servicios.</p>`}</div></li>
     </ol>
-    ${sig && html`<div class="siguiente-paso"><${Boton} tipo="primario" grande bloque icono="arrow-right" onClick=${sig.f}>${sig.t}<//></div>`}`;
+    ${sig && html`<div class="siguiente-paso" key=${sig.t}><${Boton} tipo="primario" grande bloque icono="arrow-right" onClick=${sig.f}>${sig.t}<//></div>`}`;
 }
 const PASOS_SERV = ["ir", "recepcion", "proceso", "calidad", "listo"];
 const N_PASO = { ir: "Ir", recepcion: "Recepción", proceso: "Trabajo", calidad: "Calidad", listo: "Entrega" };
@@ -159,26 +159,26 @@ function DiaOficina() {
   const W = (tel, txt) => e => { e.preventDefault(); enviarWa(tel, txt); };
   const bloques = [
     { n: 1, id: "responder", t: "Responder", cuando: "Ya · en menos de 1 hora", i: "message-circle", d: "Quien responde primero, cierra (HBR: 7 veces más si es en la primera hora).", filas: [
-      ...observaciones.map(o => html`<${Fila} icono="circle-alert" colorIcono="ambar" titulo=${"Observación de " + o._cliente} sub=${"«" + ((o.recepcion.cliente || {}).texto || "") + "»"} href=${"#/ordenes/" + o.id} flecha multi />`),
-      ...leads.map(l => html`<${Fila} icono="message-circle" colorIcono=${(Date.now() - (l.creado || Date.now())) > 3600000 ? "rojo" : "ambar"} titulo=${"Consulta de " + l.nombre} sub=${(l.interes || l.canal || "") + " · llegó " + hace(l.creado)} href=${"#/ventas/lead/" + l.id} flecha />`),
-      solicitudes.length > 0 && html`<${Fila} icono="calendar-clock" colorIcono="ambar" titulo=${solicitudes.length + (solicitudes.length === 1 ? " reserva web por confirmar" : " reservas web por confirmar")} sub="Confírmalas y pide el adelanto si toca" href="#/agenda?vista=confirmar" flecha />`].filter(Boolean) },
+      ...observaciones.map(o => html`<${Fila} clase="llama" icono="circle-alert" colorIcono="ambar" titulo=${"Observación de " + o._cliente} sub=${"«" + ((o.recepcion.cliente || {}).texto || "") + "»"} href=${"#/ordenes/" + o.id} flecha multi />`),
+      ...leads.map(l => html`<${Fila} clase="llama" icono="message-circle" colorIcono=${(Date.now() - (l.creado || Date.now())) > 3600000 ? "rojo" : "ambar"} titulo=${"Consulta de " + l.nombre} sub=${(l.interes || l.canal || "") + " · llegó " + hace(l.creado)} href=${"#/ventas/lead/" + l.id} flecha />`),
+      solicitudes.length > 0 && html`<${Fila} clase="llama" icono="calendar-clock" colorIcono="ambar" titulo=${solicitudes.length + (solicitudes.length === 1 ? " reserva web por confirmar" : " reservas web por confirmar")} sub="Confírmalas y pide el adelanto si toca" href="#/agenda?vista=confirmar" flecha />`].filter(Boolean) },
     { n: 2, id: "servicio", t: "Acompañar el servicio", cuando: "Mientras haya autos en servicio", i: "car", d: "Los mensajes que el campo deja listos: un toque y salen por WhatsApp.", filas: [
-      ...caminos.map(c => { const cli = D.uno("clientes", c.clienteId); return html`<${Fila} icono="navigation" colorIcono="oro" titulo=${"Avisar que va en camino · " + (c._cliente || "")} sub=${(c.hora || "") + " · salió " + hace(c.camino)} href=${"#/agenda/cita/" + c.id}
+      ...caminos.map(c => { const cli = D.uno("clientes", c.clienteId); return html`<${Fila} clase="llama" icono="navigation" colorIcono="oro" titulo=${"Avisar que va en camino · " + (c._cliente || "")} sub=${(c.hora || "") + " · salió " + hace(c.camino)} href=${"#/agenda/cita/" + c.id}
         der=${cli && cli.tel && html`<${Boton} chico tipo="primario" icono="send" onClick=${e => { W(cli.tel, N.mensaje("camino", N.varsCita(c)))(e); D.cambiar("citas", c.id, { caminoEnviado: Date.now() }); }}>Enviar<//>`} />`; }),
       ...porEnviar.map(x => html`<${FilaEnviar} m=${x} />`)] },
     { n: 3, id: "cobros", t: "Cobros", cuando: "Antes del mediodía", i: "banknote", d: "El dinero que no se verifica hoy, se pierde de vista.", filas: [
-      verificar.length > 0 && html`<${Fila} icono="shield-check" colorIcono="ambar" titulo=${verificar.length + (verificar.length === 1 ? " cobro por verificar" : " cobros por verificar")} sub=${soles(suma(verificar, "monto")) + " · confirma que llegó a la cuenta"} href="#/finanzas/verificar" flecha />`,
+      verificar.length > 0 && html`<${Fila} clase="llama" icono="shield-check" colorIcono="ambar" titulo=${verificar.length + (verificar.length === 1 ? " cobro por verificar" : " cobros por verificar")} sub=${soles(suma(verificar, "monto")) + " · confirma que llegó a la cuenta"} href="#/finanzas/verificar" flecha />`,
       ...adelantos.slice(0, 4).map(c => html`<${Fila} icono="banknote" colorIcono="ambar" titulo=${"Adelanto de " + c._cliente} sub=${"Cita " + relativa(c.fecha) + " · aún no llega"} der=${html`<b class="cifra">${soles(c.adelanto)}</b>`} href=${"#/agenda/cita/" + c.id} />`),
-      ...porCobrar.slice(0, 5).map(x => html`<${Fila} icono="banknote" colorIcono="rojo" titulo=${"Cobrar a " + x.o._cliente} sub=${(x.o.numero || "") + " · " + relativa(x.o.fecha)} der=${html`<b class="cifra">${soles(x.s.saldo)}</b>`} href=${"#/ordenes/" + x.o.id} />`)].filter(Boolean) },
+      ...porCobrar.slice(0, 5).map(x => html`<${Fila} clase="llama" icono="banknote" colorIcono="rojo" titulo=${"Cobrar a " + x.o._cliente} sub=${(x.o.numero || "") + " · " + relativa(x.o.fecha)} der=${html`<b class="cifra">${soles(x.s.saldo)}</b>`} href=${"#/ordenes/" + x.o.id} />`)].filter(Boolean) },
     { n: 4, id: "manana", t: "Preparar mañana", cuando: "Desde las 4 pm", i: "calendar-check", d: "Confirmar hoy evita viajes perdidos mañana.", filas: [
       ...sinConfirmar.map(c => { const cli = D.uno("clientes", c.clienteId); return html`<${Fila} icono="calendar-check" colorIcono="azul" titulo=${"Recordar a " + c._cliente} sub=${"Mañana " + c.hora + " · aún no confirma"} href=${"#/agenda/cita/" + c.id}
         der=${cli && cli.tel && html`<${Boton} chico icono="message-circle" onClick=${W(cli.tel, N.mensaje("recordatorio", N.varsCita(c)))}>Recordar<//>`} />`; }),
-      faltaManana.length > 0 && html`<${Fila} icono="package" colorIcono="rojo" titulo=${"Para mañana falta: " + faltaManana.map(x => x.n).join(", ")} sub="Cómpralo hoy o avisa al campo" href="#/inventario" flecha multi />`,
+      faltaManana.length > 0 && html`<${Fila} clase="llama" icono="package" colorIcono="rojo" titulo=${"Para mañana falta: " + faltaManana.map(x => x.n).join(", ")} sub="Cómpralo hoy o avisa al campo" href="#/inventario" flecha multi />`,
       citasManana.length > 0 && !sinConfirmar.length && html`<${Fila} icono="truck" colorIcono="verde" titulo=${"Mañana: " + citasManana.length + (citasManana.length === 1 ? " servicio confirmado" : " servicios confirmados")} sub=${citasManana.map(c => c.hora + " " + primerNombre({ nombre: c._cliente })).slice(0, 4).join(" · ")} href="#/agenda" flecha />`].filter(Boolean) },
     { n: 5, id: "crecer", t: "Hacer crecer", cuando: "Un bloque de 30 minutos", i: "megaphone", d: "Lo importante que no es urgente (Covey): publicar y volver a escribir a quien ya te conoce.", filas: [
       ...posts.map(c => html`<${Fila} icono="megaphone" colorIcono="violeta" titulo=${"Publicar hoy: " + (c.titulo || "publicación")} sub=${(ESTADOS.contenido[c.estado] || {}).n || ""} href=${"#/marketing/contenido/" + c.id} flecha />`),
       ...cumple.map(c => html`<${Fila} icono="cake" colorIcono="oro" titulo=${"Cumpleaños de " + nombreDe(c)} sub="Un saludo hoy vale más que una promoción" der=${c.tel && html`<${Boton} chico icono="message-circle" onClick=${W(c.tel, N.mensaje("cumple", N.varsCliente(c)))}>Saludar<//>`} />`),
-      ...tareas.slice(0, 5).map(t => html`<${Fila} icono="list-checks" colorIcono=${t.fecha < H ? "rojo" : "azul"} titulo=${t.titulo} sub=${t.fecha < H ? "Atrasado desde " + relativa(t.fecha) : "Para hoy" + (t.hora ? " a las " + t.hora : "")} href="#/ventas/seguimientos" flecha />`),
+      ...tareas.slice(0, 5).map(t => html`<${Fila} clase=${t.fecha < H ? "llama" : ""} icono="list-checks" colorIcono=${t.fecha < H ? "rojo" : "azul"} titulo=${t.titulo} sub=${t.fecha < H ? "Atrasado desde " + relativa(t.fecha) : "Para hoy" + (t.hora ? " a las " + t.hora : "")} href="#/ventas/seguimientos" flecha />`),
       ...tocan.map(c => { const p = P.get(c.id); return html`<${Fila} avatar=${nombreDe(c)} titulo=${"Le toca volver: " + nombreDe(c)} sub=${"Última vez " + relativa(p.ultima)} href=${"#/clientes/" + c.id}
         der=${c.tel && html`<${Boton} chico icono="message-circle" onClick=${W(c.tel, N.mensaje("volver", N.varsCliente(c)))}>Escribir<//>`} />`; })] },
     { n: 6, id: "compras", t: "Compras y logística", cuando: "Al final del día", i: "package", d: "En un solo bloque, para no cortar la atención al cliente.", filas: [
@@ -186,6 +186,8 @@ function DiaOficina() {
       bajos.length > 0 && html`<${Fila} icono="package" colorIcono="ambar" titulo=${bajos.length + (bajos.length === 1 ? " producto por reponer" : " productos por reponer")} sub=${bajos.slice(0, 3).map(p => p.nombre).join(", ")} href="#/inventario" flecha />`,
       ...alertas.slice(0, 3).map(a => html`<${Fila} icono="wrench" colorIcono="ambar" titulo=${a.txt} sub=${a.a.nombre + " · " + relativa(a.fecha)} href="#/activos" flecha />`)].filter(Boolean) }];
   const total = bloques.reduce((a, b) => a + b.filas.length, 0), primero = bloques.find(b => b.filas.length);
+  const antes = useRef(total);
+  useEffect(() => { if (antes.current > 0 && total === 0) { celebrar(document.querySelector(".dia-resumen .anillo"), 1.1); aviso("¡Todo al día! 🎉"); } antes.current = total; }, [total]);
   const enCurso = citasHoy.map(c => Object.assign({ c }, estadoCita(c))).filter(e => e.k === "curso" || e.k === "camino");
   const fin = D.puede("finanzas"), pagos = D.lista("pagos"), cobradoHoy = suma(pagos.filter(p => p.fecha === H), "monto");
   return html`<section class="dia-resumen panel"><${Anillo} v=${bloques.filter(b => !b.filas.length).length} max=${bloques.length} t="bloques al día" />
@@ -201,7 +203,7 @@ function DiaOficina() {
 function FilaEnviar({ m }) {
   const o = m.o, cli = D.uno("clientes", o.clienteId);
   const enviar = e => { e.preventDefault(); enviarWa(cli.tel, N.textoMensaje(o, m)); N.marcarEnviado(o, m.k); aviso("Marcado como enviado.", { accion: { n: "Deshacer", f: () => N.marcarEnviado(o, m.k, 0) } }); };
-  return html`<${Fila} icono=${m.i} colorIcono="oro" titulo=${m.n + " · " + (o._cliente || "")} sub=${[String(o._vehiculo || "").replace(/\s*\(.*\)$/, ""), m.k === "recepcion" && (o.recepcion || {}).porEnviar ? "la pasó " + hace(o.recepcion.porEnviar) : o.act ? hace(o.act) : ""].filter(Boolean).join(" · ")}
+  return html`<${Fila} clase="llama" icono=${m.i} colorIcono="oro" titulo=${m.n + " · " + (o._cliente || "")} sub=${[String(o._vehiculo || "").replace(/\s*\(.*\)$/, ""), m.k === "recepcion" && (o.recepcion || {}).porEnviar ? "la pasó " + hace(o.recepcion.porEnviar) : o.act ? hace(o.act) : ""].filter(Boolean).join(" · ")}
     href=${"#/ordenes/" + o.id} der=${html`<${Boton} chico tipo="primario" icono="send" onClick=${enviar}>Enviar<//>`} />`;
 }
 

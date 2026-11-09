@@ -118,6 +118,10 @@ function cuentas() {
   };
 }
 
+// Cuando un contador sube, el ícono «suena» una vez y el número salta (Weinschenk: el movimiento atrae la mirada).
+// Cada menú lleva su propia cuenta de lo que ya vio.
+function vigia() { const antes = {}, golpes = {}; return (k, n) => { n = n || 0; if (n > (antes[k] || 0)) golpes[k] = (golpes[k] || 0) + 1; antes[k] = n; return golpes[k] || 0; }; }
+const golpeTab = vigia(), golpeLat = vigia();
 function Marca() {
   const n = D.ajuste("negocio", {});
   return html`<a class="marca" href="#/" style="display:block"><${LogoHorizontal} /><span class="marca-esl">${n.eslogan || "Gestión del negocio"}</span></a>`;
@@ -131,8 +135,8 @@ function Lateral({ ruta }) {
       const items = g.items.filter(puedeRuta).filter(it => todo || esMio(it) || ruta.modulo === it.r);
       if (!items.length) return null;
       return html`${g.g && html`<div class="nav-grupo">${g.g}</div>`}
-        ${items.map(it => html`<a class=${clases("nav-item", ruta.modulo === it.r && "activo")} href=${"#/" + it.r} title=${it.n}>
-          <${Icono} n=${it.i} /><span>${it.n}</span>${c[it.r] ? html`<span class="cuenta">${c[it.r]}</span>` : null}</a>`)}`;
+        ${items.map(it => { const n = c[it.r] || 0, g = golpeLat(it.r, n); return html`<a class=${clases("nav-item", ruta.modulo === it.r && "activo")} href=${"#/" + it.r} title=${it.n}>
+          <${Icono} n=${it.i} clase=${n > 0 && g > 0 ? "suena" : ""} key=${"i" + g} /><span>${it.n}</span>${n ? html`<span class="cuenta" key=${"n" + n}>${n}</span>` : null}</a>`; })}`;
     })}
     ${ocultos > 0 && html`<button class="nav-item" style="width:100%;background:none;border:0;cursor:pointer;text-align:left" onClick=${() => setTodo(!todo)}><${Icono} n=${todo ? "chevron-up" : "chevron-down"} /><span>${todo ? "Ver menos" : "Ver todas las secciones"}</span></button>`}
     <div class="lateral-pie">
@@ -204,8 +208,8 @@ function Tabbar({ ruta }) {
   const tabs = (TABS[modoTrabajo()] || TABS.campo).filter(puedeRuta);
   const enMas = !tabs.some(t => t.r === ruta.modulo);
   return html`<nav class="tabbar" style=${{ gridTemplateColumns: `repeat(${tabs.length + 1}, 1fr)` }} aria-label="Navegación">
-    ${tabs.map(t => html`<a class=${clases("tab", ruta.modulo === t.r && "activo")} href=${"#/" + t.r}><${Icono} n=${t.i} /><span>${t.n}</span>${c[t.r] ? html`<span class="cuenta">${c[t.r]}</span>` : null}</a>`)}
-    <a class=${clases("tab", enMas && "activo")} href="#/mas"><${Icono} n="layout-grid" /><span>Más</span>${c.ventas ? html`<span class="cuenta">${c.ventas}</span>` : null}</a>
+    ${tabs.map(t => { const n = c[t.r] || 0, g = golpeTab(t.r, n); return html`<a class=${clases("tab", ruta.modulo === t.r && "activo")} href=${"#/" + t.r}><${Icono} n=${t.i} clase=${n > 0 && g > 0 ? "suena" : ""} key=${"i" + g} /><span>${t.n}</span>${n ? html`<span class="cuenta" key=${"n" + n}>${n}</span>` : null}</a>`; })}
+    ${(() => { const n = tabs.some(t => t.r === "ventas") ? 0 : c.ventas || 0, g = golpeTab("mas", n); return html`<a class=${clases("tab", enMas && "activo")} href="#/mas"><${Icono} n="layout-grid" clase=${n > 0 && g > 0 ? "suena" : ""} key=${"i" + g} /><span>Más</span>${n ? html`<span class="cuenta" key=${"n" + n}>${n}</span>` : null}</a>`; })()}
   </nav>`;
 }
 

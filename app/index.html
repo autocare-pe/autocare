@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AUTOCARE</title>
+<meta name="robots" content="noindex">
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -18,7 +19,10 @@
 <style>
 /* Entrada con el logo (Val Head, «Designing Interface Animation»; principios de Disney: anticipación y seguimiento;
    Material Motion: el logo «viaja» a su lugar en la barra, así se entiende de dónde viene).
-   Completa (con el nombre) al abrir la app: ~1,8 s. Si la vuelves a abrir antes de 10 minutos, corta (~1 s).
+   Completa (con el nombre) al abrir la app: ~1,8 s. Si la vuelves a abrir antes de 3 minutos, corta (~1,3 s).
+   Al volver a la app después de 30 minutos o más, corta. Si la página se abrió sin que la mires (el celular la recargó
+   para actualizarla), espera a que vuelvas. Con «Reducir movimiento» (o Movimiento: Suave en Mi cuenta) el logo y el
+   nombre aparecen y se desvanecen, sin moverse (Apple HIG: disolver en vez de mover).
    Mientras corre, la app ya carga por detrás; un toque la salta. */
 #intro{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:#000;transition:background-color .45s ease .1s,opacity .18s ease}
 #intro .in-caja{display:flex;flex-direction:column;align-items:center;gap:26px;transform:translateY(-3vh)}
@@ -40,7 +44,13 @@
 #intro.rapido .in-letras,#intro.rapido .in-halo{display:none}
 #intro.rapido .in-marca{animation-duration:.5s,1s;animation-delay:0s,.1s}
 #intro.rapido .acento{animation-delay:.2s}
-#intro.quieto *{animation:none!important;transition:none!important}
+#intro.pausa,#intro.pausa *{animation-play-state:paused!important}
+#intro.suave{transition:opacity .45s ease!important}
+#intro.suave .in-marca,#intro.suave .in-letras{animation:in-funde .55s ease both!important}
+#intro.suave .in-letras{animation-delay:.18s!important}
+#intro.suave .acento{animation:none!important}
+#intro.suave .in-halo{display:none}
+#intro.suave .in-carga i{animation:in-funde 1s ease infinite alternate!important}
 .intro-espera{opacity:0!important}
 .intro-llega{animation:in-llega .5s cubic-bezier(.3,1.6,.5,1)}
 @keyframes in-pop{0%{opacity:0;transform:scale(.3) rotate(-10deg)}55%{opacity:1;transform:scale(1.1) rotate(1.5deg)}78%{transform:scale(.97) rotate(0)}100%{opacity:1;transform:scale(1)}}
@@ -49,6 +59,7 @@
 @keyframes in-onda{0%{opacity:0;transform:scale(.25)}30%{opacity:1}100%{opacity:0;transform:scale(1.25)}}
 @keyframes in-limpia{0%{opacity:0;clip-path:inset(0 100% 0 0);transform:translateY(8px)}100%{opacity:1;clip-path:inset(0 0 0 0);transform:none}}
 @keyframes in-barra{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
+@keyframes in-funde{from{opacity:0}to{opacity:1}}
 @keyframes in-llega{0%{transform:scale(.7)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
 </style>
 <script src="../config.js" defer></script>
@@ -77,13 +88,12 @@
 </div></div>
 <script>
 (function () {
-  var I = document.getElementById("intro"); if (!I) return;
-  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches, rapido = false;
-  var ahora = Date.now();
-  try { rapido = ahora - (Number(localStorage.getItem("autocare.intro")) || 0) < 600000; localStorage.setItem("autocare.intro", String(ahora)); } catch (e) { }
-  if (rapido) I.classList.add("rapido"); if (reduce) I.classList.add("quieto");
-  var t0 = performance.now(), minimo = reduce ? 150 : rapido ? 650 : 1250, listo = false, fuera = false;
-  var carga = setTimeout(function () { I.classList.add("cargando"); }, 1500);
+  var P = document.getElementById("intro"); if (!P) return;
+  var MOLDE = P.cloneNode(true);   // para repetirla al volver a la app
+  function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+  // Movimiento: «auto» sigue al celular (Reducir movimiento); «completo» o «suave» lo elige cada uno en Mi cuenta
+  function suave() { var m = ls("autocare.mov") || "auto"; return m === "suave" || (m === "auto" && matchMedia("(prefers-reduced-motion: reduce)").matches); }
+  document.documentElement.dataset.mov = suave() ? "suave" : "completo";
   // dónde aterriza el logo: barra del celular, menú de la computadora o pantalla de entrada (posición del símbolo dentro de cada logo)
   var LUGARES = [[".barra-movil .marca-logo img", 0, 0, 1], [".lateral .marca-h", .001, .004, .282], [".entrada-marca img", .164, .0025, .672]];
   function destino() {
@@ -93,24 +103,58 @@
     }
     return null;
   }
-  function salir() {
-    if (fuera) return; fuera = true; clearTimeout(carga);
-    var V = I.querySelector(".in-vuelo"), M = I.querySelector(".in-marca"), T = reduce ? null : destino();
-    if (document.documentElement.dataset.tema === "claro") I.classList.add("claro");
-    I.classList.add("sale");
-    if (T) {
-      var r = M.getBoundingClientRect(); T.el.classList.add("intro-espera");
-      V.style.transform = "translate(" + (T.x - r.left) + "px," + (T.y - r.top) + "px) scale(" + (T.w / r.width) + ")";
-      setTimeout(function () { T.el.classList.remove("intro-espera"); T.el.classList.add("intro-llega"); I.classList.add("fin"); setTimeout(function () { T.el.classList.remove("intro-llega"); }, 550); }, 600);
-    } else { I.classList.add("sin-destino"); I.classList.add("fin"); }
-    setTimeout(function () { if (I.parentNode) I.parentNode.removeChild(I); }, T ? 800 : 400);
+  // tipo: "vuelta" (al volver a la app) o null (se decide al empezar: completa, o corta si la abriste hace menos de 3 min)
+  function correr(I, tipo) {
+    var sv = false, minimo = 1250, listo = tipo === "vuelta", fuera = false, t0 = null, carga = null, espera = null;
+    function arrancar() {
+      if (t0 !== null) return;
+      var ahora = Date.now(), forzar = false;
+      try { forzar = sessionStorage.getItem("autocare.introCompleta") === "1"; sessionStorage.removeItem("autocare.introCompleta"); } catch (e) { }
+      if (!tipo) tipo = !forzar && ahora - (Number(ls("autocare.intro")) || 0) < 180000 ? "corta" : "completa";
+      ls("autocare.intro", String(ahora));
+      sv = suave(); document.documentElement.dataset.mov = sv ? "suave" : "completo";
+      if (tipo !== "completa") I.classList.add("rapido"); if (sv) I.classList.add("suave");
+      minimo = sv ? 1100 : tipo === "completa" ? 1250 : 700;
+      t0 = performance.now(); I.classList.remove("pausa");
+      carga = setTimeout(function () { I.classList.add("cargando"); }, 1500);
+      setTimeout(salir, 9000);   // por si algo falla, nunca se queda tapando la app
+      if (listo) programar();
+    }
+    function programar() { clearTimeout(espera); espera = setTimeout(function () { requestAnimationFrame(function () { requestAnimationFrame(salir); }); }, Math.max(0, minimo - (performance.now() - t0))); }
+    function salir() {
+      if (fuera) return; fuera = true; clearTimeout(carga); clearTimeout(espera);
+      if (sv) { I.classList.add("fin"); setTimeout(function () { if (I.parentNode) I.parentNode.removeChild(I); }, 500); return; }
+      var V = I.querySelector(".in-vuelo"), M = I.querySelector(".in-marca"), T = destino();
+      if (document.documentElement.dataset.tema === "claro") I.classList.add("claro");
+      I.classList.add("sale");
+      if (T) {
+        var r = M.getBoundingClientRect(); T.el.classList.add("intro-espera");
+        V.style.transform = "translate(" + (T.x - r.left) + "px," + (T.y - r.top) + "px) scale(" + (T.w / r.width) + ")";
+        setTimeout(function () { T.el.classList.remove("intro-espera"); T.el.classList.add("intro-llega"); I.classList.add("fin"); setTimeout(function () { T.el.classList.remove("intro-llega"); }, 550); }, 600);
+      } else { I.classList.add("sin-destino"); I.classList.add("fin"); }
+      setTimeout(function () { if (I.parentNode) I.parentNode.removeChild(I); }, T ? 800 : 400);
+    }
+    I.addEventListener("click", function () { if (listo && t0 !== null) salir(); });
+    // Si la app se abrió (o se recargó para actualizarse) sin que la mires, la entrada espera a que vuelvas
+    if (document.visibilityState === "hidden") {
+      I.classList.add("pausa");
+      var vis = function () { if (document.visibilityState !== "hidden") { document.removeEventListener("visibilitychange", vis); arrancar(); } };
+      document.addEventListener("visibilitychange", vis);
+    } else arrancar();
+    return function () { if (listo) return; listo = true; if (t0 !== null) programar(); };
   }
-  window.introListo = function () {
-    if (listo) return; listo = true;
-    setTimeout(function () { requestAnimationFrame(function () { requestAnimationFrame(salir); }); }, Math.max(0, minimo - (performance.now() - t0)));
-  };
-  I.addEventListener("click", function () { if (listo) salir(); });
-  setTimeout(salir, 9000); // por si algo falla, nunca se queda tapando la app
+  window.introListo = correr(P, null);
+  // Al volver a la app después de 30 minutos o más (el celular la tenía guardada, sin recargar): versión corta
+  var oculta = 0;
+  function volver() {
+    if (document.visibilityState === "hidden") { oculta = Date.now(); return; }
+    var paso = oculta ? Date.now() - oculta : 0; oculta = 0;
+    if (paso < 1800000 || document.getElementById("intro") || !document.querySelector("#app > *")) return;
+    var I = MOLDE.cloneNode(true); document.body.appendChild(I); correr(I, "vuelta");
+  }
+  document.addEventListener("visibilitychange", volver);
+  window.addEventListener("pagehide", function () { oculta = Date.now(); });
+  window.addEventListener("pageshow", function (e) { if (e.persisted) volver(); });
 })();
 </script>
 <div id="app"></div>

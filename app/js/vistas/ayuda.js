@@ -53,7 +53,7 @@ const TEMAS = [
     S("Pon tus metas", "Tablero → Metas. Empieza con metas alcanzables en 3 meses.")] },
   { id: "actualizar", t: "Instalar y actualizar la app", i: "download", c: [
     S("Instalar en el iPhone", "Abre tu app en Safari (…/autocare/app/), toca Compartir → Agregar a pantalla de inicio. Para cambiar el ícono, elimina la app de la pantalla y vuelve a agregarla; tus datos siguen en tu hoja."),
-    S("Cuando te envíe una versión nueva", "Descomprime el zip y súbelo a GitHub: tu repositorio → Add file → Upload files → arrastra las carpetas y archivos → Commit changes. En 2 minutos la app te avisa «Hay una versión nueva» → Actualizar. No subas config.js si ya pusiste tu servidor."),
+    S("Cuando te envíe una versión nueva", "Descomprime el zip y entra a la carpeta que se crea. Selecciona lo de adentro (app, assets, cliente.html, enlaces.html, index.html) y arrástralo en GitHub: tu repositorio → Add file → Upload files → Commit changes. No arrastres la carpeta entera ni el zip. No subas config.js si ya pusiste tu servidor. La app se actualiza sola: al abrirla, o mientras no la miras."),
     S("Si cambia el servidor", "Abre Apps Script → Config.gs → selecciona todo y pega el código nuevo → guarda → Implementar → Gestionar implementaciones → lápiz → Versión: Nueva versión → Implementar. La dirección /exec no cambia."),
     S("Si cambias un archivo tú mismo", "Sube el número de VERSION en app/sw.js para que los celulares descarguen el cambio.")] },
   { id: "whatsapp", t: "WhatsApp Business (gratis)", i: "message-circle", c: [
@@ -157,7 +157,8 @@ const TEMAS = [
     S("Olvidé mi clave", "En Apps Script ejecuta «reiniciarAcceso», copia el código y úsalo en la pantalla de entrada → «Olvidé mi clave»."),
     S("No se guarda / punto rojo", "Toca el punto para reintentar. Si sigue, revisa tu internet o que el servidor esté publicado para «Cualquier usuario»."),
     S("Una foto dice «por subir»", "Se sube sola cuando haya señal. No cierres la sesión mientras haya cambios por enviar."),
-    S("Mi web no muestra precios", "Revisa que tus servicios estén activos y con «Mostrar en la web». Los cambios tardan hasta 10 minutos en verse.")] }
+    S("Mi web no muestra precios", "Revisa que tus servicios estén activos y con «Mostrar en la web». Los cambios tardan hasta 10 minutos en verse."),
+    S("No veo la animación de entrada", "Sale completa al abrir la app (unos 2 segundos) y corta si la vuelves a abrir enseguida o si regresas después de 30 minutos. Si solo cambias de app y vuelves al rato, el celular la tiene abierta y no se repite. Si tu iPhone tiene Ajustes → Accesibilidad → Movimiento → «Reducir movimiento», se ve suave (sin moverse): en Configuración → Mi cuenta → Movimiento elige «Completo» para verla siempre.")] }
 ];
 
 export default function Ayuda() {
